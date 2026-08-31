@@ -6,6 +6,7 @@ import { LanguageSwitcher } from './LanguageSwitcher'
 import { ParameterPanel } from './panels/ParameterPanel'
 import { PricePanel } from './panels/PricePanel'
 import { Toolbar } from './toolbar/Toolbar'
+import { SelectedReadout } from './viewport/SelectedReadout'
 import { Viewport } from './viewport/Viewport'
 
 const materialRepository = new JsonMaterialRepository(() => window.api.loadMaterialsFile())
@@ -23,6 +24,7 @@ export default function App(): ReactElement {
       <main className="viewport-area">
         <Viewport />
         <Toolbar />
+        <SelectedReadout />
       </main>
       <aside className="sidebar">
         <header className="sidebar__header">

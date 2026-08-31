@@ -6,6 +6,7 @@ import { PerspectiveCamera, Plane, Raycaster, Vector2, Vector3 } from 'three'
 import { sceneBoundingRect } from '@core/footprint'
 import type { PlacedCabinet } from '@core/scene'
 import { useAppStore } from '@state/store'
+import { MeasureLine } from './MeasureLine'
 import { PlacedCabinetMesh } from './PlacedCabinetMesh'
 
 const FLOOR_PLANE = new Plane(new Vector3(0, 1, 0), 0)
@@ -150,6 +151,8 @@ function SceneContents(): ReactElement {
           onPointerDown={(event) => startDrag(placed, event)}
         />
       ))}
+
+      <MeasureLine />
 
       {/* Invisible catcher below the grid: clicking empty floor deselects. */}
       <mesh

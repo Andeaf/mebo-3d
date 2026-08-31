@@ -79,6 +79,42 @@ body {
   color: var(--error);
 }
 
+.readout {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 12px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  z-index: 10;
+}
+
+.readout__label {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.readout__dims {
+  font-variant-numeric: tabular-nums;
+}
+
+.measure-label {
+  padding: 3px 8px;
+  background: rgba(30, 32, 38, 0.9);
+  border: 1px solid #e5b45b;
+  border-radius: 6px;
+  color: #e5b45b;
+  font-size: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 .sidebar {
   width: 340px;
   flex-shrink: 0;
