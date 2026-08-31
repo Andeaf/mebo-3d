@@ -1,0 +1,62 @@
+{
+  "materials": [
+    {
+      "id": "melamine-white-18",
+      "name": "Melamine wit 18 mm",
+      "category": "board",
+      "priceUnit": "m2",
+      "pricePerUnitEur": 14.5,
+      "thicknessMm": 18,
+      "color": "#f2f1ec"
+    },
+    {
+      "id": "mdf-18",
+      "name": "MDF blank 18 mm",
+      "category": "board",
+      "priceUnit": "m2",
+      "pricePerUnitEur": 19.75,
+      "thicknessMm": 18,
+      "color": "#c8a06a"
+    },
+    {
+      "id": "hpl-18",
+      "name": "HPL plaat 18 mm",
+      "category": "board",
+      "priceUnit": "m2",
+      "pricePerUnitEur": 42.0,
+      "thicknessMm": 18,
+      "color": "#7d8287"
+    },
+    {
+      "id": "hdf-back-3",
+      "name": "HDF achterwand 3 mm",
+      "category": "board",
+      "priceUnit": "m2",
+      "pricePerUnitEur": 6.25,
+      "thicknessMm": 3,
+      "color": "#d9cbaa"
+    },
+    {
+      "id": "abs-edge",
+      "name": "ABS kantenband",
+      "category": "edgeband",
+      "priceUnit": "m",
+      "pricePerUnitEur": 0.85,
+      "thicknessMm": 1
+    },
+    {
+      "id": "hinge-standard",
+      "name": "Scharnier 110°",
+      "category": "hardware",
+      "priceUnit": "piece",
+      "pricePerUnitEur": 3.4
+    },
+    {
+      "id": "handle-standard",
+      "name": "Greep RVS 128 mm",
+      "category": "hardware",
+      "priceUnit": "piece",
+      "pricePerUnitEur": 5.9
+    }
+  ]
+}
