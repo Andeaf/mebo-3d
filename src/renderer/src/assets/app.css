@@ -362,6 +362,53 @@ tbody:first-child .quote__category-row th {
   color: var(--text);
 }
 
+.panel__subtitle {
+  margin: 14px 0 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.cabinet-list__row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.cabinet-list__row:hover {
+  border-color: var(--accent);
+}
+
+.cabinet-list__row--active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.cabinet-list__number {
+  color: var(--text-dim);
+  min-width: 24px;
+}
+
+.cabinet-list__width {
+  flex: 1;
+}
+
+.cabinet-list__total {
+  font-variant-numeric: tabular-nums;
+}
+
 .quote__total-row {
   display: flex;
   align-items: baseline;

@@ -68,6 +68,46 @@ function CategoryBlock({
   )
 }
 
+function CabinetList({ sceneQuote }: { sceneQuote: SceneQuote }): ReactElement | null {
+  const t = useT()
+  const scene = useAppStore((state) => state.scene)
+  const selectedCabinetId = useAppStore((state) => state.selectedCabinetId)
+  const selectCabinet = useAppStore((state) => state.selectCabinet)
+
+  if (sceneQuote.cabinets.length === 0) {
+    return null
+  }
+  return (
+    <div className="cabinet-list">
+      <h3 className="panel__subtitle">{t('price.cabinets')}</h3>
+      {sceneQuote.cabinets.map((entry) => {
+        const placed = scene.cabinets.find((cabinet) => cabinet.id === entry.cabinetId)
+        if (placed === undefined) {
+          return null
+        }
+        return (
+          <button
+            key={entry.cabinetId}
+            type="button"
+            className={
+              entry.cabinetId === selectedCabinetId
+                ? 'cabinet-list__row cabinet-list__row--active'
+                : 'cabinet-list__row'
+            }
+            onClick={() => selectCabinet(entry.cabinetId)}
+          >
+            <span className="cabinet-list__number">#{entry.cabinetId.replace('cab-', '')}</span>
+            <span className="cabinet-list__width">
+              {placed.design.params.widthMm} {t('unit.mm')}
+            </span>
+            <span className="cabinet-list__total">{formatEur(entry.quote.totalEur)}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export function PricePanel(): ReactElement {
   const t = useT()
   const sceneQuote = useSceneQuote()
@@ -92,6 +132,7 @@ export function PricePanel(): ReactElement {
               <CategoryBlock key={category} category={category} sceneQuote={sceneQuote} />
             ))}
           </table>
+          <CabinetList sceneQuote={sceneQuote} />
           <div className="quote__total-row">
             <span>{t('price.total')}</span>
             <span className="quote__total-amount">{formatEur(sceneQuote.totalEur)}</span>
