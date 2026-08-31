@@ -2,7 +2,7 @@ import { useState, type ReactElement } from 'react'
 import { BASE_CABINET_LIMITS, type DoorCount } from '@core/cabinet'
 import { CARCASS_THICKNESS_MM } from '@core/catalog/baseCabinet'
 import { useAppStore } from '@state/store'
-import { t, type TranslationKey } from '../i18n/nl'
+import { useT, type TranslationKey } from '../i18n'
 
 interface DimensionFieldProps {
   readonly labelKey: TranslationKey
@@ -18,6 +18,7 @@ interface DimensionFieldProps {
  * not clamped away while typing.
  */
 function DimensionField({ labelKey, value, min, max, onChange }: DimensionFieldProps): ReactElement {
+  const t = useT()
   const [draft, setDraft] = useState<string | null>(null)
 
   const commitDraft = (): void => {
@@ -73,6 +74,7 @@ function DimensionField({ labelKey, value, min, max, onChange }: DimensionFieldP
 const DOOR_OPTIONS: readonly DoorCount[] = [0, 1, 2]
 
 export function ParameterPanel(): ReactElement {
+  const t = useT()
   const params = useAppStore((state) => state.params)
   const priceDb = useAppStore((state) => state.priceDb)
   const updateParams = useAppStore((state) => state.updateParams)

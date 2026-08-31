@@ -1,7 +1,8 @@
 import { useEffect, type ReactElement } from 'react'
 import { JsonMaterialRepository } from '@core/repository/MaterialRepository'
 import { useAppStore } from '@state/store'
-import { t } from './i18n/nl'
+import { useT } from './i18n'
+import { LanguageSwitcher } from './LanguageSwitcher'
 import { ParameterPanel } from './panels/ParameterPanel'
 import { PricePanel } from './panels/PricePanel'
 import { Viewport } from './viewport/Viewport'
@@ -9,6 +10,7 @@ import { Viewport } from './viewport/Viewport'
 const materialRepository = new JsonMaterialRepository(() => window.api.loadMaterialsFile())
 
 export default function App(): ReactElement {
+  const t = useT()
   const loadMaterials = useAppStore((state) => state.loadMaterials)
 
   useEffect(() => {
@@ -22,8 +24,11 @@ export default function App(): ReactElement {
       </main>
       <aside className="sidebar">
         <header className="sidebar__header">
-          <h1>{t('app.title')}</h1>
-          <p>{t('app.subtitle')}</p>
+          <div>
+            <h1>{t('app.title')}</h1>
+            <p>{t('app.subtitle')}</p>
+          </div>
+          <LanguageSwitcher />
         </header>
         <ParameterPanel />
         <PricePanel />

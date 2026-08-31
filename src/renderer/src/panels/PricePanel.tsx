@@ -4,7 +4,7 @@ import type { Quote, QuoteLine } from '@core/pricing'
 import { useQuote } from '@state/selectors'
 import { useAppStore } from '@state/store'
 import { formatEur, formatQuantity } from '../format'
-import { t, type TranslationKey } from '../i18n/nl'
+import { useT, type TranslationKey } from '../i18n'
 
 const CATEGORY_ORDER: readonly MaterialCategory[] = ['board', 'edgeband', 'hardware']
 
@@ -21,6 +21,7 @@ const UNIT_LABEL_KEYS: Readonly<Record<PriceUnit, TranslationKey>> = {
 }
 
 function QuoteLineRow({ line }: { line: QuoteLine }): ReactElement {
+  const t = useT()
   const unitLabel = t(UNIT_LABEL_KEYS[line.unit])
   return (
     <tr>
@@ -39,6 +40,7 @@ function QuoteLineRow({ line }: { line: QuoteLine }): ReactElement {
 }
 
 function CategoryBlock({ category, quote }: { category: MaterialCategory; quote: Quote }): ReactElement | null {
+  const t = useT()
   const lines = quote.lines.filter((line) => line.category === category)
   if (lines.length === 0) {
     return null
@@ -60,6 +62,7 @@ function CategoryBlock({ category, quote }: { category: MaterialCategory; quote:
 }
 
 export function PricePanel(): ReactElement {
+  const t = useT()
   const quote = useQuote()
   const materialsState = useAppStore((state) => state.materialsState)
   const materialsError = useAppStore((state) => state.materialsError)

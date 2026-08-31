@@ -1,19 +1,29 @@
 /**
- * The single UI string dictionary. Every user-visible string in the renderer
- * comes from here, so the app language can be switched later by swapping
- * this dictionary for another one.
+ * Dutch is the reference dictionary: its keys define the TranslationKey set
+ * that en.ts and ro.ts must satisfy completely (compile-time checked).
+ * Every user-visible string in the renderer comes from a dictionary.
  */
 export const nl = {
   'app.title': 'Mebo 3D',
-  'app.subtitle': 'Onderkast configurator',
+  'app.subtitle': 'Keukenconfigurator',
+  'app.language': 'Taal',
+
+  'toolbar.add': 'Kast toevoegen',
+  'toolbar.duplicate': 'Dupliceren',
+  'toolbar.delete': 'Verwijderen',
+  'toolbar.rotate': 'Draaien (R)',
+  'toolbar.fitView': 'Alles in beeld',
 
   'params.title': 'Afmetingen & opties',
+  'params.noSelection': 'Klik op een kast in het 3D-beeld om deze te bewerken.',
   'params.width': 'Breedte',
   'params.height': 'Hoogte',
   'params.depth': 'Diepte',
   'params.shelves': 'Legplanken',
   'params.doors': 'Deuren',
   'params.material': 'Korpusmateriaal',
+
+  'viewport.selected': 'Selectie',
 
   'unit.mm': 'mm',
   'unit.m2': 'm²',
@@ -27,12 +37,9 @@ export const nl = {
   'price.category.board': 'Plaatmateriaal',
   'price.category.edgeband': 'Kantenband',
   'price.category.hardware': 'Beslag',
+  'price.cabinets': 'Kasten',
   'price.subtotal': 'Subtotaal',
   'price.total': 'Totaal (excl. btw)'
 } as const
 
 export type TranslationKey = keyof typeof nl
-
-export function t(key: TranslationKey): string {
-  return nl[key]
-}

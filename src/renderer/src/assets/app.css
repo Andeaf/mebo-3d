@@ -57,6 +57,13 @@ body {
   overflow-y: auto;
 }
 
+.sidebar__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .sidebar__header h1 {
   margin: 0;
   font-size: 1.25rem;
@@ -66,6 +73,32 @@ body {
 .sidebar__header p {
   margin: 2px 0 0;
   color: var(--text-dim);
+}
+
+.language-switcher {
+  display: flex;
+  gap: 4px;
+}
+
+.language-switcher__option {
+  padding: 3px 7px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.language-switcher__option:hover {
+  border-color: var(--accent);
+}
+
+.language-switcher__option--active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--text);
 }
 
 .panel {

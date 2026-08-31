@@ -6,6 +6,7 @@ import {
 } from '@core/cabinet'
 import type { PriceDatabase } from '@core/materials'
 import type { MaterialRepository } from '@core/repository/MaterialRepository'
+import { loadStoredLanguage, storeLanguage, type Language } from './language'
 
 export type MaterialsLoadState = 'loading' | 'ready' | 'error'
 
@@ -14,8 +15,10 @@ interface AppState {
   readonly priceDb: PriceDatabase | null
   readonly materialsState: MaterialsLoadState
   readonly materialsError: string | null
+  readonly language: Language
   updateParams: (patch: Partial<BaseCabinetParams>) => void
   loadMaterials: (repository: MaterialRepository) => Promise<void>
+  setLanguage: (language: Language) => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -23,6 +26,12 @@ export const useAppStore = create<AppState>((set) => ({
   priceDb: null,
   materialsState: 'loading',
   materialsError: null,
+  language: loadStoredLanguage(),
+
+  setLanguage: (language) => {
+    storeLanguage(language)
+    set({ language })
+  },
 
   updateParams: (patch) =>
     set((state) => ({ params: clampBaseCabinetParams({ ...state.params, ...patch }) })),
