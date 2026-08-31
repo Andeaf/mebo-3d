@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from 'react'
 import { BASE_CABINET_LIMITS, type DoorCount } from '@core/cabinet'
 import { CARCASS_THICKNESS_MM } from '@core/catalog/baseCabinet'
+import { useSelectedCabinet } from '@state/selectors'
 import { useAppStore } from '@state/store'
 import { useT, type TranslationKey } from '../i18n'
 
@@ -75,10 +76,20 @@ const DOOR_OPTIONS: readonly DoorCount[] = [0, 1, 2]
 
 export function ParameterPanel(): ReactElement {
   const t = useT()
-  const params = useAppStore((state) => state.params)
+  const selected = useSelectedCabinet()
   const priceDb = useAppStore((state) => state.priceDb)
-  const updateParams = useAppStore((state) => state.updateParams)
+  const updateSelectedParams = useAppStore((state) => state.updateSelectedParams)
 
+  if (selected === null) {
+    return (
+      <section className="panel">
+        <h2 className="panel__title">{t('params.title')}</h2>
+        <p className="panel__note">{t('params.noSelection')}</p>
+      </section>
+    )
+  }
+
+  const params = selected.design.params
   const carcassBoardOptions =
     priceDb?.materials.filter(
       (material) => material.category === 'board' && material.thicknessMm === CARCASS_THICKNESS_MM
@@ -93,21 +104,21 @@ export function ParameterPanel(): ReactElement {
         value={params.widthMm}
         min={BASE_CABINET_LIMITS.widthMm.min}
         max={BASE_CABINET_LIMITS.widthMm.max}
-        onChange={(widthMm) => updateParams({ widthMm })}
+        onChange={(widthMm) => updateSelectedParams({ widthMm })}
       />
       <DimensionField
         labelKey="params.height"
         value={params.heightMm}
         min={BASE_CABINET_LIMITS.heightMm.min}
         max={BASE_CABINET_LIMITS.heightMm.max}
-        onChange={(heightMm) => updateParams({ heightMm })}
+        onChange={(heightMm) => updateSelectedParams({ heightMm })}
       />
       <DimensionField
         labelKey="params.depth"
         value={params.depthMm}
         min={BASE_CABINET_LIMITS.depthMm.min}
         max={BASE_CABINET_LIMITS.depthMm.max}
-        onChange={(depthMm) => updateParams({ depthMm })}
+        onChange={(depthMm) => updateSelectedParams({ depthMm })}
       />
 
       <div className="field">
@@ -125,7 +136,7 @@ export function ParameterPanel(): ReactElement {
           max={BASE_CABINET_LIMITS.shelfCount.max}
           step={1}
           value={params.shelfCount}
-          onChange={(event) => updateParams({ shelfCount: Number(event.target.value) })}
+          onChange={(event) => updateSelectedParams({ shelfCount: Number(event.target.value) })}
         />
       </div>
 
@@ -139,9 +150,11 @@ export function ParameterPanel(): ReactElement {
               key={count}
               type="button"
               className={
-                params.doorCount === count ? 'segmented__option segmented__option--active' : 'segmented__option'
+                params.doorCount === count
+                  ? 'segmented__option segmented__option--active'
+                  : 'segmented__option'
               }
-              onClick={() => updateParams({ doorCount: count })}
+              onClick={() => updateSelectedParams({ doorCount: count })}
             >
               {count}
             </button>
@@ -160,7 +173,7 @@ export function ParameterPanel(): ReactElement {
           className="field__select"
           value={params.carcassMaterialId}
           disabled={carcassBoardOptions.length === 0}
-          onChange={(event) => updateParams({ carcassMaterialId: event.target.value })}
+          onChange={(event) => updateSelectedParams({ carcassMaterialId: event.target.value })}
         >
           {carcassBoardOptions.map((material) => (
             <option key={material.id} value={material.id}>

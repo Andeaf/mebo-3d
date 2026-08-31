@@ -1,7 +1,8 @@
 import type { ReactElement } from 'react'
 import type { MaterialCategory, PriceUnit } from '@core/materials'
-import type { Quote, QuoteLine } from '@core/pricing'
-import { useQuote } from '@state/selectors'
+import type { QuoteLine } from '@core/pricing'
+import type { SceneQuote } from '@core/scenePricing'
+import { useSceneQuote } from '@state/selectors'
 import { useAppStore } from '@state/store'
 import { formatEur, formatQuantity } from '../format'
 import { useT, type TranslationKey } from '../i18n'
@@ -39,9 +40,15 @@ function QuoteLineRow({ line }: { line: QuoteLine }): ReactElement {
   )
 }
 
-function CategoryBlock({ category, quote }: { category: MaterialCategory; quote: Quote }): ReactElement | null {
+function CategoryBlock({
+  category,
+  sceneQuote
+}: {
+  category: MaterialCategory
+  sceneQuote: SceneQuote
+}): ReactElement | null {
   const t = useT()
-  const lines = quote.lines.filter((line) => line.category === category)
+  const lines = sceneQuote.materialTotals.filter((line) => line.category === category)
   if (lines.length === 0) {
     return null
   }
@@ -55,7 +62,7 @@ function CategoryBlock({ category, quote }: { category: MaterialCategory; quote:
       ))}
       <tr className="quote__subtotal-row">
         <td colSpan={2}>{t('price.subtotal')}</td>
-        <td className="quote__amount">{formatEur(quote.subtotalsEur[category])}</td>
+        <td className="quote__amount">{formatEur(sceneQuote.subtotalsEur[category])}</td>
       </tr>
     </tbody>
   )
@@ -63,7 +70,7 @@ function CategoryBlock({ category, quote }: { category: MaterialCategory; quote:
 
 export function PricePanel(): ReactElement {
   const t = useT()
-  const quote = useQuote()
+  const sceneQuote = useSceneQuote()
   const materialsState = useAppStore((state) => state.materialsState)
   const materialsError = useAppStore((state) => state.materialsError)
 
@@ -78,20 +85,20 @@ export function PricePanel(): ReactElement {
         </p>
       )}
 
-      {quote !== null && (
+      {sceneQuote !== null && (
         <>
           <table className="quote">
             {CATEGORY_ORDER.map((category) => (
-              <CategoryBlock key={category} category={category} quote={quote} />
+              <CategoryBlock key={category} category={category} sceneQuote={sceneQuote} />
             ))}
           </table>
           <div className="quote__total-row">
             <span>{t('price.total')}</span>
-            <span className="quote__total-amount">{formatEur(quote.totalEur)}</span>
+            <span className="quote__total-amount">{formatEur(sceneQuote.totalEur)}</span>
           </div>
-          {quote.missingMaterialIds.length > 0 && (
+          {sceneQuote.missingMaterialIds.length > 0 && (
             <p className="panel__error">
-              {t('price.missing')} {quote.missingMaterialIds.join(', ')}
+              {t('price.missing')} {sceneQuote.missingMaterialIds.join(', ')}
             </p>
           )}
         </>

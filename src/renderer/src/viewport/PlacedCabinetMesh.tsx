@@ -1,0 +1,92 @@
+import { useMemo, type ReactElement } from 'react'
+import { Edges } from '@react-three/drei'
+import type { ThreeEvent } from '@react-three/fiber'
+import { GeneratedGeometry } from '@core/geometry/GeometrySource'
+import { findMaterial, type PriceDatabase } from '@core/materials'
+import type { PlacedCabinet } from '@core/scene'
+import { buildForParams } from '@state/selectors'
+
+const FALLBACK_PANEL_COLOR = '#c8c8c2'
+export const SELECTION_COLOR = '#4f8cff'
+
+/** Darkens a #rrggbb color; used to draw panel seams that work on any material color. */
+function darken(hex: string, factor: number): string {
+  const value = Number.parseInt(hex.slice(1), 16)
+  if (Number.isNaN(value) || hex.length !== 7) {
+    return '#55554f'
+  }
+  const channel = (shift: number): number => Math.round(((value >> shift) & 0xff) * factor)
+  return `rgb(${channel(16)}, ${channel(8)}, ${channel(0)})`
+}
+
+interface PlacedCabinetMeshProps {
+  readonly placed: PlacedCabinet
+  readonly selected: boolean
+  readonly priceDb: PriceDatabase | null
+  readonly onPointerDown: (event: ThreeEvent<PointerEvent>) => void
+}
+
+export function PlacedCabinetMesh({
+  placed,
+  selected,
+  priceDb,
+  onPointerDown
+}: PlacedCabinetMeshProps): ReactElement {
+  const build = buildForParams(placed.design.params)
+  const description = useMemo(() => new GeneratedGeometry(build).describe(), [build])
+  const { widthMm, depthMm } = placed.design.params
+
+  const colorForMaterial = (materialId: string): string => {
+    if (priceDb === null) {
+      return FALLBACK_PANEL_COLOR
+    }
+    return findMaterial(priceDb, materialId)?.color ?? FALLBACK_PANEL_COLOR
+  }
+
+  return (
+    // World placement: position/rotation in meters around the carcass
+    // footprint center; inside, domain mm coordinates are scaled and offset.
+    <group
+      position={[placed.positionX / 1000, 0, placed.positionZ / 1000]}
+      rotation={[0, (placed.rotationDeg * Math.PI) / 180, 0]}
+      onPointerDown={onPointerDown}
+    >
+      <group scale={[0.001, 0.001, 0.001]}>
+        <group position={[-widthMm / 2, 0, -depthMm / 2]}>
+          {description.boxes.map((instance) => {
+            const color = colorForMaterial(instance.materialId)
+            return (
+              <mesh
+                key={instance.panelId}
+                position={[instance.box.center.x, instance.box.center.y, instance.box.center.z]}
+              >
+                <boxGeometry
+                  args={[instance.box.size.x, instance.box.size.y, instance.box.size.z]}
+                />
+                <meshStandardMaterial
+                  color={color}
+                  roughness={0.85}
+                  metalness={0.05}
+                  emissive={SELECTION_COLOR}
+                  emissiveIntensity={selected ? 0.14 : 0}
+                />
+                <Edges color={darken(color, 0.55)} threshold={15} />
+              </mesh>
+            )
+          })}
+        </group>
+        {selected && (
+          <mesh rotation-x={-Math.PI / 2} position={[0, 1.5, 0]}>
+            <planeGeometry args={[widthMm + 60, depthMm + 60]} />
+            <meshBasicMaterial
+              color={SELECTION_COLOR}
+              transparent
+              opacity={0.25}
+              depthWrite={false}
+            />
+          </mesh>
+        )}
+      </group>
+    </group>
+  )
+}

@@ -2,39 +2,192 @@ import { create } from 'zustand'
 import {
   clampBaseCabinetParams,
   createDefaultBaseCabinetParams,
-  type BaseCabinetParams
+  type BaseCabinetParams,
+  type CabinetDesign
 } from '@core/cabinet'
+import { cabinetOverlapsOthers } from '@core/footprint'
 import type { PriceDatabase } from '@core/materials'
 import type { MaterialRepository } from '@core/repository/MaterialRepository'
+import { findPlacedCabinet, rotationStep, type PlacedCabinet, type SceneDesign } from '@core/scene'
+import { placeWithoutOverlap, resolveSnap, spawnPlacement } from '@core/snap'
 import { loadStoredLanguage, storeLanguage, type Language } from './language'
 
 export type MaterialsLoadState = 'loading' | 'ready' | 'error'
 
+function defaultDesign(): CabinetDesign {
+  return { kind: 'base-cabinet', params: createDefaultBaseCabinetParams() }
+}
+
+function initialScene(): SceneDesign {
+  return {
+    cabinets: [{ id: 'cab-1', design: defaultDesign(), positionX: 0, positionZ: 0, rotationDeg: 0 }]
+  }
+}
+
 interface AppState {
-  readonly params: BaseCabinetParams
+  readonly scene: SceneDesign
+  readonly selectedCabinetId: string | null
+  readonly nextCabinetNumber: number
+  readonly fitViewNonce: number
   readonly priceDb: PriceDatabase | null
   readonly materialsState: MaterialsLoadState
   readonly materialsError: string | null
   readonly language: Language
-  updateParams: (patch: Partial<BaseCabinetParams>) => void
+  addCabinet: () => void
+  duplicateSelected: () => void
+  deleteSelected: () => void
+  selectCabinet: (id: string | null) => void
+  updateSelectedParams: (patch: Partial<BaseCabinetParams>) => void
+  /** Live drag: snap applied; ignored when the snapped spot would overlap. */
+  moveSelected: (positionX: number, positionZ: number) => void
+  /** Drag end: the attempted position resolves to the nearest free spot. */
+  dropSelected: (positionX: number, positionZ: number) => void
+  rotateSelected: () => void
+  requestFitView: () => void
   loadMaterials: (repository: MaterialRepository) => Promise<void>
   setLanguage: (language: Language) => void
 }
 
+function selectedOf(state: Pick<AppState, 'scene' | 'selectedCabinetId'>): PlacedCabinet | undefined {
+  return state.selectedCabinetId === null
+    ? undefined
+    : findPlacedCabinet(state.scene, state.selectedCabinetId)
+}
+
+// Scene invariant: every mutation that adds or moves a cabinet goes through
+// placeWithoutOverlap (or is rejected), so the store never holds overlaps.
 export const useAppStore = create<AppState>((set) => ({
-  params: createDefaultBaseCabinetParams(),
+  scene: initialScene(),
+  selectedCabinetId: 'cab-1',
+  nextCabinetNumber: 2,
+  fitViewNonce: 0,
   priceDb: null,
   materialsState: 'loading',
   materialsError: null,
   language: loadStoredLanguage(),
 
+  addCabinet: () =>
+    set((state) => {
+      const design = defaultDesign()
+      const spawn = spawnPlacement(state.scene, design)
+      const cabinet: PlacedCabinet = {
+        id: `cab-${state.nextCabinetNumber}`,
+        design,
+        positionX: spawn.positionX,
+        positionZ: spawn.positionZ,
+        rotationDeg: spawn.rotationDeg
+      }
+      return {
+        scene: placeWithoutOverlap(state.scene, cabinet),
+        selectedCabinetId: cabinet.id,
+        nextCabinetNumber: state.nextCabinetNumber + 1
+      }
+    }),
+
+  duplicateSelected: () =>
+    set((state) => {
+      const selected = selectedOf(state)
+      if (selected === undefined) {
+        return {}
+      }
+      // Aim flush beside the original; placeWithoutOverlap resolves the rest.
+      const beside = spawnPlacement({ cabinets: [selected] }, selected.design)
+      const copy: PlacedCabinet = {
+        ...selected,
+        id: `cab-${state.nextCabinetNumber}`,
+        positionX: beside.positionX,
+        positionZ: beside.positionZ
+      }
+      return {
+        scene: placeWithoutOverlap(state.scene, copy),
+        selectedCabinetId: copy.id,
+        nextCabinetNumber: state.nextCabinetNumber + 1
+      }
+    }),
+
+  deleteSelected: () =>
+    set((state) => {
+      if (state.selectedCabinetId === null) {
+        return {}
+      }
+      return {
+        scene: {
+          cabinets: state.scene.cabinets.filter((cabinet) => cabinet.id !== state.selectedCabinetId)
+        },
+        selectedCabinetId: null
+      }
+    }),
+
+  selectCabinet: (id) => set({ selectedCabinetId: id }),
+
+  updateSelectedParams: (patch) =>
+    set((state) => {
+      const selected = selectedOf(state)
+      if (selected === undefined) {
+        return {}
+      }
+      const params = clampBaseCabinetParams({ ...selected.design.params, ...patch })
+      const updated: PlacedCabinet = { ...selected, design: { kind: 'base-cabinet', params } }
+      return { scene: placeWithoutOverlap(state.scene, updated) }
+    }),
+
+  moveSelected: (positionX, positionZ) =>
+    set((state) => {
+      const selected = selectedOf(state)
+      if (selected === undefined) {
+        return {}
+      }
+      const others = state.scene.cabinets.filter((cabinet) => cabinet.id !== selected.id)
+      const candidate: PlacedCabinet = { ...selected, positionX, positionZ }
+      const snapped = resolveSnap(candidate, others)
+      const next: PlacedCabinet = {
+        ...candidate,
+        positionX: snapped.positionX,
+        positionZ: snapped.positionZ
+      }
+      if (cabinetOverlapsOthers(next, others)) {
+        return {} // drag blocked at the last valid spot; drop will resolve
+      }
+      return {
+        scene: {
+          cabinets: state.scene.cabinets.map((cabinet) =>
+            cabinet.id === selected.id ? next : cabinet
+          )
+        }
+      }
+    }),
+
+  dropSelected: (positionX, positionZ) =>
+    set((state) => {
+      const selected = selectedOf(state)
+      if (selected === undefined) {
+        return {}
+      }
+      return {
+        scene: placeWithoutOverlap(state.scene, { ...selected, positionX, positionZ })
+      }
+    }),
+
+  rotateSelected: () =>
+    set((state) => {
+      const selected = selectedOf(state)
+      if (selected === undefined) {
+        return {}
+      }
+      return {
+        scene: placeWithoutOverlap(state.scene, {
+          ...selected,
+          rotationDeg: rotationStep(selected.rotationDeg)
+        })
+      }
+    }),
+
+  requestFitView: () => set((state) => ({ fitViewNonce: state.fitViewNonce + 1 })),
+
   setLanguage: (language) => {
     storeLanguage(language)
     set({ language })
   },
-
-  updateParams: (patch) =>
-    set((state) => ({ params: clampBaseCabinetParams({ ...state.params, ...patch }) })),
 
   loadMaterials: async (repository) => {
     set({ materialsState: 'loading', materialsError: null })
