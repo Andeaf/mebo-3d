@@ -45,6 +45,40 @@ body {
   display: block;
 }
 
+.toolbar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+}
+
+.toolbar__button {
+  padding: 7px 12px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.toolbar__button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.toolbar__button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.toolbar__button--danger:hover:not(:disabled) {
+  border-color: var(--error);
+  color: var(--error);
+}
+
 .sidebar {
   width: 340px;
   flex-shrink: 0;
