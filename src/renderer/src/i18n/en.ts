@@ -7,6 +7,12 @@ export const en: Record<TranslationKey, string> = {
   'app.language': 'Language',
 
   'toolbar.add': 'Add cabinet',
+
+  'kind.base-cabinet': 'Base cabinet',
+  'kind.wall-cabinet': 'Wall cabinet',
+  'kind.tall-cabinet': 'Tall cabinet',
+  'kind.drawer-cabinet': 'Drawer cabinet',
+
   'toolbar.duplicate': 'Duplicate',
   'toolbar.delete': 'Delete',
   'toolbar.rotate': 'Rotate (R)',

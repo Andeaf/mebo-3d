@@ -1,7 +1,7 @@
 import { useMemo, type ReactElement } from 'react'
 import { Edges } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
-import { designFootprintSize } from '@core/catalog/registry'
+import { designFootprintSize, designVerticalExtent } from '@core/catalog/registry'
 import { GeneratedGeometry } from '@core/geometry/GeometrySource'
 import { findMaterial, type PriceDatabase } from '@core/materials'
 import type { PlacedCabinet } from '@core/scene'
@@ -36,6 +36,9 @@ export function PlacedCabinetMesh({
   const build = buildForDesign(placed.design)
   const description = useMemo(() => new GeneratedGeometry(build).describe(), [build])
   const { widthMm, depthMm } = designFootprintSize(placed.design)
+  // Panels are generated with y = 0 at the cabinet's own bottom; a wall
+  // cabinet is simply lifted to its mounting height here.
+  const { bottomMm } = designVerticalExtent(placed.design)
 
   const colorForMaterial = (materialId: string): string => {
     if (priceDb === null) {
@@ -48,7 +51,7 @@ export function PlacedCabinetMesh({
     // World placement: position/rotation in meters around the carcass
     // footprint center; inside, domain mm coordinates are scaled and offset.
     <group
-      position={[placed.positionX / 1000, 0, placed.positionZ / 1000]}
+      position={[placed.positionX / 1000, bottomMm / 1000, placed.positionZ / 1000]}
       rotation={[0, (placed.rotationDeg * Math.PI) / 180, 0]}
       onPointerDown={onPointerDown}
     >

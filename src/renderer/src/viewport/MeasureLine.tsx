@@ -18,7 +18,9 @@ export function MeasureLine(): ReactElement | null {
     return null
   }
   const { runRect, axis, rotationDeg, totalWidthMm } = run
-  const y = LINE_HEIGHT_MM / 1000
+  // Just above the run's own bottom edge, so an elevated run measures at its
+  // own height instead of on the floor.
+  const y = (run.bottomMm + LINE_HEIGHT_MM) / 1000
 
   let start: Point
   let end: Point

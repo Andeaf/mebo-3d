@@ -7,6 +7,12 @@ export const ro: Record<TranslationKey, string> = {
   'app.language': 'Limbă',
 
   'toolbar.add': 'Adaugă corp',
+
+  'kind.base-cabinet': 'Corp inferior',
+  'kind.wall-cabinet': 'Corp suspendat',
+  'kind.tall-cabinet': 'Corp coloană',
+  'kind.drawer-cabinet': 'Corp cu sertare',
+
   'toolbar.duplicate': 'Duplică',
   'toolbar.delete': 'Șterge',
   'toolbar.rotate': 'Rotește (R)',

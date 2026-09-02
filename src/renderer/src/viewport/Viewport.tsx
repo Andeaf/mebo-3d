@@ -3,13 +3,17 @@ import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber'
 import { ContactShadows, Grid, OrbitControls } from '@react-three/drei'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { PerspectiveCamera, Plane, Raycaster, Vector2, Vector3 } from 'three'
+import { designVerticalExtent } from '@core/catalog/registry'
 import { sceneBoundingRect } from '@core/footprint'
 import type { PlacedCabinet } from '@core/scene'
 import { useAppStore } from '@state/store'
 import { MeasureLine } from './MeasureLine'
 import { PlacedCabinetMesh } from './PlacedCabinetMesh'
 
-const FLOOR_PLANE = new Plane(new Vector3(0, 1, 0), 0)
+/** Horizontal drag plane at a given height (meters); y = 0 for floor kinds. */
+function planeAtHeight(heightMeters: number): Plane {
+  return new Plane(new Vector3(0, 1, 0), -heightMeters)
+}
 
 interface DragState {
   cabinetId: string
@@ -17,6 +21,8 @@ interface DragState {
   offsetZ: number
   attemptedX: number
   attemptedZ: number
+  /** The cabinet's own bottom: dragging a wall cabinet must not parallax. */
+  plane: Plane
 }
 
 function SceneContents(): ReactElement {
@@ -34,7 +40,7 @@ function SceneContents(): ReactElement {
   const dragRef = useRef<DragState | null>(null)
   const [dragging, setDragging] = useState(false)
 
-  const floorPointMm = (event: PointerEvent): { x: number; z: number } | null => {
+  const pointOnPlaneMm = (event: PointerEvent, plane: Plane): { x: number; z: number } | null => {
     const rect = gl.domElement.getBoundingClientRect()
     const ndc = new Vector2(
       ((event.clientX - rect.left) / rect.width) * 2 - 1,
@@ -42,7 +48,7 @@ function SceneContents(): ReactElement {
     )
     raycaster.setFromCamera(ndc, camera)
     const point = new Vector3()
-    if (raycaster.ray.intersectPlane(FLOOR_PLANE, point) === null) {
+    if (raycaster.ray.intersectPlane(plane, point) === null) {
       return null
     }
     return { x: point.x * 1000, z: point.z * 1000 }
@@ -54,16 +60,18 @@ function SceneContents(): ReactElement {
     if (event.button !== 0) {
       return
     }
-    const floorPoint = floorPointMm(event.nativeEvent)
-    if (floorPoint === null) {
+    const plane = planeAtHeight(designVerticalExtent(placed.design).bottomMm / 1000)
+    const grabPoint = pointOnPlaneMm(event.nativeEvent, plane)
+    if (grabPoint === null) {
       return
     }
     dragRef.current = {
       cabinetId: placed.id,
-      offsetX: placed.positionX - floorPoint.x,
-      offsetZ: placed.positionZ - floorPoint.z,
+      offsetX: placed.positionX - grabPoint.x,
+      offsetZ: placed.positionZ - grabPoint.z,
       attemptedX: placed.positionX,
-      attemptedZ: placed.positionZ
+      attemptedZ: placed.positionZ,
+      plane
     }
     if (controlsRef.current !== null) {
       controlsRef.current.enabled = false
@@ -77,12 +85,15 @@ function SceneContents(): ReactElement {
     }
     const onPointerMove = (event: PointerEvent): void => {
       const drag = dragRef.current
-      const floorPoint = floorPointMm(event)
-      if (drag === null || floorPoint === null) {
+      if (drag === null) {
         return
       }
-      drag.attemptedX = floorPoint.x + drag.offsetX
-      drag.attemptedZ = floorPoint.z + drag.offsetZ
+      const point = pointOnPlaneMm(event, drag.plane)
+      if (point === null) {
+        return
+      }
+      drag.attemptedX = point.x + drag.offsetX
+      drag.attemptedZ = point.z + drag.offsetZ
       moveSelected(drag.attemptedX, drag.attemptedZ)
     }
     const onPointerUp = (): void => {
@@ -114,18 +125,19 @@ function SceneContents(): ReactElement {
     if (bounds === null || controls === null || !(camera instanceof PerspectiveCamera)) {
       return
     }
-    const maxHeightMm = currentScene.cabinets.reduce(
-      (max, cabinet) => Math.max(max, cabinet.design.params.heightMm),
-      0
-    )
+    // Vertical extent of the whole scene: a wall cabinet counts from where it
+    // hangs, not from the floor.
+    const extents = currentScene.cabinets.map((cabinet) => designVerticalExtent(cabinet.design))
+    const minBottomMm = Math.min(...extents.map((extent) => extent.bottomMm))
+    const maxTopMm = Math.max(...extents.map((extent) => extent.topMm))
     const center = new Vector3(
       (bounds.minX + bounds.maxX) / 2000,
-      maxHeightMm / 2000,
+      (minBottomMm + maxTopMm) / 2000,
       (bounds.minZ + bounds.maxZ) / 2000
     )
     const spanX = (bounds.maxX - bounds.minX) / 1000
     const spanZ = (bounds.maxZ - bounds.minZ) / 1000
-    const spanY = maxHeightMm / 1000
+    const spanY = (maxTopMm - minBottomMm) / 1000
     const radius = Math.max(0.6, Math.sqrt(spanX * spanX + spanY * spanY + spanZ * spanZ) / 2)
     const distance = (radius / Math.sin((camera.fov * Math.PI) / 360)) * 1.15
     const direction = camera.position.clone().sub(controls.target).normalize()

@@ -39,7 +39,7 @@ interface AppState {
   readonly materialsState: MaterialsLoadState
   readonly materialsError: string | null
   readonly language: Language
-  addCabinet: () => void
+  addCabinet: (kind: CabinetKind) => void
   duplicateSelected: () => void
   deleteSelected: () => void
   selectCabinet: (id: string | null) => void
@@ -73,9 +73,9 @@ export const useAppStore = create<AppState>((set) => ({
   materialsError: null,
   language: loadStoredLanguage(),
 
-  addCabinet: () =>
+  addCabinet: (kind) =>
     set((state) => {
-      const design = createDefaultDesign(INITIAL_KIND)
+      const design = createDefaultDesign(kind)
       const spawn = spawnPlacement(state.scene, design)
       const cabinet: PlacedCabinet = {
         id: `cab-${state.nextCabinetNumber}`,

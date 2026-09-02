@@ -9,6 +9,12 @@ export const nl = {
   'app.language': 'Taal',
 
   'toolbar.add': 'Kast toevoegen',
+
+  'kind.base-cabinet': 'Onderkast',
+  'kind.wall-cabinet': 'Bovenkast',
+  'kind.tall-cabinet': 'Kolomkast',
+  'kind.drawer-cabinet': 'Ladekast',
+
   'toolbar.duplicate': 'Dupliceren',
   'toolbar.delete': 'Verwijderen',
   'toolbar.rotate': 'Draaien (R)',
