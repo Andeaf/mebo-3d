@@ -5,12 +5,12 @@ import {
   createDefaultDesign,
   type CabinetKind
 } from '@core/catalog/registry'
-import { cabinetOverlapsOthers } from '@core/footprint'
+import { cabinetOverlapsOthers, placedCabinetRect } from '@core/footprint'
 import type { PriceDatabase } from '@core/materials'
 import type { MaterialRepository } from '@core/repository/MaterialRepository'
-import { createDefaultRoom } from '@core/room'
+import { clampRoom, createDefaultRoom, roomContainsRect, type RoomDesign } from '@core/room'
 import { findPlacedCabinet, rotationStep, type PlacedCabinet, type SceneDesign } from '@core/scene'
-import { placeWithoutOverlap, resolveSnap, spawnPlacement } from '@core/snap'
+import { placeWithoutOverlap, resolveDragPose, spawnPlacement } from '@core/snap'
 import { loadStoredLanguage, storeLanguage, type Language } from './language'
 
 export type MaterialsLoadState = 'loading' | 'ready' | 'error'
@@ -51,6 +51,8 @@ interface AppState {
   selectCabinet: (id: string | null) => void
   /** Replaces the selected cabinet's design (clamped, then re-placed). */
   updateSelectedDesign: (design: CabinetDesign) => void
+  /** Resizes the room, re-placing every cabinet into it (rejected if one cannot fit). */
+  updateRoom: (room: RoomDesign) => void
   /** Live drag: snap applied; ignored when the snapped spot would overlap. */
   moveSelected: (positionX: number, positionZ: number) => void
   /** Drag end: the attempted position resolves to the nearest free spot. */
@@ -147,6 +149,23 @@ export const useAppStore = create<AppState>((set) => ({
       return { scene: placeWithoutOverlap(state.scene, updated) }
     }),
 
+  updateRoom: (room) =>
+    set((state) => {
+      const clamped = clampRoom(room)
+      // Re-place every cabinet into the new room, in scene order, so shrinking
+      // pulls them in. If even one has nowhere to go, keep the old room rather
+      // than strand or drop furniture.
+      let next: SceneDesign = { room: clamped, cabinets: [] }
+      for (const cabinet of state.scene.cabinets) {
+        const placed = placeWithoutOverlap(next, cabinet)
+        if (placed.cabinets.length === next.cabinets.length) {
+          return {}
+        }
+        next = placed
+      }
+      return { scene: next }
+    }),
+
   moveSelected: (positionX, positionZ) =>
     set((state) => {
       const selected = selectedOf(state)
@@ -155,13 +174,19 @@ export const useAppStore = create<AppState>((set) => ({
       }
       const others = state.scene.cabinets.filter((cabinet) => cabinet.id !== selected.id)
       const candidate: PlacedCabinet = { ...selected, positionX, positionZ }
-      const snapped = resolveSnap(candidate, others)
+      // The one path that may also turn the cabinet: a wall snap puts its back
+      // against the wall it lands on.
+      const pose = resolveDragPose(candidate, others, state.scene.room)
       const next: PlacedCabinet = {
         ...candidate,
-        positionX: snapped.positionX,
-        positionZ: snapped.positionZ
+        positionX: pose.positionX,
+        positionZ: pose.positionZ,
+        rotationDeg: pose.rotationDeg
       }
-      if (cabinetOverlapsOthers(next, others)) {
+      if (
+        cabinetOverlapsOthers(next, others) ||
+        !roomContainsRect(state.scene.room, placedCabinetRect(next))
+      ) {
         return {} // drag blocked at the last valid spot; drop will resolve
       }
       return {
