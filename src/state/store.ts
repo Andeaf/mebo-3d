@@ -18,15 +18,19 @@ export type MaterialsLoadState = 'loading' | 'ready' | 'error'
 const INITIAL_KIND: CabinetKind = 'base-cabinet'
 
 function initialScene(): SceneDesign {
+  const room = createDefaultRoom()
+  const design = createDefaultDesign(INITIAL_KIND)
+  // Same rule as any other add: the first cabinet starts against the back wall.
+  const spawn = spawnPlacement({ room, cabinets: [] }, design)
   return {
-    room: createDefaultRoom(),
+    room,
     cabinets: [
       {
         id: 'cab-1',
-        design: createDefaultDesign(INITIAL_KIND),
-        positionX: 0,
-        positionZ: 0,
-        rotationDeg: 0
+        design,
+        positionX: spawn.positionX,
+        positionZ: spawn.positionZ,
+        rotationDeg: spawn.rotationDeg
       }
     ]
   }

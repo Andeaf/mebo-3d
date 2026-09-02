@@ -51,19 +51,19 @@ describe('resolveSnap', () => {
 
 describe('resolveNonOverlapping', () => {
   it('keeps a free attempted position (with live snap applied)', () => {
-    const result = resolveNonOverlapping(makePlaced('b', 620, 5), [cabA])
+    const result = resolveNonOverlapping(makePlaced('b', 620, 5), [cabA], createDefaultRoom())
     expect(result).toEqual({ positionX: 600, positionZ: 0 })
   })
 
   it('resolves a drop on top of a neighbor to the nearest free flush spot', () => {
     // attempted (100, 10) overlaps a; nearest free flush candidate is right of a,
     // and the refine pass clicks the 10 mm front offset into alignment
-    const result = resolveNonOverlapping(makePlaced('b', 100, 10), [cabA])
+    const result = resolveNonOverlapping(makePlaced('b', 100, 10), [cabA], createDefaultRoom())
     expect(result).toEqual({ positionX: 600, positionZ: 0 })
   })
 
   it('resolves a dead-center drop deterministically', () => {
-    const result = resolveNonOverlapping(makePlaced('b', 0, 0), [cabA])
+    const result = resolveNonOverlapping(makePlaced('b', 0, 0), [cabA], createDefaultRoom())
     expect(result).toEqual({ positionX: 0, positionZ: -560 })
   })
 
@@ -78,10 +78,10 @@ describe('resolveNonOverlapping', () => {
       makePlaced('back', 0, -560),
       makePlaced('front', 0, 560)
     ]
-    const result = resolveNonOverlapping(makePlaced('b', 0, 0), others)
+    const result = resolveNonOverlapping(makePlaced('b', 0, 0), others, createDefaultRoom())
     expect(result).toEqual({ positionX: -600, positionZ: -560 })
     expect(
-      sceneHasOverlap(scene(...others, makePlaced('b', result.positionX, result.positionZ)))
+      sceneHasOverlap(scene(...others, makePlaced('b', result!.positionX, result!.positionZ)))
     ).toBe(false)
   })
 })
@@ -115,10 +115,11 @@ describe('spawnPlacement', () => {
     params: createDefaultBaseCabinetParams()
   }
 
-  it('starts at the origin for an empty scene', () => {
+  it('starts back-to-the-wall for an empty room', () => {
+    // 3000 mm room, 560 deep cabinet: back flush at z = −1500, centre at −1220.
     expect(spawnPlacement({ room: createDefaultRoom(), cabinets: [] }, defaultDesign)).toEqual({
       positionX: 0,
-      positionZ: 0,
+      positionZ: -1220,
       rotationDeg: 0
     })
   })

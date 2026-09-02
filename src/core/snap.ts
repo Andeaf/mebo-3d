@@ -12,6 +12,12 @@ import {
   type FloorRect
 } from './footprint'
 import type { CabinetDesign } from './cabinet'
+import {
+  clampCenterIntoRoom,
+  roomContainsRect,
+  roomInteriorRect,
+  type RoomDesign
+} from './room'
 import { findPlacedCabinet, type PlacedCabinet, type RotationDegrees, type SceneDesign } from './scene'
 
 /** A side within this distance of another cabinet's side snaps flush. */
@@ -136,17 +142,23 @@ export function resolveSnap(moving: PlacedCabinet, others: readonly PlacedCabine
 }
 
 /**
- * Resolves a drop/programmatic placement to the nearest free position:
- * the (snapped) attempted position when it is overlap-free, otherwise the
- * nearest non-overlapping flush position along a neighbor's sides (with a
- * final resolveSnap pass so near-aligned fronts click into line), with a
- * deterministic fallback flush to the right of the whole scene.
- * `others` must not contain the moving cabinet itself.
+ * Resolves a drop/programmatic placement to the nearest FREE position, where
+ * free means overlap-free AND inside the room: the attempted position is first
+ * pulled into the room, then snapped; failing that, the nearest free flush
+ * position along a neighbor's sides (with a final resolveSnap pass so
+ * near-aligned fronts click into line), then flush to the right of everything
+ * at this height. Returns null when the room holds no free spot at all — the
+ * caller then rejects the whole update rather than break the invariant.
+ *
+ * Position only: a programmatic placement never changes rotation (see
+ * resolveDragPose for the live drag). `others` must not contain the moving
+ * cabinet itself.
  */
 export function resolveNonOverlapping(
   moving: PlacedCabinet,
-  others: readonly PlacedCabinet[]
-): FloorPosition {
+  others: readonly PlacedCabinet[],
+  room: RoomDesign
+): FloorPosition | null {
   const at = (position: FloorPosition): PlacedCabinet => ({
     ...moving,
     positionX: position.positionX,
@@ -157,18 +169,30 @@ export function resolveNonOverlapping(
   // height; the rest cannot collide with it, so they must not push it around.
   const relevant = verticallyRelevant(moving, others)
 
-  const snapped = resolveSnap(moving, relevant)
-  if (!cabinetOverlapsOthers(at(snapped), relevant)) {
-    return { positionX: snapped.positionX, positionZ: snapped.positionZ }
-  }
-  if (!cabinetOverlapsOthers(moving, relevant)) {
-    return { positionX: moving.positionX, positionZ: moving.positionZ }
-  }
-
   const size = rotatedFootprintSize(cabinetFootprintSize(moving.design), moving.rotationDeg)
   const halfW = size.widthMm / 2
   const halfD = size.depthMm / 2
+
+  const free = (position: FloorPosition): boolean =>
+    roomContainsRect(room, placedCabinetRect(at(position))) &&
+    !cabinetOverlapsOthers(at(position), relevant)
+
+  // The attempt itself can never leave the room; everything downstream
+  // measures its distance from there.
+  const attempted = clampCenterIntoRoom(room, moving, size)
+
+  const snapped = resolveSnap(at(attempted), relevant)
+  if (free(snapped)) {
+    return { positionX: snapped.positionX, positionZ: snapped.positionZ }
+  }
+  if (free(attempted)) {
+    return attempted
+  }
+
   const candidates: FloorPosition[] = []
+  const addCandidate = (position: FloorPosition): void => {
+    candidates.push(clampCenterIntoRoom(room, position, size))
+  }
 
   for (const other of relevant) {
     const rect = placedCabinetRect(other)
@@ -176,52 +200,48 @@ export function resolveNonOverlapping(
 
     // Flush left/right of the neighbor.
     for (const x of [rect.minX - halfW, rect.maxX + halfW]) {
-      candidates.push({ positionX: x, positionZ: moving.positionZ })
+      addCandidate({ positionX: x, positionZ: attempted.positionZ })
       if (parallel && facesAlongZ(moving.rotationDeg)) {
         const z = moving.rotationDeg === 0 ? rect.maxZ - halfD : rect.minZ + halfD
-        candidates.push({ positionX: x, positionZ: z })
+        addCandidate({ positionX: x, positionZ: z })
       }
     }
     // Flush behind/in front of the neighbor.
     for (const z of [rect.minZ - halfD, rect.maxZ + halfD]) {
-      candidates.push({ positionX: moving.positionX, positionZ: z })
+      addCandidate({ positionX: attempted.positionX, positionZ: z })
       if (parallel && !facesAlongZ(moving.rotationDeg)) {
         const x = moving.rotationDeg === 90 ? rect.maxX - halfW : rect.minX + halfW
-        candidates.push({ positionX: x, positionZ: z })
+        addCandidate({ positionX: x, positionZ: z })
       }
     }
+  }
+
+  // Flush to the right of everything at this height, still inside the room.
+  const bounds = unionRect(relevant.map(placedCabinetRect))
+  if (bounds !== null) {
+    addCandidate({ positionX: bounds.maxX + halfW, positionZ: attempted.positionZ })
   }
 
   let bestCandidate: FloorPosition | null = null
   let bestDistSq = Infinity
   for (const candidate of candidates) {
-    if (cabinetOverlapsOthers(at(candidate), relevant)) {
+    if (!free(candidate)) {
       continue
     }
-    const dx = candidate.positionX - moving.positionX
-    const dz = candidate.positionZ - moving.positionZ
+    const dx = candidate.positionX - attempted.positionX
+    const dz = candidate.positionZ - attempted.positionZ
     const distSq = dx * dx + dz * dz
     if (distSq < bestDistSq) {
       bestDistSq = distSq
       bestCandidate = candidate
     }
   }
-  if (bestCandidate !== null) {
-    // Let near-aligned fronts click into line, but never at the cost of an overlap.
-    const refined = resolveSnap(at(bestCandidate), relevant)
-    if (!cabinetOverlapsOthers(at(refined), relevant)) {
-      return { positionX: refined.positionX, positionZ: refined.positionZ }
-    }
-    return bestCandidate
+  if (bestCandidate === null) {
+    return null
   }
-
-  // Deterministic fallback: flush to the right of everything at this height
-  // (never past the floor run — a wall cabinet is not exiled by one).
-  const bounds = unionRect(relevant.map(placedCabinetRect))
-  if (bounds === null) {
-    return { positionX: moving.positionX, positionZ: moving.positionZ }
-  }
-  return { positionX: bounds.maxX + halfW, positionZ: moving.positionZ }
+  // Let near-aligned fronts click into line, but never at the cost of freeness.
+  const refined = resolveSnap(at(bestCandidate), relevant)
+  return free(refined) ? { positionX: refined.positionX, positionZ: refined.positionZ } : bestCandidate
 }
 
 /**
@@ -231,7 +251,12 @@ export function resolveNonOverlapping(
  */
 export function placeWithoutOverlap(scene: SceneDesign, updated: PlacedCabinet): SceneDesign {
   const others = scene.cabinets.filter((cabinet) => cabinet.id !== updated.id)
-  const resolved = resolveNonOverlapping(updated, others)
+  const resolved = resolveNonOverlapping(updated, others, scene.room)
+  if (resolved === null) {
+    // The room holds no free spot: reject the whole update rather than leave a
+    // cabinet overlapping or outside. Silent for now — see CLAUDE.md.
+    return scene
+  }
   const placed: PlacedCabinet = {
     ...updated,
     positionX: resolved.positionX,
@@ -252,13 +277,18 @@ export interface SpawnPlacement extends FloorPosition {
 
 /**
  * Where a newly added cabinet spawns: flush against the right side of the
- * last cabinet in the scene, same rotation, fronts aligned (the origin for an
- * empty scene). Feed the result through placeWithoutOverlap for safety.
+ * last cabinet in the scene, same rotation, fronts aligned. The first cabinet
+ * in an empty room goes back-to-the-wall, centred on the back wall, which is
+ * where a kitchen starts. Feed the result through placeWithoutOverlap for
+ * safety — it is what keeps the spawn inside the room.
  */
 export function spawnPlacement(scene: SceneDesign, design: CabinetDesign): SpawnPlacement {
   const last = scene.cabinets[scene.cabinets.length - 1]
   if (last === undefined) {
-    return { positionX: 0, positionZ: 0, rotationDeg: 0 }
+    // Rotation 0 faces +Z, so its back is against the room's back wall.
+    const interior = roomInteriorRect(scene.room)
+    const size = cabinetFootprintSize(design)
+    return { positionX: 0, positionZ: interior.minZ + size.depthMm / 2, rotationDeg: 0 }
   }
   const rotationDeg = last.rotationDeg
   const right = rightDirection(rotationDeg)

@@ -111,7 +111,7 @@ describe('vertical gating of snapping', () => {
     const base = place('base', 'base-cabinet', 0, 0)
     // Dead centre over the base cabinet: no snap, and the drop stands.
     expect(resolveSnap(wall('upper', 0, 0), [base]).snapped).toBe(false)
-    expect(resolveNonOverlapping(wall('upper', 0, 0), [base])).toEqual({
+    expect(resolveNonOverlapping(wall('upper', 0, 0), [base], createDefaultRoom())).toEqual({
       positionX: 0,
       positionZ: 0
     })
@@ -125,14 +125,14 @@ describe('vertical gating of snapping', () => {
       place('base', 'base-cabinet', 600, 0),
       place('base2', 'base-cabinet', 0, 0)
     ]
-    const resolved = resolveNonOverlapping(dropped, withFloorRun)
-    expect(resolved).toEqual(resolveNonOverlapping(dropped, upperOnly))
+    const resolved = resolveNonOverlapping(dropped, withFloorRun, createDefaultRoom())
+    expect(resolved).toEqual(resolveNonOverlapping(dropped, upperOnly, createDefaultRoom()))
     expect(
       sceneHasOverlap(
         scene(...withFloorRun, {
           ...dropped,
-          positionX: resolved.positionX,
-          positionZ: resolved.positionZ
+          positionX: resolved!.positionX,
+          positionZ: resolved!.positionZ
         })
       )
     ).toBe(false)
