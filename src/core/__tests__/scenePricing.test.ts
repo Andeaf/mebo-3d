@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createDefaultBaseCabinetParams, type BaseCabinetParams } from '@core/cabinet'
 import type { PriceDatabase } from '@core/materials'
+import { createDefaultRoom } from '@core/room'
 import type { PlacedCabinet, SceneDesign } from '@core/scene'
 import { quoteForScene } from '@core/scenePricing'
 
@@ -33,11 +34,14 @@ function placed(id: string, positionX: number): PlacedCabinet {
   }
 }
 
-const twoCabinetScene: SceneDesign = { cabinets: [placed('cab-1', 0), placed('cab-2', 600)] }
+const twoCabinetScene: SceneDesign = {
+  room: createDefaultRoom(),
+  cabinets: [placed('cab-1', 0), placed('cab-2', 600)]
+}
 
 describe('quoteForScene', () => {
   it('returns an empty quote for an empty scene', () => {
-    const quote = quoteForScene({ cabinets: [] }, fixtureDb)
+    const quote = quoteForScene({ room: createDefaultRoom(), cabinets: [] }, fixtureDb)
     expect(quote.cabinets).toEqual([])
     expect(quote.materialTotals).toEqual([])
     expect(quote.subtotalsEur).toEqual({ board: 0, edgeband: 0, hardware: 0 })

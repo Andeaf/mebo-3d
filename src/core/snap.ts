@@ -7,7 +7,6 @@ import {
   placedCabinetRect,
   placedVerticalInterval,
   rotatedFootprintSize,
-  sceneBoundingRect,
   unionRect,
   type FloorPosition,
   type FloorRect
@@ -218,7 +217,7 @@ export function resolveNonOverlapping(
 
   // Deterministic fallback: flush to the right of everything at this height
   // (never past the floor run — a wall cabinet is not exiled by one).
-  const bounds = sceneBoundingRect({ cabinets: relevant })
+  const bounds = unionRect(relevant.map(placedCabinetRect))
   if (bounds === null) {
     return { positionX: moving.positionX, positionZ: moving.positionZ }
   }
@@ -240,6 +239,7 @@ export function placeWithoutOverlap(scene: SceneDesign, updated: PlacedCabinet):
   }
   const exists = scene.cabinets.some((cabinet) => cabinet.id === updated.id)
   return {
+    ...scene,
     cabinets: exists
       ? scene.cabinets.map((cabinet) => (cabinet.id === updated.id ? placed : cabinet))
       : [...scene.cabinets, placed]

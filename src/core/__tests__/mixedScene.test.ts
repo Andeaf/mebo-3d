@@ -3,6 +3,7 @@ import type { CabinetDesign } from '@core/cabinet'
 import { createDefaultDesign, type CabinetKind } from '@core/catalog/registry'
 import type { PriceDatabase } from '@core/materials'
 import { quoteForDesign } from '@core/pricing'
+import { createDefaultRoom } from '@core/room'
 import type { PlacedCabinet, SceneDesign } from '@core/scene'
 import { quoteForScene } from '@core/scenePricing'
 
@@ -32,7 +33,10 @@ function placed(kind: CabinetKind, index: number): PlacedCabinet {
   }
 }
 
-const mixedScene: SceneDesign = { cabinets: KINDS.map((kind, index) => placed(kind, index)) }
+const mixedScene: SceneDesign = {
+  room: createDefaultRoom(),
+  cabinets: KINDS.map((kind, index) => placed(kind, index))
+}
 
 describe('pricing a scene of mixed cabinet kinds', () => {
   it('prices every kind through the untouched single-cabinet engine', () => {

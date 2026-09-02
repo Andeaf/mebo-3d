@@ -10,6 +10,7 @@ import {
   sceneHasOverlap,
   unionRect
 } from '@core/footprint'
+import { createDefaultRoom } from '@core/room'
 import type { PlacedCabinet, RotationDegrees, SceneDesign } from '@core/scene'
 
 export function makePlaced(
@@ -33,7 +34,7 @@ export function makePlaced(
 }
 
 function makeScene(...cabinets: PlacedCabinet[]): SceneDesign {
-  return { cabinets }
+  return { room: createDefaultRoom(), cabinets }
 }
 
 describe('footprint sizes and rects', () => {

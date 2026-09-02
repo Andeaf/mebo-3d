@@ -1,4 +1,5 @@
 import type { CabinetDesign } from './cabinet'
+import { createDefaultRoom, type RoomDesign } from './room'
 
 /** Yaw of a placed cabinet, counterclockwise seen from above. At 0° the front faces +Z. */
 export type RotationDegrees = 0 | 90 | 180 | 270
@@ -17,11 +18,16 @@ export interface PlacedCabinet {
   readonly rotationDeg: RotationDegrees
 }
 
+/**
+ * A scene is a room plus the cabinets standing in it. The room is never
+ * optional: an empty scene is an empty room, not a roomless void.
+ */
 export interface SceneDesign {
+  readonly room: RoomDesign
   readonly cabinets: readonly PlacedCabinet[]
 }
 
-export const EMPTY_SCENE: SceneDesign = { cabinets: [] }
+export const EMPTY_SCENE: SceneDesign = { room: createDefaultRoom(), cabinets: [] }
 
 export function findPlacedCabinet(scene: SceneDesign, id: string): PlacedCabinet | undefined {
   return scene.cabinets.find((cabinet) => cabinet.id === id)

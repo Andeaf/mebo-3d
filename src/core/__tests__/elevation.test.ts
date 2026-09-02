@@ -8,6 +8,7 @@ import {
   placedVerticalInterval,
   sceneHasOverlap
 } from '@core/footprint'
+import { createDefaultRoom } from '@core/room'
 import type { PlacedCabinet, RotationDegrees, SceneDesign } from '@core/scene'
 import { connectedRun, resolveNonOverlapping, resolveSnap, verticallyRelevant } from '@core/snap'
 
@@ -36,7 +37,7 @@ function wall(id: string, positionX: number, positionZ: number, mountingHeightMm
 }
 
 function scene(...cabinets: PlacedCabinet[]): SceneDesign {
-  return { cabinets }
+  return { room: createDefaultRoom(), cabinets }
 }
 
 describe('vertical intervals', () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createDefaultBaseCabinetParams } from '@core/cabinet'
 import { sceneHasOverlap } from '@core/footprint'
+import { createDefaultRoom } from '@core/room'
 import type { SceneDesign } from '@core/scene'
 import {
   connectedRun,
@@ -15,7 +16,7 @@ import { makePlaced } from './footprint.test'
 const cabA = makePlaced('a', 0, 0)
 
 function scene(...cabinets: ReturnType<typeof makePlaced>[]): SceneDesign {
-  return { cabinets }
+  return { room: createDefaultRoom(), cabinets }
 }
 
 describe('resolveSnap', () => {
@@ -115,7 +116,7 @@ describe('spawnPlacement', () => {
   }
 
   it('starts at the origin for an empty scene', () => {
-    expect(spawnPlacement({ cabinets: [] }, defaultDesign)).toEqual({
+    expect(spawnPlacement({ room: createDefaultRoom(), cabinets: [] }, defaultDesign)).toEqual({
       positionX: 0,
       positionZ: 0,
       rotationDeg: 0

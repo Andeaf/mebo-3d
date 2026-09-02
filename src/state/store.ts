@@ -8,6 +8,7 @@ import {
 import { cabinetOverlapsOthers } from '@core/footprint'
 import type { PriceDatabase } from '@core/materials'
 import type { MaterialRepository } from '@core/repository/MaterialRepository'
+import { createDefaultRoom } from '@core/room'
 import { findPlacedCabinet, rotationStep, type PlacedCabinet, type SceneDesign } from '@core/scene'
 import { placeWithoutOverlap, resolveSnap, spawnPlacement } from '@core/snap'
 import { loadStoredLanguage, storeLanguage, type Language } from './language'
@@ -18,6 +19,7 @@ const INITIAL_KIND: CabinetKind = 'base-cabinet'
 
 function initialScene(): SceneDesign {
   return {
+    room: createDefaultRoom(),
     cabinets: [
       {
         id: 'cab-1',
@@ -98,7 +100,10 @@ export const useAppStore = create<AppState>((set) => ({
         return {}
       }
       // Aim flush beside the original; placeWithoutOverlap resolves the rest.
-      const beside = spawnPlacement({ cabinets: [selected] }, selected.design)
+      const beside = spawnPlacement(
+        { room: state.scene.room, cabinets: [selected] },
+        selected.design
+      )
       const copy: PlacedCabinet = {
         ...selected,
         id: `cab-${state.nextCabinetNumber}`,
@@ -119,6 +124,7 @@ export const useAppStore = create<AppState>((set) => ({
       }
       return {
         scene: {
+          ...state.scene,
           cabinets: state.scene.cabinets.filter((cabinet) => cabinet.id !== state.selectedCabinetId)
         },
         selectedCabinetId: null
@@ -156,6 +162,7 @@ export const useAppStore = create<AppState>((set) => ({
       }
       return {
         scene: {
+          ...state.scene,
           cabinets: state.scene.cabinets.map((cabinet) =>
             cabinet.id === selected.id ? next : cabinet
           )
