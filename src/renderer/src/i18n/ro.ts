@@ -20,6 +20,7 @@ export const ro: Record<TranslationKey, string> = {
   'params.shelves': 'Polițe',
   'params.doors': 'Uși',
   'params.material': 'Material corp',
+  'params.singleDoorLimit': 'Peste 600 mm lățime corpul primește întotdeauna două uși.',
 
   'viewport.selected': 'Selecție',
 

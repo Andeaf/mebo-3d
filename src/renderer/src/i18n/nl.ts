@@ -22,6 +22,7 @@ export const nl = {
   'params.shelves': 'Legplanken',
   'params.doors': 'Deuren',
   'params.material': 'Korpusmateriaal',
+  'params.singleDoorLimit': 'Boven 600 mm breedte altijd twee deuren.',
 
   'viewport.selected': 'Selectie',
 

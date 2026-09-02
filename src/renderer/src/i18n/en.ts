@@ -20,6 +20,7 @@ export const en: Record<TranslationKey, string> = {
   'params.shelves': 'Shelves',
   'params.doors': 'Doors',
   'params.material': 'Carcass material',
+  'params.singleDoorLimit': 'Above 600 mm width a cabinet always gets two doors.',
 
   'viewport.selected': 'Selection',
 

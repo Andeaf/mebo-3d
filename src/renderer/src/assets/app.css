@@ -301,6 +301,21 @@ body {
   border-color: var(--accent);
 }
 
+.segmented__option:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.segmented__option:disabled:hover {
+  border-color: var(--border);
+}
+
+.field__hint {
+  margin: 6px 0 0;
+  font-size: 0.85em;
+  color: var(--text-dim);
+}
+
 /* ---- price panel ---- */
 
 .quote {

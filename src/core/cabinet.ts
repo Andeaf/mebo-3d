@@ -39,6 +39,31 @@ export function createDefaultBaseCabinetParams(): BaseCabinetParams {
   }
 }
 
+/**
+ * Above this width a single door leaf is too wide to hang well, so the
+ * cabinet gets two leaves. Applies to every door-bearing kind.
+ */
+export const MAX_SINGLE_DOOR_CABINET_WIDTH_MM = 600
+
+/**
+ * Enforces the door-leaf rule: one door on a cabinet wider than
+ * MAX_SINGLE_DOOR_CABINET_WIDTH_MM becomes two. Never drops to zero — that
+ * would silently delete doors and hardware the user asked for.
+ */
+export function clampDoorCountForWidth(widthMm: number, doorCount: DoorCount): DoorCount {
+  return doorCount === 1 && widthMm > MAX_SINGLE_DOOR_CABINET_WIDTH_MM ? 2 : doorCount
+}
+
+/** The matching violation for validate functions (empty when the pair is legal). */
+export function validateDoorCountForWidth(widthMm: number, doorCount: DoorCount): string[] {
+  if (clampDoorCountForWidth(widthMm, doorCount) === doorCount) {
+    return []
+  }
+  return [
+    `doorCount 1 needs a width of at most ${MAX_SINGLE_DOOR_CABINET_WIDTH_MM} mm (got ${widthMm})`
+  ]
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
@@ -46,12 +71,15 @@ function clamp(value: number, min: number, max: number): number {
 /** Forces params into the allowed ranges (used by the UI on every edit). */
 export function clampBaseCabinetParams(params: BaseCabinetParams): BaseCabinetParams {
   const limits = BASE_CABINET_LIMITS
+  // Dimensions first: the door rule reads the already-clamped width.
+  const widthMm = clamp(Math.round(params.widthMm), limits.widthMm.min, limits.widthMm.max)
   return {
     ...params,
-    widthMm: clamp(Math.round(params.widthMm), limits.widthMm.min, limits.widthMm.max),
+    widthMm,
     heightMm: clamp(Math.round(params.heightMm), limits.heightMm.min, limits.heightMm.max),
     depthMm: clamp(Math.round(params.depthMm), limits.depthMm.min, limits.depthMm.max),
-    shelfCount: clamp(Math.round(params.shelfCount), limits.shelfCount.min, limits.shelfCount.max)
+    shelfCount: clamp(Math.round(params.shelfCount), limits.shelfCount.min, limits.shelfCount.max),
+    doorCount: clampDoorCountForWidth(widthMm, params.doorCount)
   }
 }
 
@@ -71,6 +99,7 @@ export function validateBaseCabinetParams(params: BaseCabinetParams): string[] {
   if (!Number.isInteger(params.shelfCount)) {
     errors.push(`shelfCount must be an integer (got ${params.shelfCount})`)
   }
+  errors.push(...validateDoorCountForWidth(params.widthMm, params.doorCount))
   return errors
 }
 

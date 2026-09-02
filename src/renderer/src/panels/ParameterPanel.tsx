@@ -1,5 +1,10 @@
 import { useState, type ReactElement } from 'react'
-import { BASE_CABINET_LIMITS, type BaseCabinetParams, type DoorCount } from '@core/cabinet'
+import {
+  BASE_CABINET_LIMITS,
+  MAX_SINGLE_DOOR_CABINET_WIDTH_MM,
+  type BaseCabinetParams,
+  type DoorCount
+} from '@core/cabinet'
 import { CARCASS_THICKNESS_MM } from '@core/catalog/baseCabinet'
 import type { DesignOfKind } from '@core/catalog/registry'
 import { useSelectedCabinet } from '@state/selectors'
@@ -114,6 +119,50 @@ function MaterialField({
 
 const DOOR_OPTIONS: readonly DoorCount[] = [0, 1, 2]
 
+/**
+ * Door-count picker shared by every door-bearing kind. A single leaf is
+ * unavailable above MAX_SINGLE_DOOR_CABINET_WIDTH_MM (the core clamps it to
+ * two anyway); the hint explains why the button is dead.
+ */
+function DoorCountField({
+  widthMm,
+  doorCount,
+  onChange
+}: {
+  readonly widthMm: number
+  readonly doorCount: DoorCount
+  readonly onChange: (doorCount: DoorCount) => void
+}): ReactElement {
+  const t = useT()
+  const singleDoorBlocked = widthMm > MAX_SINGLE_DOOR_CABINET_WIDTH_MM
+
+  return (
+    <div className="field">
+      <div className="field__head">
+        <span className="field__label">{t('params.doors')}</span>
+      </div>
+      <div className="segmented" role="group" aria-label={t('params.doors')}>
+        {DOOR_OPTIONS.map((count) => (
+          <button
+            key={count}
+            type="button"
+            className={
+              doorCount === count
+                ? 'segmented__option segmented__option--active'
+                : 'segmented__option'
+            }
+            disabled={count === 1 && singleDoorBlocked}
+            onClick={() => onChange(count)}
+          >
+            {count}
+          </button>
+        ))}
+      </div>
+      {singleDoorBlocked && <p className="field__hint">{t('params.singleDoorLimit')}</p>}
+    </div>
+  )
+}
+
 /** Field group for the base cabinet; one such group per kind. */
 function BaseCabinetFields({ design }: { readonly design: DesignOfKind<'base-cabinet'> }): ReactElement {
   const t = useT()
@@ -166,27 +215,11 @@ function BaseCabinetFields({ design }: { readonly design: DesignOfKind<'base-cab
         />
       </div>
 
-      <div className="field">
-        <div className="field__head">
-          <span className="field__label">{t('params.doors')}</span>
-        </div>
-        <div className="segmented" role="group" aria-label={t('params.doors')}>
-          {DOOR_OPTIONS.map((count) => (
-            <button
-              key={count}
-              type="button"
-              className={
-                params.doorCount === count
-                  ? 'segmented__option segmented__option--active'
-                  : 'segmented__option'
-              }
-              onClick={() => patch({ doorCount: count })}
-            >
-              {count}
-            </button>
-          ))}
-        </div>
-      </div>
+      <DoorCountField
+        widthMm={params.widthMm}
+        doorCount={params.doorCount}
+        onChange={(doorCount) => patch({ doorCount })}
+      />
 
       <MaterialField
         value={params.carcassMaterialId}
