@@ -460,8 +460,13 @@ tbody:first-child .quote__category-row th {
   min-width: 24px;
 }
 
-.cabinet-list__width {
+.cabinet-list__kind {
   flex: 1;
+}
+
+.cabinet-list__width {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
 }
 
 .cabinet-list__total {

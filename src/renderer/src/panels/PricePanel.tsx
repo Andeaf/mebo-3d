@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react'
+import { designFootprintSize } from '@core/catalog/registry'
 import type { MaterialCategory, PriceUnit } from '@core/materials'
 import type { QuoteLine } from '@core/pricing'
 import type { SceneQuote } from '@core/scenePricing'
@@ -97,8 +98,9 @@ function CabinetList({ sceneQuote }: { sceneQuote: SceneQuote }): ReactElement |
             onClick={() => selectCabinet(entry.cabinetId)}
           >
             <span className="cabinet-list__number">#{entry.cabinetId.replace('cab-', '')}</span>
+            <span className="cabinet-list__kind">{t(`kind.${placed.design.kind}`)}</span>
             <span className="cabinet-list__width">
-              {placed.design.params.widthMm} {t('unit.mm')}
+              {designFootprintSize(placed.design).widthMm} {t('unit.mm')}
             </span>
             <span className="cabinet-list__total">{formatEur(entry.quote.totalEur)}</span>
           </button>
