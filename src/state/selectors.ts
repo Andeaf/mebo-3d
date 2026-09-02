@@ -1,23 +1,24 @@
 import { useMemo } from 'react'
-import type { BaseCabinetParams } from '@core/cabinet'
-import { generateBaseCabinet, type CabinetBuild } from '@core/catalog/baseCabinet'
+import type { CabinetDesign } from '@core/cabinet'
+import type { CabinetBuild } from '@core/catalog/parts'
+import { generateCabinet } from '@core/catalog/registry'
 import type { PlacedCabinet } from '@core/scene'
 import { quoteForScene, type SceneQuote } from '@core/scenePricing'
 import { connectedRun, type ConnectedRun } from '@core/snap'
 import { useAppStore } from './store'
 
-// Params objects are immutable (every edit creates a new object), so builds
-// can be cached per params identity: only the edited cabinet regenerates.
-const buildCache = new WeakMap<BaseCabinetParams, CabinetBuild>()
+// Design objects are immutable (every edit creates a new one), so builds can
+// be cached per design identity: only the edited cabinet regenerates.
+const buildCache = new WeakMap<CabinetDesign, CabinetBuild>()
 
 /** The generated panel list for one cabinet — the single source of truth. */
-export function buildForParams(params: BaseCabinetParams): CabinetBuild {
-  const cached = buildCache.get(params)
+export function buildForDesign(design: CabinetDesign): CabinetBuild {
+  const cached = buildCache.get(design)
   if (cached !== undefined) {
     return cached
   }
-  const build = generateBaseCabinet(params)
-  buildCache.set(params, build)
+  const build = generateCabinet(design)
+  buildCache.set(design, build)
   return build
 }
 

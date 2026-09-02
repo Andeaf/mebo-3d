@@ -1,4 +1,5 @@
 import type { CabinetDesign } from './cabinet'
+import { designFootprintSize } from './catalog/registry'
 import type { PlacedCabinet, RotationDegrees, SceneDesign } from './scene'
 
 export interface FootprintSize {
@@ -21,7 +22,7 @@ export interface FloorRect {
  * front faces flush (door fronts then align automatically in a run).
  */
 export function cabinetFootprintSize(design: CabinetDesign): FootprintSize {
-  return { widthMm: design.params.widthMm, depthMm: design.params.depthMm }
+  return designFootprintSize(design)
 }
 
 export function rotatedFootprintSize(size: FootprintSize, rotationDeg: RotationDegrees): FootprintSize {

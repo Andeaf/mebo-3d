@@ -1,10 +1,10 @@
 import { create } from 'zustand'
+import type { CabinetDesign } from '@core/cabinet'
 import {
-  clampBaseCabinetParams,
-  createDefaultBaseCabinetParams,
-  type BaseCabinetParams,
-  type CabinetDesign
-} from '@core/cabinet'
+  clampDesign,
+  createDefaultDesign,
+  type CabinetKind
+} from '@core/catalog/registry'
 import { cabinetOverlapsOthers } from '@core/footprint'
 import type { PriceDatabase } from '@core/materials'
 import type { MaterialRepository } from '@core/repository/MaterialRepository'
@@ -14,13 +14,19 @@ import { loadStoredLanguage, storeLanguage, type Language } from './language'
 
 export type MaterialsLoadState = 'loading' | 'ready' | 'error'
 
-function defaultDesign(): CabinetDesign {
-  return { kind: 'base-cabinet', params: createDefaultBaseCabinetParams() }
-}
+const INITIAL_KIND: CabinetKind = 'base-cabinet'
 
 function initialScene(): SceneDesign {
   return {
-    cabinets: [{ id: 'cab-1', design: defaultDesign(), positionX: 0, positionZ: 0, rotationDeg: 0 }]
+    cabinets: [
+      {
+        id: 'cab-1',
+        design: createDefaultDesign(INITIAL_KIND),
+        positionX: 0,
+        positionZ: 0,
+        rotationDeg: 0
+      }
+    ]
   }
 }
 
@@ -37,7 +43,8 @@ interface AppState {
   duplicateSelected: () => void
   deleteSelected: () => void
   selectCabinet: (id: string | null) => void
-  updateSelectedParams: (patch: Partial<BaseCabinetParams>) => void
+  /** Replaces the selected cabinet's design (clamped, then re-placed). */
+  updateSelectedDesign: (design: CabinetDesign) => void
   /** Live drag: snap applied; ignored when the snapped spot would overlap. */
   moveSelected: (positionX: number, positionZ: number) => void
   /** Drag end: the attempted position resolves to the nearest free spot. */
@@ -68,7 +75,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   addCabinet: () =>
     set((state) => {
-      const design = defaultDesign()
+      const design = createDefaultDesign(INITIAL_KIND)
       const spawn = spawnPlacement(state.scene, design)
       const cabinet: PlacedCabinet = {
         id: `cab-${state.nextCabinetNumber}`,
@@ -120,14 +127,13 @@ export const useAppStore = create<AppState>((set) => ({
 
   selectCabinet: (id) => set({ selectedCabinetId: id }),
 
-  updateSelectedParams: (patch) =>
+  updateSelectedDesign: (design) =>
     set((state) => {
       const selected = selectedOf(state)
       if (selected === undefined) {
         return {}
       }
-      const params = clampBaseCabinetParams({ ...selected.design.params, ...patch })
-      const updated: PlacedCabinet = { ...selected, design: { kind: 'base-cabinet', params } }
+      const updated: PlacedCabinet = { ...selected, design: clampDesign(design) }
       return { scene: placeWithoutOverlap(state.scene, updated) }
     }),
 

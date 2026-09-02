@@ -1,10 +1,11 @@
 import { useMemo, type ReactElement } from 'react'
 import { Edges } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
+import { designFootprintSize } from '@core/catalog/registry'
 import { GeneratedGeometry } from '@core/geometry/GeometrySource'
 import { findMaterial, type PriceDatabase } from '@core/materials'
 import type { PlacedCabinet } from '@core/scene'
-import { buildForParams } from '@state/selectors'
+import { buildForDesign } from '@state/selectors'
 
 const FALLBACK_PANEL_COLOR = '#c8c8c2'
 export const SELECTION_COLOR = '#4f8cff'
@@ -32,9 +33,9 @@ export function PlacedCabinetMesh({
   priceDb,
   onPointerDown
 }: PlacedCabinetMeshProps): ReactElement {
-  const build = buildForParams(placed.design.params)
+  const build = buildForDesign(placed.design)
   const description = useMemo(() => new GeneratedGeometry(build).describe(), [build])
-  const { widthMm, depthMm } = placed.design.params
+  const { widthMm, depthMm } = designFootprintSize(placed.design)
 
   const colorForMaterial = (materialId: string): string => {
     if (priceDb === null) {

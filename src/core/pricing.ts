@@ -1,5 +1,5 @@
 import type { CabinetDesign } from './cabinet'
-import { generateBaseCabinet } from './catalog/baseCabinet'
+import { generateCabinet } from './catalog/registry'
 import { buildCuttingList, type CuttingList } from './cuttingList'
 import { findMaterial, type MaterialCategory, type PriceDatabase, type PriceUnit } from './materials'
 
@@ -74,6 +74,6 @@ export function calculateQuote(cuttingList: CuttingList, db: PriceDatabase): Quo
 
 /** Convenience composition: design → panels → cutting list → quote. */
 export function quoteForDesign(design: CabinetDesign, db: PriceDatabase): Quote {
-  const build = generateBaseCabinet(design.params)
+  const build = generateCabinet(design)
   return calculateQuote(buildCuttingList(build), db)
 }

@@ -75,10 +75,8 @@ export function validateBaseCabinetParams(params: BaseCabinetParams): string[] {
 }
 
 /**
- * A complete design as fed to the price engine. Phase 1 knows a single
- * cabinet type; later phases add more `kind`s (custom pieces, imports).
+ * A complete design as fed to the price engine. The catalog registry owns the
+ * union over all cabinet kinds; it is re-exported here (type-only, so this
+ * creates no runtime import) because this is where consumers look for it.
  */
-export interface CabinetDesign {
-  readonly kind: 'base-cabinet'
-  readonly params: BaseCabinetParams
-}
+export type { CabinetDesign } from './catalog/registry'

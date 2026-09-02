@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from 'react'
-import { BASE_CABINET_LIMITS, type DoorCount } from '@core/cabinet'
+import { BASE_CABINET_LIMITS, type BaseCabinetParams, type DoorCount } from '@core/cabinet'
 import { CARCASS_THICKNESS_MM } from '@core/catalog/baseCabinet'
+import type { DesignOfKind } from '@core/catalog/registry'
 import { useSelectedCabinet } from '@state/selectors'
 import { useAppStore } from '@state/store'
 import { useT, type TranslationKey } from '../i18n'
@@ -72,53 +73,78 @@ function DimensionField({ labelKey, value, min, max, onChange }: DimensionFieldP
   )
 }
 
-const DOOR_OPTIONS: readonly DoorCount[] = [0, 1, 2]
-
-export function ParameterPanel(): ReactElement {
+/** Carcass board picker, shared by every kind (18 mm boards only). */
+function MaterialField({
+  value,
+  onChange
+}: {
+  readonly value: string
+  readonly onChange: (materialId: string) => void
+}): ReactElement {
   const t = useT()
-  const selected = useSelectedCabinet()
   const priceDb = useAppStore((state) => state.priceDb)
-  const updateSelectedParams = useAppStore((state) => state.updateSelectedParams)
-
-  if (selected === null) {
-    return (
-      <section className="panel">
-        <h2 className="panel__title">{t('params.title')}</h2>
-        <p className="panel__note">{t('params.noSelection')}</p>
-      </section>
-    )
-  }
-
-  const params = selected.design.params
-  const carcassBoardOptions =
+  const options =
     priceDb?.materials.filter(
       (material) => material.category === 'board' && material.thicknessMm === CARCASS_THICKNESS_MM
     ) ?? []
 
   return (
-    <section className="panel">
-      <h2 className="panel__title">{t('params.title')}</h2>
+    <div className="field">
+      <div className="field__head">
+        <label className="field__label" htmlFor="carcass-material">
+          {t('params.material')}
+        </label>
+      </div>
+      <select
+        id="carcass-material"
+        className="field__select"
+        value={value}
+        disabled={options.length === 0}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {options.map((material) => (
+          <option key={material.id} value={material.id}>
+            {material.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
 
+const DOOR_OPTIONS: readonly DoorCount[] = [0, 1, 2]
+
+/** Field group for the base cabinet; one such group per kind. */
+function BaseCabinetFields({ design }: { readonly design: DesignOfKind<'base-cabinet'> }): ReactElement {
+  const t = useT()
+  const updateSelectedDesign = useAppStore((state) => state.updateSelectedDesign)
+  const params = design.params
+
+  const patch = (next: Partial<BaseCabinetParams>): void =>
+    updateSelectedDesign({ kind: 'base-cabinet', params: { ...params, ...next } })
+
+  return (
+    <>
       <DimensionField
         labelKey="params.width"
         value={params.widthMm}
         min={BASE_CABINET_LIMITS.widthMm.min}
         max={BASE_CABINET_LIMITS.widthMm.max}
-        onChange={(widthMm) => updateSelectedParams({ widthMm })}
+        onChange={(widthMm) => patch({ widthMm })}
       />
       <DimensionField
         labelKey="params.height"
         value={params.heightMm}
         min={BASE_CABINET_LIMITS.heightMm.min}
         max={BASE_CABINET_LIMITS.heightMm.max}
-        onChange={(heightMm) => updateSelectedParams({ heightMm })}
+        onChange={(heightMm) => patch({ heightMm })}
       />
       <DimensionField
         labelKey="params.depth"
         value={params.depthMm}
         min={BASE_CABINET_LIMITS.depthMm.min}
         max={BASE_CABINET_LIMITS.depthMm.max}
-        onChange={(depthMm) => updateSelectedParams({ depthMm })}
+        onChange={(depthMm) => patch({ depthMm })}
       />
 
       <div className="field">
@@ -136,7 +162,7 @@ export function ParameterPanel(): ReactElement {
           max={BASE_CABINET_LIMITS.shelfCount.max}
           step={1}
           value={params.shelfCount}
-          onChange={(event) => updateSelectedParams({ shelfCount: Number(event.target.value) })}
+          onChange={(event) => patch({ shelfCount: Number(event.target.value) })}
         />
       </div>
 
@@ -154,7 +180,7 @@ export function ParameterPanel(): ReactElement {
                   ? 'segmented__option segmented__option--active'
                   : 'segmented__option'
               }
-              onClick={() => updateSelectedParams({ doorCount: count })}
+              onClick={() => patch({ doorCount: count })}
             >
               {count}
             </button>
@@ -162,26 +188,32 @@ export function ParameterPanel(): ReactElement {
         </div>
       </div>
 
-      <div className="field">
-        <div className="field__head">
-          <label className="field__label" htmlFor="carcass-material">
-            {t('params.material')}
-          </label>
-        </div>
-        <select
-          id="carcass-material"
-          className="field__select"
-          value={params.carcassMaterialId}
-          disabled={carcassBoardOptions.length === 0}
-          onChange={(event) => updateSelectedParams({ carcassMaterialId: event.target.value })}
-        >
-          {carcassBoardOptions.map((material) => (
-            <option key={material.id} value={material.id}>
-              {material.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <MaterialField
+        value={params.carcassMaterialId}
+        onChange={(carcassMaterialId) => patch({ carcassMaterialId })}
+      />
+    </>
+  )
+}
+
+export function ParameterPanel(): ReactElement {
+  const t = useT()
+  const selected = useSelectedCabinet()
+
+  if (selected === null) {
+    return (
+      <section className="panel">
+        <h2 className="panel__title">{t('params.title')}</h2>
+        <p className="panel__note">{t('params.noSelection')}</p>
+      </section>
+    )
+  }
+
+  const design = selected.design
+  return (
+    <section className="panel">
+      <h2 className="panel__title">{t('params.title')}</h2>
+      {design.kind === 'base-cabinet' && <BaseCabinetFields design={design} />}
     </section>
   )
 }
