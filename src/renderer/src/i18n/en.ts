@@ -24,11 +24,14 @@ export const en: Record<TranslationKey, string> = {
   'params.height': 'Height',
   'params.depth': 'Depth',
   'params.shelves': 'Shelves',
+  'params.drawers': 'Drawers',
+  'params.mountingHeight': 'Mounting height',
   'params.doors': 'Doors',
   'params.material': 'Carcass material',
   'params.singleDoorLimit': 'Above 600 mm width a cabinet always gets two doors.',
 
   'viewport.selected': 'Selection',
+  'viewport.mountedAt': 'Mounted at',
 
   'unit.mm': 'mm',
   'unit.m2': 'm²',

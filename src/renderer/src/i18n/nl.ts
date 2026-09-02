@@ -26,11 +26,14 @@ export const nl = {
   'params.height': 'Hoogte',
   'params.depth': 'Diepte',
   'params.shelves': 'Legplanken',
+  'params.drawers': 'Lades',
+  'params.mountingHeight': 'Ophanghoogte',
   'params.doors': 'Deuren',
   'params.material': 'Korpusmateriaal',
   'params.singleDoorLimit': 'Boven 600 mm breedte altijd twee deuren.',
 
   'viewport.selected': 'Selectie',
+  'viewport.mountedAt': 'Ophanghoogte',
 
   'unit.mm': 'mm',
   'unit.m2': 'm²',

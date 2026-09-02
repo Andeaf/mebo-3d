@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react'
+import { designFootprintSize, designVerticalExtent } from '@core/catalog/registry'
 import { useSelectedCabinet } from '@state/selectors'
 import { useT } from '../i18n'
 
@@ -9,13 +10,22 @@ export function SelectedReadout(): ReactElement | null {
   if (selected === null) {
     return null
   }
-  const { widthMm, heightMm, depthMm } = selected.design.params
+  const { widthMm, depthMm } = designFootprintSize(selected.design)
+  const { bottomMm, topMm } = designVerticalExtent(selected.design)
   return (
     <div className="readout">
       <span className="readout__label">{t('viewport.selected')}</span>
       <span className="readout__dims">
-        {widthMm} × {heightMm} × {depthMm} {t('unit.mm')}
+        {widthMm} × {topMm - bottomMm} × {depthMm} {t('unit.mm')}
       </span>
+      {bottomMm > 0 && (
+        <>
+          <span className="readout__label">{t('viewport.mountedAt')}</span>
+          <span className="readout__dims">
+            {bottomMm} {t('unit.mm')}
+          </span>
+        </>
+      )}
     </div>
   )
 }

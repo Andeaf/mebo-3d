@@ -24,11 +24,14 @@ export const ro: Record<TranslationKey, string> = {
   'params.height': 'Înălțime',
   'params.depth': 'Adâncime',
   'params.shelves': 'Polițe',
+  'params.drawers': 'Sertare',
+  'params.mountingHeight': 'Înălțime de montaj',
   'params.doors': 'Uși',
   'params.material': 'Material corp',
   'params.singleDoorLimit': 'Peste 600 mm lățime corpul primește întotdeauna două uși.',
 
   'viewport.selected': 'Selecție',
+  'viewport.mountedAt': 'Montat la',
 
   'unit.mm': 'mm',
   'unit.m2': 'm²',

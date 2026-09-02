@@ -3,10 +3,17 @@ import {
   BASE_CABINET_LIMITS,
   MAX_SINGLE_DOOR_CABINET_WIDTH_MM,
   type BaseCabinetParams,
+  type CabinetDesign,
   type DoorCount
 } from '@core/cabinet'
 import { CARCASS_THICKNESS_MM } from '@core/catalog/baseCabinet'
+import {
+  DRAWER_CABINET_LIMITS,
+  type DrawerCabinetParams
+} from '@core/catalog/drawerCabinet'
 import type { DesignOfKind } from '@core/catalog/registry'
+import { TALL_CABINET_LIMITS, type TallCabinetParams } from '@core/catalog/tallCabinet'
+import { WALL_CABINET_LIMITS, type WallCabinetParams } from '@core/catalog/wallCabinet'
 import { useSelectedCabinet } from '@state/selectors'
 import { useAppStore } from '@state/store'
 import { useT, type TranslationKey } from '../i18n'
@@ -22,7 +29,8 @@ interface DimensionFieldProps {
 /**
  * Slider + numeric input for one dimension. The slider commits instantly;
  * the numeric input commits on blur/Enter so intermediate keystrokes are
- * not clamped away while typing.
+ * not clamped away while typing. A degenerate limit (min === max, e.g. the
+ * tall cabinet's fixed depth) shows as a read-only value instead.
  */
 function DimensionField({ labelKey, value, min, max, onChange }: DimensionFieldProps): ReactElement {
   const t = useT()
@@ -36,6 +44,19 @@ function DimensionField({ labelKey, value, min, max, onChange }: DimensionFieldP
       }
       setDraft(null)
     }
+  }
+
+  if (min === max) {
+    return (
+      <div className="field">
+        <div className="field__head">
+          <span className="field__label">{t(labelKey)}</span>
+          <span className="field__value-badge">
+            {value} {t('unit.mm')}
+          </span>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -73,6 +94,43 @@ function DimensionField({ labelKey, value, min, max, onChange }: DimensionFieldP
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
         aria-label={t(labelKey)}
+      />
+    </div>
+  )
+}
+
+/** Whole-number picker (shelves, drawers): slider plus the current value. */
+function CountField({
+  labelKey,
+  value,
+  min,
+  max,
+  onChange
+}: {
+  readonly labelKey: TranslationKey
+  readonly value: number
+  readonly min: number
+  readonly max: number
+  readonly onChange: (value: number) => void
+}): ReactElement {
+  const t = useT()
+  return (
+    <div className="field">
+      <div className="field__head">
+        <label className="field__label" htmlFor={`count-${labelKey}`}>
+          {t(labelKey)}
+        </label>
+        <span className="field__value-badge">{value}</span>
+      </div>
+      <input
+        id={`count-${labelKey}`}
+        className="field__slider"
+        type="range"
+        min={min}
+        max={max}
+        step={1}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
       />
     </div>
   )
@@ -163,12 +221,15 @@ function DoorCountField({
   )
 }
 
-/** Field group for the base cabinet; one such group per kind. */
-function BaseCabinetFields({ design }: { readonly design: DesignOfKind<'base-cabinet'> }): ReactElement {
-  const t = useT()
+/** One field group per kind; each builds the next design and hands it to the store. */
+function BaseCabinetFields({
+  design
+}: {
+  readonly design: DesignOfKind<'base-cabinet'>
+}): ReactElement {
   const updateSelectedDesign = useAppStore((state) => state.updateSelectedDesign)
   const params = design.params
-
+  const limits = BASE_CABINET_LIMITS
   const patch = (next: Partial<BaseCabinetParams>): void =>
     updateSelectedDesign({ kind: 'base-cabinet', params: { ...params, ...next } })
 
@@ -177,56 +238,221 @@ function BaseCabinetFields({ design }: { readonly design: DesignOfKind<'base-cab
       <DimensionField
         labelKey="params.width"
         value={params.widthMm}
-        min={BASE_CABINET_LIMITS.widthMm.min}
-        max={BASE_CABINET_LIMITS.widthMm.max}
+        min={limits.widthMm.min}
+        max={limits.widthMm.max}
         onChange={(widthMm) => patch({ widthMm })}
       />
       <DimensionField
         labelKey="params.height"
         value={params.heightMm}
-        min={BASE_CABINET_LIMITS.heightMm.min}
-        max={BASE_CABINET_LIMITS.heightMm.max}
+        min={limits.heightMm.min}
+        max={limits.heightMm.max}
         onChange={(heightMm) => patch({ heightMm })}
       />
       <DimensionField
         labelKey="params.depth"
         value={params.depthMm}
-        min={BASE_CABINET_LIMITS.depthMm.min}
-        max={BASE_CABINET_LIMITS.depthMm.max}
+        min={limits.depthMm.min}
+        max={limits.depthMm.max}
         onChange={(depthMm) => patch({ depthMm })}
       />
-
-      <div className="field">
-        <div className="field__head">
-          <label className="field__label" htmlFor="shelf-count">
-            {t('params.shelves')}
-          </label>
-          <span className="field__value-badge">{params.shelfCount}</span>
-        </div>
-        <input
-          id="shelf-count"
-          className="field__slider"
-          type="range"
-          min={BASE_CABINET_LIMITS.shelfCount.min}
-          max={BASE_CABINET_LIMITS.shelfCount.max}
-          step={1}
-          value={params.shelfCount}
-          onChange={(event) => patch({ shelfCount: Number(event.target.value) })}
-        />
-      </div>
-
+      <CountField
+        labelKey="params.shelves"
+        value={params.shelfCount}
+        min={limits.shelfCount.min}
+        max={limits.shelfCount.max}
+        onChange={(shelfCount) => patch({ shelfCount })}
+      />
       <DoorCountField
         widthMm={params.widthMm}
         doorCount={params.doorCount}
         onChange={(doorCount) => patch({ doorCount })}
       />
-
       <MaterialField
         value={params.carcassMaterialId}
         onChange={(carcassMaterialId) => patch({ carcassMaterialId })}
       />
     </>
   )
+}
+
+function WallCabinetFields({
+  design
+}: {
+  readonly design: DesignOfKind<'wall-cabinet'>
+}): ReactElement {
+  const updateSelectedDesign = useAppStore((state) => state.updateSelectedDesign)
+  const params = design.params
+  const limits = WALL_CABINET_LIMITS
+  const patch = (next: Partial<WallCabinetParams>): void =>
+    updateSelectedDesign({ kind: 'wall-cabinet', params: { ...params, ...next } })
+
+  return (
+    <>
+      <DimensionField
+        labelKey="params.width"
+        value={params.widthMm}
+        min={limits.widthMm.min}
+        max={limits.widthMm.max}
+        onChange={(widthMm) => patch({ widthMm })}
+      />
+      <DimensionField
+        labelKey="params.height"
+        value={params.heightMm}
+        min={limits.heightMm.min}
+        max={limits.heightMm.max}
+        onChange={(heightMm) => patch({ heightMm })}
+      />
+      <DimensionField
+        labelKey="params.depth"
+        value={params.depthMm}
+        min={limits.depthMm.min}
+        max={limits.depthMm.max}
+        onChange={(depthMm) => patch({ depthMm })}
+      />
+      <DimensionField
+        labelKey="params.mountingHeight"
+        value={params.mountingHeightMm}
+        min={limits.mountingHeightMm.min}
+        max={limits.mountingHeightMm.max}
+        onChange={(mountingHeightMm) => patch({ mountingHeightMm })}
+      />
+      <CountField
+        labelKey="params.shelves"
+        value={params.shelfCount}
+        min={limits.shelfCount.min}
+        max={limits.shelfCount.max}
+        onChange={(shelfCount) => patch({ shelfCount })}
+      />
+      <DoorCountField
+        widthMm={params.widthMm}
+        doorCount={params.doorCount}
+        onChange={(doorCount) => patch({ doorCount })}
+      />
+      <MaterialField
+        value={params.carcassMaterialId}
+        onChange={(carcassMaterialId) => patch({ carcassMaterialId })}
+      />
+    </>
+  )
+}
+
+function TallCabinetFields({
+  design
+}: {
+  readonly design: DesignOfKind<'tall-cabinet'>
+}): ReactElement {
+  const updateSelectedDesign = useAppStore((state) => state.updateSelectedDesign)
+  const params = design.params
+  const limits = TALL_CABINET_LIMITS
+  const patch = (next: Partial<TallCabinetParams>): void =>
+    updateSelectedDesign({ kind: 'tall-cabinet', params: { ...params, ...next } })
+
+  return (
+    <>
+      <DimensionField
+        labelKey="params.width"
+        value={params.widthMm}
+        min={limits.widthMm.min}
+        max={limits.widthMm.max}
+        onChange={(widthMm) => patch({ widthMm })}
+      />
+      <DimensionField
+        labelKey="params.height"
+        value={params.heightMm}
+        min={limits.heightMm.min}
+        max={limits.heightMm.max}
+        onChange={(heightMm) => patch({ heightMm })}
+      />
+      {/* Fixed 560 mm for now, so this renders read-only. */}
+      <DimensionField
+        labelKey="params.depth"
+        value={params.depthMm}
+        min={limits.depthMm.min}
+        max={limits.depthMm.max}
+        onChange={(depthMm) => patch({ depthMm })}
+      />
+      <CountField
+        labelKey="params.shelves"
+        value={params.shelfCount}
+        min={limits.shelfCount.min}
+        max={limits.shelfCount.max}
+        onChange={(shelfCount) => patch({ shelfCount })}
+      />
+      <DoorCountField
+        widthMm={params.widthMm}
+        doorCount={params.doorCount}
+        onChange={(doorCount) => patch({ doorCount })}
+      />
+      <MaterialField
+        value={params.carcassMaterialId}
+        onChange={(carcassMaterialId) => patch({ carcassMaterialId })}
+      />
+    </>
+  )
+}
+
+function DrawerCabinetFields({
+  design
+}: {
+  readonly design: DesignOfKind<'drawer-cabinet'>
+}): ReactElement {
+  const updateSelectedDesign = useAppStore((state) => state.updateSelectedDesign)
+  const params = design.params
+  const limits = DRAWER_CABINET_LIMITS
+  const patch = (next: Partial<DrawerCabinetParams>): void =>
+    updateSelectedDesign({ kind: 'drawer-cabinet', params: { ...params, ...next } })
+
+  return (
+    <>
+      <DimensionField
+        labelKey="params.width"
+        value={params.widthMm}
+        min={limits.widthMm.min}
+        max={limits.widthMm.max}
+        onChange={(widthMm) => patch({ widthMm })}
+      />
+      <DimensionField
+        labelKey="params.height"
+        value={params.heightMm}
+        min={limits.heightMm.min}
+        max={limits.heightMm.max}
+        onChange={(heightMm) => patch({ heightMm })}
+      />
+      <DimensionField
+        labelKey="params.depth"
+        value={params.depthMm}
+        min={limits.depthMm.min}
+        max={limits.depthMm.max}
+        onChange={(depthMm) => patch({ depthMm })}
+      />
+      <CountField
+        labelKey="params.drawers"
+        value={params.drawerCount}
+        min={limits.drawerCount.min}
+        max={limits.drawerCount.max}
+        onChange={(drawerCount) => patch({ drawerCount })}
+      />
+      <MaterialField
+        value={params.carcassMaterialId}
+        onChange={(carcassMaterialId) => patch({ carcassMaterialId })}
+      />
+    </>
+  )
+}
+
+/** Kind → field group. Adding a kind adds one case here. */
+function KindFields({ design }: { readonly design: CabinetDesign }): ReactElement {
+  switch (design.kind) {
+    case 'base-cabinet':
+      return <BaseCabinetFields design={design} />
+    case 'wall-cabinet':
+      return <WallCabinetFields design={design} />
+    case 'tall-cabinet':
+      return <TallCabinetFields design={design} />
+    case 'drawer-cabinet':
+      return <DrawerCabinetFields design={design} />
+  }
 }
 
 export function ParameterPanel(): ReactElement {
@@ -242,11 +468,11 @@ export function ParameterPanel(): ReactElement {
     )
   }
 
-  const design = selected.design
   return (
     <section className="panel">
       <h2 className="panel__title">{t('params.title')}</h2>
-      {design.kind === 'base-cabinet' && <BaseCabinetFields design={design} />}
+      <h3 className="panel__kind">{t(`kind.${selected.design.kind}`)}</h3>
+      <KindFields design={selected.design} />
     </section>
   )
 }
