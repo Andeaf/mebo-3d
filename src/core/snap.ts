@@ -3,7 +3,9 @@ import {
   cabinetOverlapsOthers,
   frontDirection,
   frontFaceCoordinate,
+  intervalsOverlapMm,
   placedCabinetRect,
+  placedVerticalInterval,
   rotatedFootprintSize,
   sceneBoundingRect,
   unionRect,
@@ -39,6 +41,23 @@ function rightDirection(rotationDeg: RotationDegrees): { x: number; z: number } 
 }
 
 /**
+ * The vertical gate in front of all the 2D math below: only cabinets whose
+ * height interval overlaps the moving one can block it, snap to it or share a
+ * run with it. A wall cabinet therefore ignores the base cabinets underneath
+ * it entirely — including for alignment (documented simplification).
+ */
+export function verticallyRelevant(
+  moving: PlacedCabinet,
+  others: readonly PlacedCabinet[]
+): PlacedCabinet[] {
+  const interval = placedVerticalInterval(moving)
+  return others.filter(
+    (other) =>
+      other.id !== moving.id && intervalsOverlapMm(interval, placedVerticalInterval(other))
+  )
+}
+
+/**
  * Edge snapping while dragging: when one of the moving cabinet's sides comes
  * within SNAP_DISTANCE_MM of another cabinet's side (and they roughly face
  * each other on the perpendicular axis), shift flush edge-to-edge. A side
@@ -59,10 +78,7 @@ export function resolveSnap(moving: PlacedCabinet, others: readonly PlacedCabine
     }
   }
 
-  for (const other of others) {
-    if (other.id === moving.id) {
-      continue
-    }
+  for (const other of verticallyRelevant(moving, others)) {
     const otherRect = placedCabinetRect(other)
     const overlapX =
       Math.min(movingRect.maxX, otherRect.maxX) - Math.max(movingRect.minX, otherRect.minX)
@@ -138,11 +154,15 @@ export function resolveNonOverlapping(
     positionZ: position.positionZ
   })
 
-  const snapped = resolveSnap(moving, others)
-  if (!cabinetOverlapsOthers(at(snapped), others)) {
+  // Everything below sees only the cabinets at the moving cabinet's own
+  // height; the rest cannot collide with it, so they must not push it around.
+  const relevant = verticallyRelevant(moving, others)
+
+  const snapped = resolveSnap(moving, relevant)
+  if (!cabinetOverlapsOthers(at(snapped), relevant)) {
     return { positionX: snapped.positionX, positionZ: snapped.positionZ }
   }
-  if (!cabinetOverlapsOthers(moving, others)) {
+  if (!cabinetOverlapsOthers(moving, relevant)) {
     return { positionX: moving.positionX, positionZ: moving.positionZ }
   }
 
@@ -151,10 +171,7 @@ export function resolveNonOverlapping(
   const halfD = size.depthMm / 2
   const candidates: FloorPosition[] = []
 
-  for (const other of others) {
-    if (other.id === moving.id) {
-      continue
-    }
+  for (const other of relevant) {
     const rect = placedCabinetRect(other)
     const parallel = other.rotationDeg === moving.rotationDeg
 
@@ -179,7 +196,7 @@ export function resolveNonOverlapping(
   let bestCandidate: FloorPosition | null = null
   let bestDistSq = Infinity
   for (const candidate of candidates) {
-    if (cabinetOverlapsOthers(at(candidate), others)) {
+    if (cabinetOverlapsOthers(at(candidate), relevant)) {
       continue
     }
     const dx = candidate.positionX - moving.positionX
@@ -192,15 +209,16 @@ export function resolveNonOverlapping(
   }
   if (bestCandidate !== null) {
     // Let near-aligned fronts click into line, but never at the cost of an overlap.
-    const refined = resolveSnap(at(bestCandidate), others)
-    if (!cabinetOverlapsOthers(at(refined), others)) {
+    const refined = resolveSnap(at(bestCandidate), relevant)
+    if (!cabinetOverlapsOthers(at(refined), relevant)) {
       return { positionX: refined.positionX, positionZ: refined.positionZ }
     }
     return bestCandidate
   }
 
-  // Deterministic fallback: flush to the right of everything else.
-  const bounds = sceneBoundingRect({ cabinets: [...others] })
+  // Deterministic fallback: flush to the right of everything at this height
+  // (never past the floor run — a wall cabinet is not exiled by one).
+  const bounds = sceneBoundingRect({ cabinets: relevant })
   if (bounds === null) {
     return { positionX: moving.positionX, positionZ: moving.positionZ }
   }
@@ -269,12 +287,16 @@ export interface ConnectedRun {
   /** World axis the run grows along ('x' for rotations 0/180, 'z' for 90/270). */
   readonly axis: 'x' | 'z'
   readonly rotationDeg: RotationDegrees
+  /** Lowest bottom edge among the members: where the measure line hangs. */
+  readonly bottomMm: number
 }
 
 /**
  * The connected run the cabinet belongs to: the chain of same-rotation
  * cabinets standing flush side-to-side with fronts aligned (within
- * FLUSH_TOLERANCE_MM). Used for the total-width measure line.
+ * FLUSH_TOLERANCE_MM) at an overlapping height. Used for the total-width
+ * measure line, so wall cabinets measure among themselves while a base and a
+ * tall cabinet standing flush do form one mixed run.
  */
 export function connectedRun(scene: SceneDesign, cabinetId: string): ConnectedRun | null {
   const start = findPlacedCabinet(scene, cabinetId)
@@ -284,11 +306,14 @@ export function connectedRun(scene: SceneDesign, cabinetId: string): ConnectedRu
   const rotationDeg = start.rotationDeg
   const axis: 'x' | 'z' = facesAlongZ(rotationDeg) ? 'x' : 'z'
   const startFront = frontFaceCoordinate(start)
+  const startInterval = placedVerticalInterval(start)
 
   const candidates = scene.cabinets.filter(
     (cabinet) =>
       cabinet.rotationDeg === rotationDeg &&
-      Math.abs(frontFaceCoordinate(cabinet) - startFront) <= FLUSH_TOLERANCE_MM
+      Math.abs(frontFaceCoordinate(cabinet) - startFront) <= FLUSH_TOLERANCE_MM &&
+      (cabinet.id === start.id ||
+        intervalsOverlapMm(startInterval, placedVerticalInterval(cabinet)))
   )
   const rects = new Map(candidates.map((cabinet) => [cabinet.id, placedCabinetRect(cabinet)]))
 
@@ -333,6 +358,7 @@ export function connectedRun(scene: SceneDesign, cabinetId: string): ConnectedRu
     totalWidthMm: axis === 'x' ? runRect.maxX - runRect.minX : runRect.maxZ - runRect.minZ,
     runRect,
     axis,
-    rotationDeg
+    rotationDeg,
+    bottomMm: Math.min(...memberCabinets.map((cabinet) => placedVerticalInterval(cabinet).bottomMm))
   }
 }

@@ -1,5 +1,9 @@
 import type { CabinetDesign } from './cabinet'
-import { designFootprintSize } from './catalog/registry'
+import {
+  designFootprintSize,
+  designVerticalExtent,
+  type VerticalExtentMm
+} from './catalog/registry'
 import type { PlacedCabinet, RotationDegrees, SceneDesign } from './scene'
 
 export interface FootprintSize {
@@ -77,6 +81,15 @@ export function frontFaceCoordinate(placed: PlacedCabinet): number {
   }
 }
 
+/**
+ * The vertical slice of space the carcass occupies, derived from the design
+ * (a wall cabinet reads its own mounting-height param). Placements never
+ * store an elevation, so this is the only way to ask how high a cabinet sits.
+ */
+export function placedVerticalInterval(placed: PlacedCabinet): VerticalExtentMm {
+  return designVerticalExtent(placed.design)
+}
+
 /** Flush contact is NOT overlap: rects must intrude beyond this on both axes. */
 export const OVERLAP_EPSILON_MM = 0.5
 
@@ -87,22 +100,35 @@ export function rectsOverlap(a: FloorRect, b: FloorRect): boolean {
   )
 }
 
+/** Same epsilon rule vertically: a cabinet resting exactly on another is not overlap. */
+export function intervalsOverlapMm(a: VerticalExtentMm, b: VerticalExtentMm): boolean {
+  return Math.min(a.topMm, b.topMm) - Math.max(a.bottomMm, b.bottomMm) > OVERLAP_EPSILON_MM
+}
+
+/**
+ * Two cabinets collide only when they share floor AND height: a wall cabinet
+ * hanging over a base run occupies the same rect but a disjoint interval.
+ */
+export function placedCabinetsCollide(a: PlacedCabinet, b: PlacedCabinet): boolean {
+  return (
+    rectsOverlap(placedCabinetRect(a), placedCabinetRect(b)) &&
+    intervalsOverlapMm(placedVerticalInterval(a), placedVerticalInterval(b))
+  )
+}
+
 export function cabinetOverlapsOthers(
   placed: PlacedCabinet,
   others: readonly PlacedCabinet[]
 ): boolean {
-  const rect = placedCabinetRect(placed)
-  return others.some(
-    (other) => other.id !== placed.id && rectsOverlap(rect, placedCabinetRect(other))
-  )
+  return others.some((other) => other.id !== placed.id && placedCabinetsCollide(placed, other))
 }
 
 export function firstOverlappingPair(scene: SceneDesign): readonly [string, string] | null {
-  const rects = scene.cabinets.map((cabinet) => ({ id: cabinet.id, rect: placedCabinetRect(cabinet) }))
-  for (let i = 0; i < rects.length; i += 1) {
-    for (let j = i + 1; j < rects.length; j += 1) {
-      if (rectsOverlap(rects[i].rect, rects[j].rect)) {
-        return [rects[i].id, rects[j].id]
+  const cabinets = scene.cabinets
+  for (let i = 0; i < cabinets.length; i += 1) {
+    for (let j = i + 1; j < cabinets.length; j += 1) {
+      if (placedCabinetsCollide(cabinets[i], cabinets[j])) {
+        return [cabinets[i].id, cabinets[j].id]
       }
     }
   }
