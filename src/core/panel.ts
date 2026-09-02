@@ -10,6 +10,11 @@ export type PanelRole =
   | 'back'
   | 'shelf'
   | 'door'
+  | 'drawer-front'
+  | 'drawer-box-side'
+  | 'drawer-box-front'
+  | 'drawer-box-back'
+  | 'drawer-box-bottom'
 
 /**
  * Edges of the rectangular cut piece: two edges run along `lengthMm`,

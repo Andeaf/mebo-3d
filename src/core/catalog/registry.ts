@@ -8,6 +8,13 @@ import {
 // import here would close a runtime cycle.
 import type { FootprintSize } from '../footprint'
 import { generateBaseCabinet } from './baseCabinet'
+import {
+  clampDrawerCabinetParams,
+  createDefaultDrawerCabinetParams,
+  generateDrawerCabinet,
+  validateDrawerCabinetParams,
+  type DrawerCabinetParams
+} from './drawerCabinet'
 import type { CabinetBuild } from './parts'
 import {
   clampTallCabinetParams,
@@ -36,6 +43,7 @@ export interface CabinetParamsByKind {
   'base-cabinet': BaseCabinetParams
   'wall-cabinet': WallCabinetParams
   'tall-cabinet': TallCabinetParams
+  'drawer-cabinet': DrawerCabinetParams
 }
 
 export type CabinetKind = keyof CabinetParamsByKind
@@ -113,6 +121,19 @@ export const CABINET_REGISTRY: { readonly [K in CabinetKind]: CabinetKindDefinit
     generate: generateTallCabinet,
     footprintSize: (params) => ({ widthMm: params.widthMm, depthMm: params.depthMm }),
     verticalExtent: (params) => ({ bottomMm: 0, topMm: params.heightMm })
+  },
+  'drawer-cabinet': {
+    kind: 'drawer-cabinet',
+    createDefaultDesign: () => ({
+      kind: 'drawer-cabinet',
+      params: createDefaultDrawerCabinetParams()
+    }),
+    designOf: (params) => ({ kind: 'drawer-cabinet', params }),
+    clampParams: clampDrawerCabinetParams,
+    validateParams: validateDrawerCabinetParams,
+    generate: generateDrawerCabinet,
+    footprintSize: (params) => ({ widthMm: params.widthMm, depthMm: params.depthMm }),
+    verticalExtent: (params) => ({ bottomMm: 0, topMm: params.heightMm })
   }
 }
 
@@ -120,7 +141,8 @@ export const CABINET_REGISTRY: { readonly [K in CabinetKind]: CabinetKindDefinit
 export const CABINET_KINDS: readonly CabinetKind[] = [
   'base-cabinet',
   'wall-cabinet',
-  'tall-cabinet'
+  'tall-cabinet',
+  'drawer-cabinet'
 ]
 
 type DesignVisitor<R> = <K extends CabinetKind>(
@@ -140,6 +162,8 @@ function visitDesign<R>(design: CabinetDesign, visit: DesignVisitor<R>): R {
     case 'wall-cabinet':
       return visit(CABINET_REGISTRY[design.kind], design.params)
     case 'tall-cabinet':
+      return visit(CABINET_REGISTRY[design.kind], design.params)
+    case 'drawer-cabinet':
       return visit(CABINET_REGISTRY[design.kind], design.params)
   }
 }
