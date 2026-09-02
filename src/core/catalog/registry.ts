@@ -10,6 +10,13 @@ import type { FootprintSize } from '../footprint'
 import { generateBaseCabinet } from './baseCabinet'
 import type { CabinetBuild } from './parts'
 import {
+  clampTallCabinetParams,
+  createDefaultTallCabinetParams,
+  generateTallCabinet,
+  validateTallCabinetParams,
+  type TallCabinetParams
+} from './tallCabinet'
+import {
   clampWallCabinetParams,
   createDefaultWallCabinetParams,
   generateWallCabinet,
@@ -28,6 +35,7 @@ import {
 export interface CabinetParamsByKind {
   'base-cabinet': BaseCabinetParams
   'wall-cabinet': WallCabinetParams
+  'tall-cabinet': TallCabinetParams
 }
 
 export type CabinetKind = keyof CabinetParamsByKind
@@ -92,11 +100,28 @@ export const CABINET_REGISTRY: { readonly [K in CabinetKind]: CabinetKindDefinit
       bottomMm: params.mountingHeightMm,
       topMm: params.mountingHeightMm + params.heightMm
     })
+  },
+  'tall-cabinet': {
+    kind: 'tall-cabinet',
+    createDefaultDesign: () => ({
+      kind: 'tall-cabinet',
+      params: createDefaultTallCabinetParams()
+    }),
+    designOf: (params) => ({ kind: 'tall-cabinet', params }),
+    clampParams: clampTallCabinetParams,
+    validateParams: validateTallCabinetParams,
+    generate: generateTallCabinet,
+    footprintSize: (params) => ({ widthMm: params.widthMm, depthMm: params.depthMm }),
+    verticalExtent: (params) => ({ bottomMm: 0, topMm: params.heightMm })
   }
 }
 
 /** Stable order for the UI type picker. */
-export const CABINET_KINDS: readonly CabinetKind[] = ['base-cabinet', 'wall-cabinet']
+export const CABINET_KINDS: readonly CabinetKind[] = [
+  'base-cabinet',
+  'wall-cabinet',
+  'tall-cabinet'
+]
 
 type DesignVisitor<R> = <K extends CabinetKind>(
   definition: CabinetKindDefinition<K>,
@@ -113,6 +138,8 @@ function visitDesign<R>(design: CabinetDesign, visit: DesignVisitor<R>): R {
     case 'base-cabinet':
       return visit(CABINET_REGISTRY[design.kind], design.params)
     case 'wall-cabinet':
+      return visit(CABINET_REGISTRY[design.kind], design.params)
+    case 'tall-cabinet':
       return visit(CABINET_REGISTRY[design.kind], design.params)
   }
 }
