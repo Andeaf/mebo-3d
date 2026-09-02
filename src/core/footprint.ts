@@ -19,6 +19,12 @@ export interface FloorRect {
   readonly maxZ: number
 }
 
+/** The center of a footprint on the floor plane, world mm. */
+export interface FloorPosition {
+  readonly positionX: number
+  readonly positionZ: number
+}
+
 /**
  * Carcass footprint only. Overlay doors protrude ~18 mm in front of the
  * carcass and are excluded from overlap/snap on purpose: side-by-side

@@ -9,6 +9,7 @@ import {
   rotatedFootprintSize,
   sceneBoundingRect,
   unionRect,
+  type FloorPosition,
   type FloorRect
 } from './footprint'
 import type { CabinetDesign } from './cabinet'
@@ -25,10 +26,9 @@ export interface SnapResult {
   readonly snapped: boolean
 }
 
-export interface FloorPosition {
-  readonly positionX: number
-  readonly positionZ: number
-}
+// Lives with the other floor-plane geometry; re-exported so the placement API
+// stays one import site.
+export type { FloorPosition } from './footprint'
 
 function facesAlongZ(rotationDeg: RotationDegrees): boolean {
   return rotationDeg === 0 || rotationDeg === 180
