@@ -57,6 +57,13 @@
       "category": "hardware",
       "priceUnit": "piece",
       "pricePerUnitEur": 5.9
+    },
+    {
+      "id": "hanging-bracket",
+      "name": "Ophangbeugel",
+      "category": "hardware",
+      "priceUnit": "piece",
+      "pricePerUnitEur": 1.6
     }
   ]
 }

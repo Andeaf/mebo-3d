@@ -9,6 +9,13 @@ import {
 import type { FootprintSize } from '../footprint'
 import { generateBaseCabinet } from './baseCabinet'
 import type { CabinetBuild } from './parts'
+import {
+  clampWallCabinetParams,
+  createDefaultWallCabinetParams,
+  generateWallCabinet,
+  validateWallCabinetParams,
+  type WallCabinetParams
+} from './wallCabinet'
 
 /**
  * The catalog registry: the one place that knows which cabinet kinds exist.
@@ -20,6 +27,7 @@ import type { CabinetBuild } from './parts'
 
 export interface CabinetParamsByKind {
   'base-cabinet': BaseCabinetParams
+  'wall-cabinet': WallCabinetParams
 }
 
 export type CabinetKind = keyof CabinetParamsByKind
@@ -68,11 +76,27 @@ export const CABINET_REGISTRY: { readonly [K in CabinetKind]: CabinetKindDefinit
     generate: generateBaseCabinet,
     footprintSize: (params) => ({ widthMm: params.widthMm, depthMm: params.depthMm }),
     verticalExtent: (params) => ({ bottomMm: 0, topMm: params.heightMm })
+  },
+  'wall-cabinet': {
+    kind: 'wall-cabinet',
+    createDefaultDesign: () => ({
+      kind: 'wall-cabinet',
+      params: createDefaultWallCabinetParams()
+    }),
+    designOf: (params) => ({ kind: 'wall-cabinet', params }),
+    clampParams: clampWallCabinetParams,
+    validateParams: validateWallCabinetParams,
+    generate: generateWallCabinet,
+    footprintSize: (params) => ({ widthMm: params.widthMm, depthMm: params.depthMm }),
+    verticalExtent: (params) => ({
+      bottomMm: params.mountingHeightMm,
+      topMm: params.mountingHeightMm + params.heightMm
+    })
   }
 }
 
 /** Stable order for the UI type picker. */
-export const CABINET_KINDS: readonly CabinetKind[] = ['base-cabinet']
+export const CABINET_KINDS: readonly CabinetKind[] = ['base-cabinet', 'wall-cabinet']
 
 type DesignVisitor<R> = <K extends CabinetKind>(
   definition: CabinetKindDefinition<K>,
@@ -87,6 +111,8 @@ type DesignVisitor<R> = <K extends CabinetKind>(
 function visitDesign<R>(design: CabinetDesign, visit: DesignVisitor<R>): R {
   switch (design.kind) {
     case 'base-cabinet':
+      return visit(CABINET_REGISTRY[design.kind], design.params)
+    case 'wall-cabinet':
       return visit(CABINET_REGISTRY[design.kind], design.params)
   }
 }

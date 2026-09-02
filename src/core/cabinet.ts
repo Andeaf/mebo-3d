@@ -64,6 +64,30 @@ export function validateDoorCountForWidth(widthMm: number, doorCount: DoorCount)
   ]
 }
 
+/** An inclusive numeric range from a kind's `*_LIMITS` table. */
+export interface NumericLimit {
+  readonly min: number
+  readonly max: number
+}
+
+/** Rounds to whole millimeters and forces the value into its range. */
+export function clampToLimit(value: number, limit: NumericLimit): number {
+  return Math.min(limit.max, Math.max(limit.min, Math.round(value)))
+}
+
+/** Collects an out-of-range violation per checked param (shared by all kinds). */
+export function limitViolations(
+  checks: readonly (readonly [label: string, value: number, limit: NumericLimit])[]
+): string[] {
+  const errors: string[] = []
+  for (const [label, value, limit] of checks) {
+    if (!Number.isFinite(value) || value < limit.min || value > limit.max) {
+      errors.push(`${label} must be between ${limit.min} and ${limit.max} (got ${value})`)
+    }
+  }
+  return errors
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
@@ -86,16 +110,12 @@ export function clampBaseCabinetParams(params: BaseCabinetParams): BaseCabinetPa
 /** Returns a list of violations (empty when the params are valid). */
 export function validateBaseCabinetParams(params: BaseCabinetParams): string[] {
   const limits = BASE_CABINET_LIMITS
-  const errors: string[] = []
-  const checkRange = (label: string, value: number, range: { min: number; max: number }): void => {
-    if (!Number.isFinite(value) || value < range.min || value > range.max) {
-      errors.push(`${label} must be between ${range.min} and ${range.max} (got ${value})`)
-    }
-  }
-  checkRange('widthMm', params.widthMm, limits.widthMm)
-  checkRange('heightMm', params.heightMm, limits.heightMm)
-  checkRange('depthMm', params.depthMm, limits.depthMm)
-  checkRange('shelfCount', params.shelfCount, limits.shelfCount)
+  const errors = limitViolations([
+    ['widthMm', params.widthMm, limits.widthMm],
+    ['heightMm', params.heightMm, limits.heightMm],
+    ['depthMm', params.depthMm, limits.depthMm],
+    ['shelfCount', params.shelfCount, limits.shelfCount]
+  ])
   if (!Number.isInteger(params.shelfCount)) {
     errors.push(`shelfCount must be an integer (got ${params.shelfCount})`)
   }
