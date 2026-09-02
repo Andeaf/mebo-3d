@@ -16,7 +16,10 @@ import {
   clampCenterIntoRoom,
   roomContainsRect,
   roomInteriorRect,
-  type RoomDesign
+  roomWallSegments,
+  wallInteriorNormal,
+  type RoomDesign,
+  type WallSegment
 } from './room'
 import { findPlacedCabinet, type PlacedCabinet, type RotationDegrees, type SceneDesign } from './scene'
 
@@ -60,6 +63,46 @@ export function verticallyRelevant(
     (other) =>
       other.id !== moving.id && intervalsOverlapMm(interval, placedVerticalInterval(other))
   )
+}
+
+/**
+ * Signed shift along the wall's own axis that puts the cabinet's near face
+ * flush against that wall's inner face.
+ */
+export function wallFlushDelta(wall: WallSegment, rect: FloorRect): number {
+  if (wall.axis === 'x') {
+    return wall.interiorSign === 1 ? wall.faceMm - rect.minX : wall.faceMm - rect.maxX
+  }
+  return wall.interiorSign === 1 ? wall.faceMm - rect.minZ : wall.faceMm - rect.maxZ
+}
+
+/**
+ * Does the cabinet sit across the wall segment, along the segment's own
+ * length? Same tolerance as the cabinet snap — and the reason a polygon room
+ * needs no new code: a segment only attracts cabinets standing in front of it.
+ */
+export function wallSpanOverlaps(wall: WallSegment, rect: FloorRect): boolean {
+  const min = wall.axis === 'x' ? rect.minZ : rect.minX
+  const max = wall.axis === 'x' ? rect.maxZ : rect.maxX
+  return Math.min(max, wall.toMm) - Math.max(min, wall.fromMm) > -SNAP_DISTANCE_MM
+}
+
+/**
+ * The rotation that puts the cabinet's BACK against this wall: its front then
+ * points along the wall's interior normal, into the room.
+ */
+export function rotationFacingAwayFrom(wall: WallSegment): RotationDegrees {
+  const normal = wallInteriorNormal(wall)
+  if (normal.z === 1) {
+    return 0
+  }
+  if (normal.x === 1) {
+    return 90
+  }
+  if (normal.z === -1) {
+    return 180
+  }
+  return 270
 }
 
 /**
@@ -141,6 +184,284 @@ export function resolveSnap(moving: PlacedCabinet, others: readonly PlacedCabine
   }
 }
 
+/** A pose offered to the snap competition: a shift plus the rotation it assumes. */
+interface PoseOption {
+  readonly dx: number
+  readonly dz: number
+  readonly rotationDeg: RotationDegrees
+}
+
+/**
+ * How good a resulting pose is, compared field by field in this order:
+ *
+ * 1. `sideWalls` — how many walls it meets with a side instead of its back.
+ *    Fewer is better: "back to the wall" is what a kitchen looks like, so a
+ *    pose that turns to face the room beats one that merely touches.
+ * 2. `contacts` — how many walls and neighbours it ends up flush with. More is
+ *    better, so landing in a corner beats landing along one wall, and going
+ *    flush against a wall AND a neighbour beats either alone.
+ * 3. `distanceSq` — how far the cabinet had to move. Smaller is better: this
+ *    is the rule that decides between a wall and a neighbour competing for the
+ *    same spot.
+ * 4. `rotating` — a turn only happens when it earned its place above.
+ */
+interface PoseScore {
+  readonly sideWalls: number
+  readonly contacts: number
+  readonly distanceSq: number
+  readonly rotating: boolean
+}
+
+function isBetterPose(candidate: PoseScore, incumbent: PoseScore | null): boolean {
+  if (incumbent === null) {
+    return true
+  }
+  if (candidate.sideWalls !== incumbent.sideWalls) {
+    return candidate.sideWalls < incumbent.sideWalls
+  }
+  if (candidate.contacts !== incumbent.contacts) {
+    return candidate.contacts > incumbent.contacts
+  }
+  if (candidate.distanceSq !== incumbent.distanceSq) {
+    return candidate.distanceSq < incumbent.distanceSq
+  }
+  return incumbent.rotating && !candidate.rotating
+}
+
+/** Two footprints standing side by side with no gap worth mentioning. */
+function rectsAreFlush(a: FloorRect, b: FloorRect): boolean {
+  const gapX = Math.max(b.minX - a.maxX, a.minX - b.maxX)
+  const gapZ = Math.max(b.minZ - a.maxZ, a.minZ - b.maxZ)
+  const overlapX = Math.min(a.maxX, b.maxX) - Math.max(a.minX, b.minX)
+  const overlapZ = Math.min(a.maxZ, b.maxZ) - Math.max(a.minZ, b.minZ)
+  return (
+    (Math.abs(gapX) <= FLUSH_TOLERANCE_MM && overlapZ > FLUSH_TOLERANCE_MM) ||
+    (Math.abs(gapZ) <= FLUSH_TOLERANCE_MM && overlapX > FLUSH_TOLERANCE_MM)
+  )
+}
+
+/**
+ * The one snap competition. For each rotation on offer it collects the
+ * candidate shifts per axis — flush to a wall, flush to a neighbour (via the
+ * unchanged `resolveSnap`), or back inside the room — and offers every
+ * combination of them. Smallest total displacement wins, and only FREE
+ * candidates (overlap-free and inside the room) may win at all, so a drag
+ * never sticks to a blocked snap while a slightly farther legal one exists.
+ *
+ * Corners come out of the (wall-X, wall-Z) combination, and "against the wall,
+ * beside a neighbour" out of (cabinet-X, wall-Z) — no special cases.
+ */
+function bestFreePose(
+  moving: PlacedCabinet,
+  relevant: readonly PlacedCabinet[],
+  room: RoomDesign,
+  rotations: readonly RotationDegrees[]
+): PoseOption | null {
+  const walls = roomWallSegments(room)
+  let best: PoseOption | null = null
+  let bestScore: PoseScore | null = null
+
+  const consider = (dx: number, dz: number, rotationDeg: RotationDegrees): void => {
+    const rotating = rotationDeg !== moving.rotationDeg
+    if (dx === 0 && dz === 0 && !rotating) {
+      return // the attempted pose itself is not a snap
+    }
+    const candidate: PlacedCabinet = {
+      ...moving,
+      positionX: moving.positionX + dx,
+      positionZ: moving.positionZ + dz,
+      rotationDeg
+    }
+    const rect = placedCabinetRect(candidate)
+    // Only FREE candidates may win, so a drag never sticks to a blocked snap
+    // while a slightly farther legal one exists.
+    if (!roomContainsRect(room, rect) || cabinetOverlapsOthers(candidate, relevant)) {
+      return
+    }
+
+    // Score the RESULTING pose, not the option that produced it: whether the
+    // cabinet ends up backed onto a wall is a fact about where it stands.
+    let sideWalls = 0
+    let contacts = 0
+    for (const wall of walls) {
+      if (
+        !wallSpanOverlaps(wall, rect) ||
+        Math.abs(wallFlushDelta(wall, rect)) > FLUSH_TOLERANCE_MM
+      ) {
+        continue
+      }
+      contacts += 1
+      if (rotationDeg !== rotationFacingAwayFrom(wall)) {
+        sideWalls += 1
+      }
+    }
+    for (const other of relevant) {
+      if (rectsAreFlush(rect, placedCabinetRect(other))) {
+        contacts += 1
+      }
+    }
+
+    const score: PoseScore = { sideWalls, contacts, distanceSq: dx * dx + dz * dz, rotating }
+    if (isBetterPose(score, bestScore)) {
+      bestScore = score
+      best = { dx, dz, rotationDeg }
+    }
+  }
+
+  for (const rotationDeg of rotations) {
+    const size = rotatedFootprintSize(cabinetFootprintSize(moving.design), rotationDeg)
+    // Staying inside the room comes first: a cabinet pushed past a wall glides
+    // along it instead of freezing, and every snap below starts from there.
+    const base = clampCenterIntoRoom(room, moving, size)
+    const baseDx = base.positionX - moving.positionX
+    const baseDz = base.positionZ - moving.positionZ
+    const rotated: PlacedCabinet = {
+      ...moving,
+      positionX: base.positionX,
+      positionZ: base.positionZ,
+      rotationDeg
+    }
+    const rect = placedCabinetRect(rotated)
+
+    // Nearest flush shift towards a wall, independently per axis — this is
+    // what makes a corner just the combination of two of them.
+    let wallDx: number | null = null
+    let wallDz: number | null = null
+    for (const wall of walls) {
+      if (!wallSpanOverlaps(wall, rect)) {
+        continue
+      }
+      const delta = wallFlushDelta(wall, rect)
+      if (Math.abs(delta) > SNAP_DISTANCE_MM) {
+        continue
+      }
+      if (wall.axis === 'x') {
+        wallDx = wallDx === null || Math.abs(delta) < Math.abs(wallDx) ? delta : wallDx
+      } else {
+        wallDz = wallDz === null || Math.abs(delta) < Math.abs(wallDz) ? delta : wallDz
+      }
+    }
+
+    // The neighbour snap stays ATOMIC: its side flush and its front alignment
+    // are one solution, and offering the alignment on its own would let a 5 mm
+    // nudge outrank the 20 mm flush it belongs to.
+    const neighbour = resolveSnap(rotated, relevant)
+    const cabDx = neighbour.snapped ? neighbour.positionX - base.positionX : null
+    const cabDz = neighbour.snapped ? neighbour.positionZ - base.positionZ : null
+
+    const options: (readonly [number, number])[] = []
+    // Staying inside the room, with no snap on top, is only an option at the
+    // rotation the cabinet already has — turning is never a no-op.
+    if (rotationDeg === moving.rotationDeg) {
+      options.push([0, 0])
+    }
+    if (cabDx !== null && cabDz !== null) {
+      options.push([cabDx, cabDz])
+    }
+    if (wallDx !== null) {
+      options.push([wallDx, 0])
+    }
+    if (wallDz !== null) {
+      options.push([0, wallDz])
+    }
+    if (wallDx !== null && wallDz !== null) {
+      options.push([wallDx, wallDz]) // the corner
+    }
+    // One axis from a wall, the other from a neighbour.
+    if (wallDx !== null && cabDz !== null) {
+      options.push([wallDx, cabDz])
+    }
+    if (cabDx !== null && wallDz !== null) {
+      options.push([cabDx, wallDz])
+    }
+
+    for (const [dx, dz] of options) {
+      consider(baseDx + dx, baseDz + dz, rotationDeg)
+    }
+  }
+
+  return best
+}
+
+/**
+ * Rotations worth offering: the current one, plus any wall the back could go
+ * against. Proximity is measured from the position clamped into the room for
+ * that rotation — a pointer dragged well past a wall is still "at" it.
+ */
+function candidateRotations(moving: PlacedCabinet, room: RoomDesign): RotationDegrees[] {
+  const rotations: RotationDegrees[] = [moving.rotationDeg]
+  for (const wall of roomWallSegments(room)) {
+    const rotationDeg = rotationFacingAwayFrom(wall)
+    if (rotations.includes(rotationDeg)) {
+      continue
+    }
+    const size = rotatedFootprintSize(cabinetFootprintSize(moving.design), rotationDeg)
+    const base = clampCenterIntoRoom(room, moving, size)
+    const rect = placedCabinetRect({ ...moving, ...base, rotationDeg })
+    if (wallSpanOverlaps(wall, rect) && Math.abs(wallFlushDelta(wall, rect)) <= SNAP_DISTANCE_MM) {
+      rotations.push(rotationDeg)
+    }
+  }
+  return rotations
+}
+
+/**
+ * Position-only snapping against neighbours AND walls at the cabinet's current
+ * rotation. Used by every programmatic placement, which must never rotate.
+ */
+export function resolveSnapInRoom(
+  moving: PlacedCabinet,
+  others: readonly PlacedCabinet[],
+  room: RoomDesign
+): SnapResult {
+  const pose = bestFreePose(moving, verticallyRelevant(moving, others), room, [moving.rotationDeg])
+  if (pose === null) {
+    return { positionX: moving.positionX, positionZ: moving.positionZ, snapped: false }
+  }
+  return {
+    positionX: moving.positionX + pose.dx,
+    positionZ: moving.positionZ + pose.dz,
+    snapped: true
+  }
+}
+
+export interface DragPose extends FloorPosition {
+  readonly rotationDeg: RotationDegrees
+  readonly snapped: boolean
+}
+
+/**
+ * The live-drag pose: like `resolveSnapInRoom`, but a wall may also turn the
+ * cabinet so its back goes against that wall — the one place in the codebase
+ * where snapping changes rotation, and only while the user is dragging.
+ */
+export function resolveDragPose(
+  moving: PlacedCabinet,
+  others: readonly PlacedCabinet[],
+  room: RoomDesign
+): DragPose {
+  const pose = bestFreePose(
+    moving,
+    verticallyRelevant(moving, others),
+    room,
+    candidateRotations(moving, room)
+  )
+  if (pose === null) {
+    return {
+      positionX: moving.positionX,
+      positionZ: moving.positionZ,
+      rotationDeg: moving.rotationDeg,
+      snapped: false
+    }
+  }
+  return {
+    positionX: moving.positionX + pose.dx,
+    positionZ: moving.positionZ + pose.dz,
+    rotationDeg: pose.rotationDeg,
+    snapped: true
+  }
+}
+
 /**
  * Resolves a drop/programmatic placement to the nearest FREE position, where
  * free means overlap-free AND inside the room: the attempted position is first
@@ -181,7 +502,7 @@ export function resolveNonOverlapping(
   // measures its distance from there.
   const attempted = clampCenterIntoRoom(room, moving, size)
 
-  const snapped = resolveSnap(at(attempted), relevant)
+  const snapped = resolveSnapInRoom(at(attempted), relevant, room)
   if (free(snapped)) {
     return { positionX: snapped.positionX, positionZ: snapped.positionZ }
   }
@@ -216,6 +537,21 @@ export function resolveNonOverlapping(
     }
   }
 
+  // Flush against each wall, and in each corner: a cabinet pushed off its spot
+  // should end up along a wall rather than adrift in the middle of the room.
+  const interior = roomInteriorRect(room)
+  const wallX = [interior.minX + halfW, interior.maxX - halfW]
+  const wallZ = [interior.minZ + halfD, interior.maxZ - halfD]
+  for (const x of wallX) {
+    addCandidate({ positionX: x, positionZ: attempted.positionZ })
+    for (const z of wallZ) {
+      addCandidate({ positionX: x, positionZ: z })
+    }
+  }
+  for (const z of wallZ) {
+    addCandidate({ positionX: attempted.positionX, positionZ: z })
+  }
+
   // Flush to the right of everything at this height, still inside the room.
   const bounds = unionRect(relevant.map(placedCabinetRect))
   if (bounds !== null) {
@@ -239,8 +575,8 @@ export function resolveNonOverlapping(
   if (bestCandidate === null) {
     return null
   }
-  // Let near-aligned fronts click into line, but never at the cost of freeness.
-  const refined = resolveSnap(at(bestCandidate), relevant)
+  // Let near-aligned fronts and walls click into line, never at the cost of freeness.
+  const refined = resolveSnapInRoom(at(bestCandidate), relevant, room)
   return free(refined) ? { positionX: refined.positionX, positionZ: refined.positionZ } : bestCandidate
 }
 
