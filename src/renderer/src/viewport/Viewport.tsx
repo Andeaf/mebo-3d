@@ -4,11 +4,12 @@ import { ContactShadows, Grid, OrbitControls } from '@react-three/drei'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { PerspectiveCamera, Plane, Raycaster, Vector2, Vector3 } from 'three'
 import { designVerticalExtent } from '@core/catalog/registry'
-import { sceneBoundingRect } from '@core/footprint'
+import { roomInteriorRect } from '@core/room'
 import type { PlacedCabinet } from '@core/scene'
 import { useAppStore } from '@state/store'
 import { MeasureLine } from './MeasureLine'
 import { PlacedCabinetMesh } from './PlacedCabinetMesh'
+import { RoomView } from './RoomView'
 
 /** Horizontal drag plane at a given height (meters); y = 0 for floor kinds. */
 function planeAtHeight(heightMeters: number): Plane {
@@ -115,21 +116,22 @@ function SceneContents(): ReactElement {
     }
   }, [dragging, moveSelected, dropSelected])
 
+  // Runs on mount too (nonce 0), so the room is framed from the first frame:
+  // OrbitControls does not apply its target prop before the first render.
   useEffect(() => {
-    if (fitViewNonce === 0) {
-      return
-    }
     const currentScene = useAppStore.getState().scene
-    const bounds = sceneBoundingRect(currentScene)
     const controls = controlsRef.current
-    if (bounds === null || controls === null || !(camera instanceof PerspectiveCamera)) {
+    if (controls === null || !(camera instanceof PerspectiveCamera)) {
       return
     }
-    // Vertical extent of the whole scene: a wall cabinet counts from where it
-    // hangs, not from the floor.
-    const extents = currentScene.cabinets.map((cabinet) => designVerticalExtent(cabinet.design))
-    const minBottomMm = Math.min(...extents.map((extent) => extent.bottomMm))
-    const maxTopMm = Math.max(...extents.map((extent) => extent.topMm))
+    // Frame the room: every cabinet is inside it by invariant, so this always
+    // contains the furniture too — including anything hanging on a wall.
+    const bounds = roomInteriorRect(currentScene.room)
+    const minBottomMm = 0
+    const maxTopMm = Math.max(
+      currentScene.room.wallHeightMm,
+      ...currentScene.cabinets.map((cabinet) => designVerticalExtent(cabinet.design).topMm)
+    )
     const center = new Vector3(
       (bounds.minX + bounds.maxX) / 2000,
       (minBottomMm + maxTopMm) / 2000,
@@ -164,6 +166,8 @@ function SceneContents(): ReactElement {
         />
       ))}
 
+      <RoomView room={scene.room} />
+
       <MeasureLine />
 
       {/* Invisible catcher below the grid: clicking empty floor deselects. */}
@@ -181,22 +185,23 @@ function SceneContents(): ReactElement {
       </mesh>
 
       <ContactShadows position={[0, 0.001, 0]} opacity={0.35} scale={6} blur={2.4} far={1.4} />
+      {/* Confined to the room floor: the grid stops where the walls start. */}
       <Grid
         position={[0, 0, 0]}
+        args={[scene.room.widthMm / 1000, scene.room.lengthMm / 1000]}
         cellSize={0.1}
         cellThickness={0.6}
         cellColor="#3a3e46"
         sectionSize={0.5}
         sectionThickness={1}
         sectionColor="#4c5261"
-        fadeDistance={11}
+        fadeDistance={30}
         fadeStrength={1}
-        infiniteGrid
       />
       <OrbitControls
         ref={controlsRef}
         makeDefault
-        target={[0, 0.36, 0]}
+        target={[0, 0.9, 0]}
         enableDamping
         minDistance={0.4}
         maxDistance={12}
@@ -228,7 +233,9 @@ export function Viewport(): ReactElement {
   }, [rotateSelected])
 
   return (
-    <Canvas camera={{ position: [1.9, 1.4, 2.4], fov: 42 }}>
+    // Outside the default room's front-right corner, so the near walls hide
+    // themselves; the fit-view on mount then frames whatever room is loaded.
+    <Canvas camera={{ position: [4.4, 3.3, 5.4], fov: 42 }}>
       <SceneContents />
     </Canvas>
   )
