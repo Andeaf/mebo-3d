@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from 'react'
+import type { ReactElement } from 'react'
 import {
   BASE_CABINET_LIMITS,
   MAX_SINGLE_DOOR_CABINET_WIDTH_MM,
@@ -17,87 +17,7 @@ import { WALL_CABINET_LIMITS, type WallCabinetParams } from '@core/catalog/wallC
 import { useSelectedCabinet } from '@state/selectors'
 import { useAppStore } from '@state/store'
 import { useT, type TranslationKey } from '../i18n'
-
-interface DimensionFieldProps {
-  readonly labelKey: TranslationKey
-  readonly value: number
-  readonly min: number
-  readonly max: number
-  readonly onChange: (value: number) => void
-}
-
-/**
- * Slider + numeric input for one dimension. The slider commits instantly;
- * the numeric input commits on blur/Enter so intermediate keystrokes are
- * not clamped away while typing. A degenerate limit (min === max, e.g. the
- * tall cabinet's fixed depth) shows as a read-only value instead.
- */
-function DimensionField({ labelKey, value, min, max, onChange }: DimensionFieldProps): ReactElement {
-  const t = useT()
-  const [draft, setDraft] = useState<string | null>(null)
-
-  const commitDraft = (): void => {
-    if (draft !== null) {
-      const parsed = Number(draft)
-      if (Number.isFinite(parsed)) {
-        onChange(parsed)
-      }
-      setDraft(null)
-    }
-  }
-
-  if (min === max) {
-    return (
-      <div className="field">
-        <div className="field__head">
-          <span className="field__label">{t(labelKey)}</span>
-          <span className="field__value-badge">
-            {value} {t('unit.mm')}
-          </span>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="field">
-      <div className="field__head">
-        <label className="field__label" htmlFor={`dim-${labelKey}`}>
-          {t(labelKey)}
-        </label>
-        <span className="field__number-wrap">
-          <input
-            id={`dim-${labelKey}`}
-            className="field__number"
-            type="number"
-            min={min}
-            max={max}
-            step={1}
-            value={draft ?? String(value)}
-            onChange={(event) => setDraft(event.target.value)}
-            onBlur={commitDraft}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                commitDraft()
-              }
-            }}
-          />
-          <span className="field__unit">{t('unit.mm')}</span>
-        </span>
-      </div>
-      <input
-        className="field__slider"
-        type="range"
-        min={min}
-        max={max}
-        step={10}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        aria-label={t(labelKey)}
-      />
-    </div>
-  )
-}
+import { DimensionField } from './DimensionField'
 
 /** Whole-number picker (shelves, drawers): slider plus the current value. */
 function CountField({

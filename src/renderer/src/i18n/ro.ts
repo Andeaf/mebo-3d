@@ -18,6 +18,11 @@ export const ro: Record<TranslationKey, string> = {
   'toolbar.rotate': 'Rotește (R)',
   'toolbar.fitView': 'Încadrează tot',
 
+  'room.title': 'Cameră',
+  'room.width': 'Lățime cameră',
+  'room.length': 'Lungime cameră',
+  'room.wallHeight': 'Înălțime perete',
+
   'params.title': 'Dimensiuni și opțiuni',
   'params.noSelection': 'Dă clic pe un corp în vederea 3D ca să îl editezi.',
   'params.width': 'Lățime',

@@ -18,6 +18,11 @@ export const en: Record<TranslationKey, string> = {
   'toolbar.rotate': 'Rotate (R)',
   'toolbar.fitView': 'Fit view',
 
+  'room.title': 'Room',
+  'room.width': 'Room width',
+  'room.length': 'Room length',
+  'room.wallHeight': 'Wall height',
+
   'params.title': 'Dimensions & options',
   'params.noSelection': 'Click a cabinet in the 3D view to edit it.',
   'params.width': 'Width',

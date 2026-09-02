@@ -228,6 +228,40 @@ body {
   color: var(--text-dim);
 }
 
+/* Collapsible section header (room settings). */
+.panel__collapse {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.panel__title--inline {
+  margin: 0;
+}
+
+.panel__collapse-mark {
+  color: var(--text-dim);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.panel__collapse:hover .panel__title--inline,
+.panel__collapse:hover .panel__collapse-mark {
+  color: var(--text);
+}
+
+.panel__collapse[aria-expanded='true'] + * {
+  margin-top: 12px;
+}
+
 .panel__error {
   margin: 10px 0 0;
   color: var(--error);

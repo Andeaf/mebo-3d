@@ -20,6 +20,11 @@ export const nl = {
   'toolbar.rotate': 'Draaien (R)',
   'toolbar.fitView': 'Alles in beeld',
 
+  'room.title': 'Ruimte',
+  'room.width': 'Breedte ruimte',
+  'room.length': 'Lengte ruimte',
+  'room.wallHeight': 'Wandhoogte',
+
   'params.title': 'Afmetingen & opties',
   'params.noSelection': 'Klik op een kast in het 3D-beeld om deze te bewerken.',
   'params.width': 'Breedte',

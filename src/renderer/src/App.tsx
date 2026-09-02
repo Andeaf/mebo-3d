@@ -5,6 +5,7 @@ import { useT } from './i18n'
 import { LanguageSwitcher } from './LanguageSwitcher'
 import { ParameterPanel } from './panels/ParameterPanel'
 import { PricePanel } from './panels/PricePanel'
+import { RoomPanel } from './panels/RoomPanel'
 import { Toolbar } from './toolbar/Toolbar'
 import { SelectedReadout } from './viewport/SelectedReadout'
 import { Viewport } from './viewport/Viewport'
@@ -34,6 +35,7 @@ export default function App(): ReactElement {
           </div>
           <LanguageSwitcher />
         </header>
+        <RoomPanel />
         <ParameterPanel />
         <PricePanel />
       </aside>
