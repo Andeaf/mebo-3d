@@ -7,11 +7,20 @@ import {
 } from '@core/catalog/registry'
 import { cabinetOverlapsOthers, placedCabinetRect } from '@core/footprint'
 import type { PriceDatabase } from '@core/materials'
+import type { ProjectDocument } from '@core/project'
 import type { MaterialRepository } from '@core/repository/MaterialRepository'
 import { clampRoom, createDefaultRoom, roomContainsRect, type RoomDesign } from '@core/room'
-import { findPlacedCabinet, rotationStep, type PlacedCabinet, type SceneDesign } from '@core/scene'
+import {
+  findPlacedCabinet,
+  nextCabinetNumberFor,
+  rotationStep,
+  type PlacedCabinet,
+  type SceneDesign
+} from '@core/scene'
 import { placeWithoutOverlap, resolveDragPose, spawnPlacement } from '@core/snap'
 import { loadStoredLanguage, storeLanguage, type Language } from './language'
+import { markDirty, markOpened, markSaved, type ProjectStatus, NEW_PROJECT } from './projectStatus'
+import { loadRecentProjects, storeRecentProjects, type RecentProject } from './recentProjects'
 
 export type MaterialsLoadState = 'loading' | 'ready' | 'error'
 
@@ -45,6 +54,11 @@ interface AppState {
   readonly materialsState: MaterialsLoadState
   readonly materialsError: string | null
   readonly language: Language
+  /** Where the scene lives on disk and whether it has unsaved changes. */
+  readonly project: ProjectStatus
+  readonly recentProjects: readonly RecentProject[]
+  /** The last failed open/save, shown until dismissed; never silent. */
+  readonly projectError: string | null
   addCabinet: (kind: CabinetKind) => void
   duplicateSelected: () => void
   deleteSelected: () => void
@@ -61,12 +75,56 @@ interface AppState {
   requestFitView: () => void
   loadMaterials: (repository: MaterialRepository) => Promise<void>
   setLanguage: (language: Language) => void
+  /** File › New (after the unsaved guard): the start-up scene, no file, clean. */
+  resetProject: () => void
+  /** File › Open (after parsing): the file's scene, its creation stamp, clean, room framed. */
+  loadProject: (document: ProjectDocument, path: string) => void
+  markProjectSaved: (path: string, savedAt: string) => void
+  setProjectError: (message: string | null) => void
+  setRecentProjects: (list: readonly RecentProject[]) => void
 }
 
 function selectedOf(state: Pick<AppState, 'scene' | 'selectedCabinetId'>): PlacedCabinet | undefined {
   return state.selectedCabinetId === null
     ? undefined
     : findPlacedCabinet(state.scene, state.selectedCabinetId)
+}
+
+function samePlacement(a: PlacedCabinet, b: PlacedCabinet): boolean {
+  // Designs are immutable values: a different reference is a different design.
+  return (
+    a.id === b.id &&
+    a.design === b.design &&
+    a.positionX === b.positionX &&
+    a.positionZ === b.positionZ &&
+    a.rotationDeg === b.rotationDeg
+  )
+}
+
+/** Same room and the same cabinets in the same poses (design identity counts). */
+function sameScene(a: SceneDesign, b: SceneDesign): boolean {
+  return (
+    a.room.widthMm === b.room.widthMm &&
+    a.room.lengthMm === b.room.lengthMm &&
+    a.room.wallHeightMm === b.room.wallHeightMm &&
+    a.cabinets.length === b.cabinets.length &&
+    a.cabinets.every((cabinet, index) => samePlacement(cabinet, b.cabinets[index]))
+  )
+}
+
+/**
+ * The one way a mutation lands: dirty exactly when the scene changed. A
+ * rejected placement (the gate handed the scene back unchanged) and a
+ * placement that resolved to where the cabinet already stood (a click
+ * without a drag) are both no-ops: no new scene, no dirty, no re-render.
+ */
+function sceneChange(
+  state: Pick<AppState, 'scene' | 'project'>,
+  scene: SceneDesign
+): Partial<AppState> {
+  return scene === state.scene || sameScene(state.scene, scene)
+    ? {}
+    : { scene, project: markDirty(state.project) }
 }
 
 // Scene invariant: every mutation that adds or moves a cabinet goes through
@@ -80,6 +138,9 @@ export const useAppStore = create<AppState>((set) => ({
   materialsState: 'loading',
   materialsError: null,
   language: loadStoredLanguage(),
+  project: NEW_PROJECT,
+  recentProjects: loadRecentProjects(),
+  projectError: null,
 
   addCabinet: (kind) =>
     set((state) => {
@@ -92,8 +153,12 @@ export const useAppStore = create<AppState>((set) => ({
         positionZ: spawn.positionZ,
         rotationDeg: spawn.rotationDeg
       }
+      const change = sceneChange(state, placeWithoutOverlap(state.scene, cabinet))
+      if (change.scene === undefined) {
+        return {} // no free spot: nothing added, id not consumed
+      }
       return {
-        scene: placeWithoutOverlap(state.scene, cabinet),
+        ...change,
         selectedCabinetId: cabinet.id,
         nextCabinetNumber: state.nextCabinetNumber + 1
       }
@@ -116,8 +181,12 @@ export const useAppStore = create<AppState>((set) => ({
         positionX: beside.positionX,
         positionZ: beside.positionZ
       }
+      const change = sceneChange(state, placeWithoutOverlap(state.scene, copy))
+      if (change.scene === undefined) {
+        return {}
+      }
       return {
-        scene: placeWithoutOverlap(state.scene, copy),
+        ...change,
         selectedCabinetId: copy.id,
         nextCabinetNumber: state.nextCabinetNumber + 1
       }
@@ -129,10 +198,10 @@ export const useAppStore = create<AppState>((set) => ({
         return {}
       }
       return {
-        scene: {
+        ...sceneChange(state, {
           ...state.scene,
           cabinets: state.scene.cabinets.filter((cabinet) => cabinet.id !== state.selectedCabinetId)
-        },
+        }),
         selectedCabinetId: null
       }
     }),
@@ -146,7 +215,7 @@ export const useAppStore = create<AppState>((set) => ({
         return {}
       }
       const updated: PlacedCabinet = { ...selected, design: clampDesign(design) }
-      return { scene: placeWithoutOverlap(state.scene, updated) }
+      return sceneChange(state, placeWithoutOverlap(state.scene, updated))
     }),
 
   updateRoom: (room) =>
@@ -163,7 +232,7 @@ export const useAppStore = create<AppState>((set) => ({
         }
         next = placed
       }
-      return { scene: next }
+      return sceneChange(state, next)
     }),
 
   moveSelected: (positionX, positionZ) =>
@@ -189,14 +258,12 @@ export const useAppStore = create<AppState>((set) => ({
       ) {
         return {} // drag blocked at the last valid spot; drop will resolve
       }
-      return {
-        scene: {
-          ...state.scene,
-          cabinets: state.scene.cabinets.map((cabinet) =>
-            cabinet.id === selected.id ? next : cabinet
-          )
-        }
-      }
+      return sceneChange(state, {
+        ...state.scene,
+        cabinets: state.scene.cabinets.map((cabinet) =>
+          cabinet.id === selected.id ? next : cabinet
+        )
+      })
     }),
 
   dropSelected: (positionX, positionZ) =>
@@ -205,9 +272,10 @@ export const useAppStore = create<AppState>((set) => ({
       if (selected === undefined) {
         return {}
       }
-      return {
-        scene: placeWithoutOverlap(state.scene, { ...selected, positionX, positionZ })
-      }
+      return sceneChange(
+        state,
+        placeWithoutOverlap(state.scene, { ...selected, positionX, positionZ })
+      )
     }),
 
   rotateSelected: () =>
@@ -216,12 +284,13 @@ export const useAppStore = create<AppState>((set) => ({
       if (selected === undefined) {
         return {}
       }
-      return {
-        scene: placeWithoutOverlap(state.scene, {
+      return sceneChange(
+        state,
+        placeWithoutOverlap(state.scene, {
           ...selected,
           rotationDeg: rotationStep(selected.rotationDeg)
         })
-      }
+      )
     }),
 
   requestFitView: () => set((state) => ({ fitViewNonce: state.fitViewNonce + 1 })),
@@ -242,5 +311,36 @@ export const useAppStore = create<AppState>((set) => ({
         materialsError: error instanceof Error ? error.message : String(error)
       })
     }
+  },
+
+  resetProject: () =>
+    set((state) => ({
+      scene: initialScene(),
+      selectedCabinetId: 'cab-1',
+      nextCabinetNumber: 2,
+      project: NEW_PROJECT,
+      projectError: null,
+      fitViewNonce: state.fitViewNonce + 1
+    })),
+
+  loadProject: (document, path) =>
+    set((state) => ({
+      scene: document.scene,
+      selectedCabinetId: null,
+      // One above the highest loaded id, so an added cabinet can never collide.
+      nextCabinetNumber: nextCabinetNumberFor(document.scene),
+      project: markOpened(path, document.metadata.createdAt),
+      projectError: null,
+      fitViewNonce: state.fitViewNonce + 1
+    })),
+
+  markProjectSaved: (path, savedAt) =>
+    set((state) => ({ project: markSaved(state.project, path, savedAt) })),
+
+  setProjectError: (message) => set({ projectError: message }),
+
+  setRecentProjects: (list) => {
+    storeRecentProjects(list)
+    set({ recentProjects: list })
   }
 }))
