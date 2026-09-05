@@ -145,6 +145,80 @@ export const CABINET_KINDS: readonly CabinetKind[] = [
   'drawer-cabinet'
 ]
 
+export function isCabinetKind(value: string): value is CabinetKind {
+  return (CABINET_KINDS as readonly string[]).includes(value)
+}
+
+/** What a kind's param may hold: the JSON scalars the template decoder can check. */
+type ParamPrimitive = 'number' | 'string' | 'boolean'
+const PARAM_PRIMITIVES: readonly ParamPrimitive[] = ['number', 'string', 'boolean']
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * Decodes untrusted params (a project file) against the kind's DEFAULT params
+ * used as a template: every template key must be present with the same
+ * primitive type, and no other key may exist — a typo like `widhtMm` fails
+ * loudly instead of loading a default silently. Range and enum checks are
+ * `validateDesign`'s job, run by the caller afterwards.
+ *
+ * CONSTRAINT ON EVERY KIND, present and future: params must be TOTAL and
+ * SCALAR — every field required (no optional fields, no `undefined`) and
+ * every value a number, string or boolean. A kind whose defaults break this
+ * is refused here with a programmer-facing error, so it shows up in the
+ * registry tests rather than at a customer's Open dialog.
+ *
+ * The one cast after the exhaustive runtime check is deliberate: it is what
+ * keeps this decoder kind-agnostic (zero per-kind decoder code), the same
+ * discipline `parsePriceDatabase` uses for `category`. Error messages start
+ * with `params.` so a caller can prefix them with its own path.
+ */
+export function decodeParams<K extends CabinetKind>(kind: K, raw: unknown): CabinetParamsByKind[K] {
+  const defaults: unknown = CABINET_REGISTRY[kind].createDefaultDesign().params
+  if (!isRecord(defaults)) {
+    throw new Error(`kind ${kind} has non-object default params; the template decoder cannot read it`)
+  }
+  const template = defaults
+  if (!isRecord(raw)) {
+    throw new Error('params must be an object')
+  }
+  const decoded: Record<string, unknown> = {}
+  for (const [key, templateValue] of Object.entries(template)) {
+    const expected = typeof templateValue
+    if (!(PARAM_PRIMITIVES as readonly string[]).includes(expected)) {
+      throw new Error(
+        `kind ${kind} has a non-scalar param ${key} (${expected}); the template decoder cannot read it`
+      )
+    }
+    const value = raw[key]
+    if (value === undefined) {
+      throw new Error(`params.${key} is missing`)
+    }
+    if (typeof value !== expected) {
+      throw new Error(`params.${key} must be a ${expected} (got ${JSON.stringify(value)})`)
+    }
+    if (typeof value === 'number' && !Number.isFinite(value)) {
+      throw new Error(`params.${key} must be a finite number (got ${value})`)
+    }
+    decoded[key] = value
+  }
+  for (const key of Object.keys(raw)) {
+    if (!(key in template)) {
+      throw new Error(`params.${key} is not a field of ${kind}`)
+    }
+  }
+  // The one deliberate cast (see the doc comment): the loop above is the proof.
+  return decoded as unknown as CabinetParamsByKind[K]
+}
+
+/** `decodeParams` wrapped back into a design of that kind. */
+export function decodeDesign<K extends CabinetKind>(kind: K, rawParams: unknown): CabinetDesign {
+  const definition: CabinetKindDefinition<K> = CABINET_REGISTRY[kind]
+  return definition.designOf(decodeParams(kind, rawParams))
+}
+
 type DesignVisitor<R> = <K extends CabinetKind>(
   definition: CabinetKindDefinition<K>,
   params: CabinetParamsByKind[K]

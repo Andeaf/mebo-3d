@@ -1,10 +1,15 @@
 export type DoorCount = 0 | 1 | 2
 
+/** Every legal door count; checked at validation so a hostile file cannot smuggle in a 5. */
+export const DOOR_COUNTS: readonly DoorCount[] = [0, 1, 2]
+
 /**
  * Base cabinets default to two top stretchers (the worktop closes the top);
  * a full top panel is supported for future cabinet types.
  */
 export type TopConstruction = 'stretchers' | 'panel'
+
+export const TOP_CONSTRUCTIONS: readonly TopConstruction[] = ['stretchers', 'panel']
 
 export interface BaseCabinetParams {
   readonly widthMm: number
@@ -54,8 +59,15 @@ export function clampDoorCountForWidth(widthMm: number, doorCount: DoorCount): D
   return doorCount === 1 && widthMm > MAX_SINGLE_DOOR_CABINET_WIDTH_MM ? 2 : doorCount
 }
 
-/** The matching violation for validate functions (empty when the pair is legal). */
+/**
+ * The matching violation for validate functions (empty when the pair is
+ * legal). Also rejects a count outside DOOR_COUNTS: the typed app can never
+ * build one, but a project file can.
+ */
 export function validateDoorCountForWidth(widthMm: number, doorCount: DoorCount): string[] {
+  if (!DOOR_COUNTS.includes(doorCount)) {
+    return [`doorCount must be one of ${DOOR_COUNTS.join(', ')} (got ${doorCount})`]
+  }
   if (clampDoorCountForWidth(widthMm, doorCount) === doorCount) {
     return []
   }
@@ -120,6 +132,12 @@ export function validateBaseCabinetParams(params: BaseCabinetParams): string[] {
     errors.push(`shelfCount must be an integer (got ${params.shelfCount})`)
   }
   errors.push(...validateDoorCountForWidth(params.widthMm, params.doorCount))
+  // Unreachable from the typed UI; reachable from a hand-edited project file.
+  if (!TOP_CONSTRUCTIONS.includes(params.topConstruction)) {
+    errors.push(
+      `topConstruction must be one of ${TOP_CONSTRUCTIONS.join(', ')} (got ${params.topConstruction})`
+    )
+  }
   return errors
 }
 
