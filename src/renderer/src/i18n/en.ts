@@ -52,5 +52,26 @@ export const en: Record<TranslationKey, string> = {
   'price.category.hardware': 'Hardware',
   'price.cabinets': 'Cabinets',
   'price.subtotal': 'Subtotal',
-  'price.total': 'Total (excl. VAT)'
+  'price.total': 'Total (excl. VAT)',
+
+  'menu.file': 'File',
+  'menu.new': 'New',
+  'menu.open': 'Open…',
+  'menu.openRecent': 'Open Recent',
+  'menu.noRecent': 'No recent projects',
+  'menu.save': 'Save',
+  'menu.saveAs': 'Save As…',
+  'menu.exit': 'Exit',
+
+  'project.untitled': 'Untitled',
+  'project.fileFilter': 'Mebo 3D project',
+  'project.unsavedTitle': 'Unsaved changes',
+  'project.unsavedMessage': 'The project has changes that have not been saved. Do you want to save them?',
+  'project.saveButton': 'Save',
+  'project.discardButton': "Don't save",
+  'project.cancelButton': 'Cancel',
+  'project.openError': 'The project could not be opened:',
+  'project.saveError': 'The project could not be saved:',
+  'project.fileMissing': 'File not found; removed from the recent projects:',
+  'project.dismiss': 'Dismiss'
 }

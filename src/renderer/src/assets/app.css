@@ -268,6 +268,47 @@ body {
   user-select: text;
 }
 
+/* ---- project notice (failed open / save) ---- */
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.notice--error {
+  border-color: var(--error);
+}
+
+.notice__text {
+  margin: 0;
+  color: var(--error);
+  user-select: text;
+  overflow-wrap: anywhere;
+}
+
+.notice__dismiss {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.notice__dismiss:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
 /* ---- parameter fields ---- */
 
 .field {

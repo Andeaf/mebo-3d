@@ -52,5 +52,26 @@ export const ro: Record<TranslationKey, string> = {
   'price.category.hardware': 'Feronerie',
   'price.cabinets': 'Corpuri',
   'price.subtotal': 'Subtotal',
-  'price.total': 'Total (fără TVA)'
+  'price.total': 'Total (fără TVA)',
+
+  'menu.file': 'Fișier',
+  'menu.new': 'Nou',
+  'menu.open': 'Deschide…',
+  'menu.openRecent': 'Deschise recent',
+  'menu.noRecent': 'Niciun proiect recent',
+  'menu.save': 'Salvează',
+  'menu.saveAs': 'Salvează ca…',
+  'menu.exit': 'Ieșire',
+
+  'project.untitled': 'Fără titlu',
+  'project.fileFilter': 'Proiect Mebo 3D',
+  'project.unsavedTitle': 'Modificări nesalvate',
+  'project.unsavedMessage': 'Proiectul are modificări care nu au fost salvate. Vrei să le salvezi?',
+  'project.saveButton': 'Salvează',
+  'project.discardButton': 'Nu salva',
+  'project.cancelButton': 'Anulează',
+  'project.openError': 'Proiectul nu a putut fi deschis:',
+  'project.saveError': 'Proiectul nu a putut fi salvat:',
+  'project.fileMissing': 'Fișierul nu a fost găsit; a fost scos din lista de proiecte recente:',
+  'project.dismiss': 'Închide'
 }

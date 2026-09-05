@@ -6,6 +6,8 @@ import { LanguageSwitcher } from './LanguageSwitcher'
 import { ParameterPanel } from './panels/ParameterPanel'
 import { PricePanel } from './panels/PricePanel'
 import { RoomPanel } from './panels/RoomPanel'
+import { ProjectBridge } from './project/ProjectBridge'
+import { ProjectNotice } from './project/ProjectNotice'
 import { Toolbar } from './toolbar/Toolbar'
 import { SelectedReadout } from './viewport/SelectedReadout'
 import { Viewport } from './viewport/Viewport'
@@ -22,6 +24,7 @@ export default function App(): ReactElement {
 
   return (
     <div className="app">
+      <ProjectBridge />
       <main className="viewport-area">
         <Viewport />
         <Toolbar />
@@ -35,6 +38,7 @@ export default function App(): ReactElement {
           </div>
           <LanguageSwitcher />
         </header>
+        <ProjectNotice />
         <RoomPanel />
         <ParameterPanel />
         <PricePanel />

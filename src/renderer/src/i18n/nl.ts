@@ -54,7 +54,28 @@ export const nl = {
   'price.category.hardware': 'Beslag',
   'price.cabinets': 'Kasten',
   'price.subtotal': 'Subtotaal',
-  'price.total': 'Totaal (excl. btw)'
+  'price.total': 'Totaal (excl. btw)',
+
+  'menu.file': 'Bestand',
+  'menu.new': 'Nieuw',
+  'menu.open': 'Openen…',
+  'menu.openRecent': 'Recent geopend',
+  'menu.noRecent': 'Geen recente projecten',
+  'menu.save': 'Opslaan',
+  'menu.saveAs': 'Opslaan als…',
+  'menu.exit': 'Afsluiten',
+
+  'project.untitled': 'Naamloos',
+  'project.fileFilter': 'Mebo 3D-project',
+  'project.unsavedTitle': 'Niet-opgeslagen wijzigingen',
+  'project.unsavedMessage': 'Het project bevat wijzigingen die nog niet zijn opgeslagen. Wil je ze opslaan?',
+  'project.saveButton': 'Opslaan',
+  'project.discardButton': 'Niet opslaan',
+  'project.cancelButton': 'Annuleren',
+  'project.openError': 'Project kon niet geopend worden:',
+  'project.saveError': 'Project kon niet opgeslagen worden:',
+  'project.fileMissing': 'Bestand niet gevonden; verwijderd uit de lijst met recente projecten:',
+  'project.dismiss': 'Sluiten'
 } as const
 
 export type TranslationKey = keyof typeof nl

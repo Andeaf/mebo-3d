@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import type { Language } from '@state/language'
 import { useAppStore } from '@state/store'
 import { en } from './en'
@@ -10,9 +11,13 @@ export const dictionaries: Record<Language, Record<TranslationKey, string>> = { 
 
 export type Translate = (key: TranslationKey) => string
 
-/** Translation function bound to the current UI language in the store. */
+/**
+ * Translation function bound to the current UI language in the store. Its
+ * identity changes only with the language, so effects and memos may depend
+ * on it (the project bridge rebuilds the native menu from it).
+ */
 export function useT(): Translate {
   const language = useAppStore((state) => state.language)
   const dictionary = dictionaries[language]
-  return (key) => dictionary[key]
+  return useCallback((key: TranslationKey) => dictionary[key], [dictionary])
 }
