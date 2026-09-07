@@ -20,7 +20,7 @@ export const ro: Record<TranslationKey, string> = {
   'piece.mounting': 'Amplasare',
   'piece.mounting.floor': 'Pe podea',
   'piece.mounting.wall': 'Pe perete',
-  'piece.title': 'Editare piesă la comandă',
+  'piece.title': 'Editare piesă',
   'piece.edit': 'Editează panourile',
   'piece.done': 'Gata (Esc)',
   'piece.defaultName': 'Piesă la comandă',

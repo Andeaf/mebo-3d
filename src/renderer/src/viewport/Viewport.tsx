@@ -182,6 +182,11 @@ function SceneContents(): ReactElement {
   }, [fitViewNonce])
 
   // Entering the editor frames the piece; leaving it puts the camera back.
+  // The frame follows the piece when it MOVES (the gate relocated it, or it
+  // went up on the wall) but not when it merely resizes, so a slider drag
+  // does not make the camera jump.
+  const editedPiece = editingPieceId === null ? undefined : findPlacedCabinet(scene, editingPieceId)
+  const editedBottomMm = editedPiece === undefined ? 0 : placedVerticalInterval(editedPiece).bottomMm
   useEffect(() => {
     const controls = controlsRef.current
     if (controls === null || !(camera instanceof PerspectiveCamera)) {
@@ -207,7 +212,14 @@ function SceneContents(): ReactElement {
       controls.update()
       poseBeforeEditRef.current = null
     }
-  }, [editingPieceId, camera])
+  }, [
+    editingPieceId,
+    editedPiece?.positionX,
+    editedPiece?.positionZ,
+    editedPiece?.rotationDeg,
+    editedBottomMm,
+    camera
+  ])
 
   return (
     <>

@@ -11,8 +11,11 @@ import { buildForDesign } from '@state/selectors'
 const FALLBACK_PANEL_COLOR = '#c8c8c2'
 export const SELECTION_COLOR = '#4f8cff'
 const PANEL_SELECTION_COLOR = '#ffb547'
-/** How faded the rest of the scene is while a piece is being edited. */
-const DIMMED_OPACITY = 0.18
+/**
+ * How faded the rest of the scene is while a piece is being edited. Low on
+ * purpose: a cabinet is several overlapping panels, and their alphas stack.
+ */
+const DIMMED_OPACITY = 0.08
 
 /** Darkens a #rrggbb color; used to draw panel seams that work on any material color. */
 function darken(hex: string, factor: number): string {
@@ -118,6 +121,7 @@ export function PlacedCabinetMesh({
                   emissiveIntensity={panelSelected ? 0.5 : selected && !editing ? 0.14 : 0}
                   transparent={dimmed}
                   opacity={dimmed ? DIMMED_OPACITY : 1}
+                  depthWrite={!dimmed}
                 />
                 {!dimmed && (
                   <Edges

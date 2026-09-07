@@ -57,7 +57,8 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
     <section className="panel">
       <div className="panel__head">
         <h2 className="panel__title">
-          {t('piece.title')} · #{placed.id.replace('cab-', '')}
+          {t('piece.title')}{' '}
+          <span className="field__value-badge">#{placed.id.replace('cab-', '')}</span>
         </h2>
         <button type="button" className="button button--primary" onClick={exitPieceEditor}>
           {t('piece.done')}

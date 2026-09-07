@@ -22,7 +22,7 @@ export const nl = {
   'piece.mounting': 'Plaatsing',
   'piece.mounting.floor': 'Op de vloer',
   'piece.mounting.wall': 'Aan de wand',
-  'piece.title': 'Maatwerkstuk bewerken',
+  'piece.title': 'Maatwerk bewerken',
   'piece.edit': 'Panelen bewerken',
   'piece.done': 'Klaar (Esc)',
   'piece.defaultName': 'Maatwerkstuk',
