@@ -1,6 +1,20 @@
-import { decodeDesign, isCabinetKind, validateDesign, CABINET_KINDS } from './catalog/registry'
+import {
+  decodeDesign,
+  isCabinetKind,
+  isCustomPieceDesign,
+  validateDesign,
+  CABINET_KINDS
+} from './catalog/registry'
 import type { CabinetDesign } from './cabinet'
+import {
+  CUSTOM_PANEL_ROLES,
+  CUSTOM_PIECE_KIND,
+  PANEL_ORIENTATIONS,
+  type CustomPanelSpec,
+  type CustomPieceSpec
+} from './customPiece'
 import { firstOverlappingPair, placedCabinetRect } from './footprint'
+import { PANEL_EDGE_IDS, type EdgeBanding, type HardwareItem } from './panel'
 import { roomContainsRect, validateRoom, type RoomDesign } from './room'
 import {
   cabinetNumberOf,
@@ -9,6 +23,7 @@ import {
   type PlacedCabinet,
   type SceneDesign
 } from './scene'
+import type { Vec3 } from './units'
 
 /**
  * The `.mebo` project file: the scene plus a small metadata envelope, as
@@ -32,9 +47,12 @@ import {
  * MIGRATIONS chain, then decoded as current. To change the format: bump
  * PROJECT_SCHEMA_VERSION and add MIGRATIONS[<previous version>]; nothing else
  * moves.
+ *
+ * History: 1 = Phase 5 (catalog cabinets only); 2 = Phase 6 adds the custom
+ * piece design shape `{ kind: 'custom-piece', spec }`.
  */
 
-export const PROJECT_SCHEMA_VERSION = 1
+export const PROJECT_SCHEMA_VERSION = 2
 export const PROJECT_FILE_EXTENSION = 'mebo'
 
 export interface ProjectMetadata {
@@ -64,9 +82,14 @@ type Migration = (document: unknown) => unknown
 
 /**
  * Indexed by the version a step upgrades FROM: `MIGRATIONS[1]` turns a v1
- * document into v2. Empty today because there is only v1.
+ * document into v2. There was never a schema 0, so index 0 stays empty.
  */
-const MIGRATIONS: ReadonlyArray<Migration | undefined> = []
+const MIGRATIONS: ReadonlyArray<Migration | undefined> = [
+  undefined,
+  // 1 → 2: custom pieces arrived as a second design shape. Every v1 document
+  // is a valid v2 document apart from its version stamp.
+  (document) => ({ ...requireRecord(document, 'project file'), schemaVersion: 2 })
+]
 
 function migrateToCurrent(document: unknown, from: number): unknown {
   let current = document
@@ -82,6 +105,43 @@ function migrateToCurrent(document: unknown, from: number): unknown {
 
 // ---------------------------------------------------------------------------
 // Serialize
+
+/**
+ * A catalog design is written as it is (its params are scalar, in template
+ * order); a custom piece is rebuilt field by field so the key order of the
+ * spec, its panels and their nested objects is fixed by this code.
+ */
+function serializeDesign(design: CabinetDesign): CabinetDesign {
+  if (!isCustomPieceDesign(design)) {
+    return design
+  }
+  const spec = design.spec
+  return {
+    kind: CUSTOM_PIECE_KIND,
+    spec: {
+      name: spec.name,
+      widthMm: spec.widthMm,
+      heightMm: spec.heightMm,
+      depthMm: spec.depthMm,
+      mountingHeightMm: spec.mountingHeightMm,
+      panels: spec.panels.map((panel) => ({
+        id: panel.id,
+        role: panel.role,
+        materialId: panel.materialId,
+        lengthMm: panel.lengthMm,
+        widthMm: panel.widthMm,
+        thicknessMm: panel.thicknessMm,
+        edgeBanding:
+          panel.edgeBanding === null
+            ? null
+            : { materialId: panel.edgeBanding.materialId, edges: [...panel.edgeBanding.edges] },
+        orientation: panel.orientation,
+        originMm: { x: panel.originMm.x, y: panel.originMm.y, z: panel.originMm.z }
+      })),
+      hardware: spec.hardware.map((item) => ({ materialId: item.materialId, quantity: item.quantity }))
+    }
+  }
+}
 
 export function serializeProject(scene: SceneDesign, metadata: ProjectMetadata): string {
   // Built field by field so the key order is fixed by this code, not by
@@ -102,7 +162,7 @@ export function serializeProject(scene: SceneDesign, metadata: ProjectMetadata):
       },
       cabinets: scene.cabinets.map((cabinet) => ({
         id: cabinet.id,
-        design: cabinet.design,
+        design: serializeDesign(cabinet.design),
         positionX: cabinet.positionX,
         positionZ: cabinet.positionZ,
         rotationDeg: cabinet.rotationDeg
@@ -121,6 +181,30 @@ const SCENE_KEYS = ['room', 'cabinets'] as const
 const ROOM_KEYS = ['widthMm', 'lengthMm', 'wallHeightMm'] as const
 const CABINET_KEYS = ['id', 'design', 'positionX', 'positionZ', 'rotationDeg'] as const
 const DESIGN_KEYS = ['kind', 'params'] as const
+const CUSTOM_DESIGN_KEYS = ['kind', 'spec'] as const
+const SPEC_KEYS = [
+  'name',
+  'widthMm',
+  'heightMm',
+  'depthMm',
+  'mountingHeightMm',
+  'panels',
+  'hardware'
+] as const
+const PANEL_KEYS = [
+  'id',
+  'role',
+  'materialId',
+  'lengthMm',
+  'widthMm',
+  'thicknessMm',
+  'edgeBanding',
+  'orientation',
+  'originMm'
+] as const
+const VEC3_KEYS = ['x', 'y', 'z'] as const
+const BANDING_KEYS = ['materialId', 'edges'] as const
+const HARDWARE_KEYS = ['materialId', 'quantity'] as const
 
 function fail(message: string): never {
   throw new ProjectParseError(message)
@@ -184,6 +268,26 @@ function requireFiniteNumber(value: unknown, path: string): number {
   return value
 }
 
+function requireArray(value: unknown, path: string): readonly unknown[] {
+  if (value === undefined) {
+    fail(`${path} is missing`)
+  }
+  if (!Array.isArray(value)) {
+    fail(`${path} must be an array (got ${show(value)})`)
+  }
+  return value
+}
+
+/** A string that must be one of a closed set; the match is returned, so no cast is needed. */
+function requireOneOf<T extends string>(value: unknown, path: string, allowed: readonly T[]): T {
+  const text = requireString(value, path)
+  const match = allowed.find((option) => option === text)
+  if (match === undefined) {
+    fail(`${path} must be one of ${allowed.join(', ')} (got ${show(text)})`)
+  }
+  return match
+}
+
 /** Re-throws parse errors from `decode` with the cabinet's id in front, so the UI can name it. */
 function labelled<T>(label: string, decode: () => T): T {
   try {
@@ -223,26 +327,114 @@ function decodeRoom(raw: unknown): RoomDesign {
   return room
 }
 
+// --- custom pieces: the hand-written decoder (see customPiece.ts) ----------
+
+function decodeVec3(raw: unknown, path: string): Vec3 {
+  const record = requireRecord(raw, path)
+  rejectUnknownKeys(record, path, VEC3_KEYS)
+  return {
+    x: requireFiniteNumber(record.x, `${path}.x`),
+    y: requireFiniteNumber(record.y, `${path}.y`),
+    z: requireFiniteNumber(record.z, `${path}.z`)
+  }
+}
+
+function decodeEdgeBanding(raw: unknown, path: string): EdgeBanding | null {
+  if (raw === undefined) {
+    fail(`${path} is missing`)
+  }
+  if (raw === null) {
+    return null
+  }
+  const record = requireRecord(raw, path)
+  rejectUnknownKeys(record, path, BANDING_KEYS)
+  return {
+    materialId: requireString(record.materialId, `${path}.materialId`),
+    edges: requireArray(record.edges, `${path}.edges`).map((edge, index) =>
+      requireOneOf(edge, `${path}.edges[${index}]`, PANEL_EDGE_IDS)
+    )
+  }
+}
+
+function decodeCustomPanel(raw: unknown, path: string): CustomPanelSpec {
+  const record = requireRecord(raw, path)
+  rejectUnknownKeys(record, path, PANEL_KEYS)
+  return {
+    id: requireString(record.id, `${path}.id`),
+    role: requireOneOf(record.role, `${path}.role`, CUSTOM_PANEL_ROLES),
+    materialId: requireString(record.materialId, `${path}.materialId`),
+    lengthMm: requireFiniteNumber(record.lengthMm, `${path}.lengthMm`),
+    widthMm: requireFiniteNumber(record.widthMm, `${path}.widthMm`),
+    thicknessMm: requireFiniteNumber(record.thicknessMm, `${path}.thicknessMm`),
+    edgeBanding: decodeEdgeBanding(record.edgeBanding, `${path}.edgeBanding`),
+    orientation: requireOneOf(record.orientation, `${path}.orientation`, PANEL_ORIENTATIONS),
+    originMm: decodeVec3(record.originMm, `${path}.originMm`)
+  }
+}
+
+function decodeHardwareItem(raw: unknown, path: string): HardwareItem {
+  const record = requireRecord(raw, path)
+  rejectUnknownKeys(record, path, HARDWARE_KEYS)
+  return {
+    materialId: requireString(record.materialId, `${path}.materialId`),
+    quantity: requireFiniteNumber(record.quantity, `${path}.quantity`)
+  }
+}
+
+/**
+ * Shape and primitive types only; ranges, ids, the envelope and duplicates
+ * are `validateDesign`'s (run by the caller), exactly as for a catalog kind.
+ */
+function decodeCustomPieceSpec(raw: unknown, path: string): CustomPieceSpec {
+  const record = requireRecord(raw, path)
+  rejectUnknownKeys(record, path, SPEC_KEYS)
+  return {
+    name: requireString(record.name, `${path}.name`),
+    widthMm: requireFiniteNumber(record.widthMm, `${path}.widthMm`),
+    heightMm: requireFiniteNumber(record.heightMm, `${path}.heightMm`),
+    depthMm: requireFiniteNumber(record.depthMm, `${path}.depthMm`),
+    mountingHeightMm: requireFiniteNumber(record.mountingHeightMm, `${path}.mountingHeightMm`),
+    panels: requireArray(record.panels, `${path}.panels`).map((entry, index) =>
+      decodeCustomPanel(entry, `${path}.panels[${index}]`)
+    ),
+    hardware: requireArray(record.hardware, `${path}.hardware`).map((entry, index) =>
+      decodeHardwareItem(entry, `${path}.hardware[${index}]`)
+    )
+  }
+}
+
+// --- both families -----------------------------------------------------------
+
 function decodeCabinetDesign(raw: unknown, path: string): CabinetDesign {
   const record = requireRecord(raw, path)
-  rejectUnknownKeys(record, path, DESIGN_KEYS)
   const kind = requireString(record.kind, `${path}.kind`)
-  if (!isCabinetKind(kind)) {
-    fail(`${path}.kind ${show(kind)} is not a known cabinet kind (known: ${CABINET_KINDS.join(', ')})`)
-  }
-  if (record.params === undefined) {
-    fail(`${path}.params is missing`)
-  }
   let design: CabinetDesign
-  try {
-    design = decodeDesign(kind, record.params)
-  } catch (error) {
-    // The registry's messages start with `params.`; give them their path.
-    fail(`${path}.${error instanceof Error ? error.message : String(error)}`)
+  let valuesKey: 'params' | 'spec'
+  if (kind === CUSTOM_PIECE_KIND) {
+    rejectUnknownKeys(record, path, CUSTOM_DESIGN_KEYS)
+    valuesKey = 'spec'
+    design = { kind: CUSTOM_PIECE_KIND, spec: decodeCustomPieceSpec(record.spec, `${path}.spec`) }
+  } else {
+    if (!isCabinetKind(kind)) {
+      fail(
+        `${path}.kind ${show(kind)} is not a known cabinet kind (known: ${[...CABINET_KINDS, CUSTOM_PIECE_KIND].join(', ')})`
+      )
+    }
+    rejectUnknownKeys(record, path, DESIGN_KEYS)
+    if (record.params === undefined) {
+      fail(`${path}.params is missing`)
+    }
+    valuesKey = 'params'
+    try {
+      design = decodeDesign(kind, record.params)
+    } catch (error) {
+      // The registry's messages start with `params.`; give them their path.
+      fail(`${path}.${error instanceof Error ? error.message : String(error)}`)
+    }
   }
   const errors = validateDesign(design)
   if (errors.length > 0) {
-    fail(errors.map((error) => `${path}.params.${error}`).join('; '))
+    fail(errors.map((error) => `${path}.${valuesKey}.${error}`).join('; '))
   }
   return design
 }
