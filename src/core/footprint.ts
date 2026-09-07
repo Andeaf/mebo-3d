@@ -1,14 +1,25 @@
 import type { CabinetDesign } from './cabinet'
-import {
-  designFootprintSize,
-  designVerticalExtent,
-  type VerticalExtentMm
-} from './catalog/registry'
+import { designFootprintSize, designVerticalExtent } from './catalog/registry'
 import type { PlacedCabinet, RotationDegrees, SceneDesign } from './scene'
 
+/**
+ * What a design tells the scene about itself: its floor footprint and the
+ * vertical slice it occupies. Both design families (catalog kinds and custom
+ * pieces) answer in these two shapes and nothing else.
+ */
 export interface FootprintSize {
   readonly widthMm: number
   readonly depthMm: number
+}
+
+/**
+ * How high a cabinet's carcass sits above the floor, in mm. Floor-standing
+ * designs run 0..heightMm; a hanging one derives its interval from its own
+ * mounting-height value — elevation is never stored on the placement.
+ */
+export interface VerticalExtentMm {
+  readonly bottomMm: number
+  readonly topMm: number
 }
 
 /** Axis-aligned rectangle on the floor plane, world mm. */

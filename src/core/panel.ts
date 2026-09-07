@@ -9,7 +9,9 @@ export type PanelRole =
   | 'stretcher-back'
   | 'back'
   | 'shelf'
+  | 'divider'
   | 'door'
+  | 'front'
   | 'drawer-front'
   | 'drawer-box-side'
   | 'drawer-box-front'
@@ -21,6 +23,9 @@ export type PanelRole =
  * two along `widthMm`.
  */
 export type PanelEdgeId = 'length-1' | 'length-2' | 'width-1' | 'width-2'
+
+/** Every edge id, for validation of untrusted input and for the editor's checkboxes. */
+export const PANEL_EDGE_IDS: readonly PanelEdgeId[] = ['length-1', 'length-2', 'width-1', 'width-2']
 
 export interface EdgeBanding {
   readonly materialId: string

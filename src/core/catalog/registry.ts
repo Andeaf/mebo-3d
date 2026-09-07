@@ -6,7 +6,7 @@ import {
 } from '../cabinet'
 // Type-only on purpose: footprint.ts calls this module at runtime, so a value
 // import here would close a runtime cycle.
-import type { FootprintSize } from '../footprint'
+import type { FootprintSize, VerticalExtentMm } from '../footprint'
 import { generateBaseCabinet } from './baseCabinet'
 import {
   clampDrawerCabinetParams,
@@ -56,15 +56,9 @@ export type CabinetDesign = {
 /** The design variant of exactly one kind (for per-kind UI and generators). */
 export type DesignOfKind<K extends CabinetKind> = Extract<CabinetDesign, { kind: K }>
 
-/**
- * How high a cabinet's carcass sits above the floor, in mm. Floor-standing
- * kinds run 0..heightMm; a wall cabinet derives its interval from its own
- * mounting-height param — elevation is never stored on the placement.
- */
-export interface VerticalExtentMm {
-  readonly bottomMm: number
-  readonly topMm: number
-}
+// The design→scene contract lives beside FootprintSize; re-exported here
+// because this is where consumers have always found it.
+export type { VerticalExtentMm }
 
 export interface CabinetKindDefinition<K extends CabinetKind> {
   readonly kind: K
