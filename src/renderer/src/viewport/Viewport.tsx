@@ -4,8 +4,9 @@ import { ContactShadows, Grid, OrbitControls } from '@react-three/drei'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { PerspectiveCamera, Plane, Raycaster, Vector2, Vector3 } from 'three'
 import { designVerticalExtent } from '@core/catalog/registry'
+import { placedCabinetRect, placedVerticalInterval } from '@core/footprint'
 import { roomInteriorRect } from '@core/room'
-import type { PlacedCabinet } from '@core/scene'
+import { findPlacedCabinet, type PlacedCabinet } from '@core/scene'
 import { useAppStore } from '@state/store'
 import { MeasureLine } from './MeasureLine'
 import { PlacedCabinetMesh } from './PlacedCabinetMesh'
@@ -26,20 +27,65 @@ interface DragState {
   plane: Plane
 }
 
+/** World-mm box to frame: floor rect plus a vertical interval. */
+interface FrameBounds {
+  readonly minX: number
+  readonly maxX: number
+  readonly minY: number
+  readonly maxY: number
+  readonly minZ: number
+  readonly maxZ: number
+}
+
+interface CameraPose {
+  readonly position: Vector3
+  readonly target: Vector3
+}
+
+/** Moves the camera back along its current view direction until `bounds` fits, and looks at its centre. */
+function frameBounds(
+  camera: PerspectiveCamera,
+  controls: OrbitControlsImpl,
+  bounds: FrameBounds,
+  padding: number
+): void {
+  const center = new Vector3(
+    (bounds.minX + bounds.maxX) / 2000,
+    (bounds.minY + bounds.maxY) / 2000,
+    (bounds.minZ + bounds.maxZ) / 2000
+  )
+  const spanX = (bounds.maxX - bounds.minX) / 1000
+  const spanY = (bounds.maxY - bounds.minY) / 1000
+  const spanZ = (bounds.maxZ - bounds.minZ) / 1000
+  const radius = Math.max(0.6, Math.sqrt(spanX * spanX + spanY * spanY + spanZ * spanZ) / 2)
+  const distance = (radius / Math.sin((camera.fov * Math.PI) / 360)) * padding
+  const direction = camera.position.clone().sub(controls.target).normalize()
+  camera.position.copy(center.clone().add(direction.multiplyScalar(distance)))
+  controls.target.copy(center)
+  controls.update()
+}
+
 function SceneContents(): ReactElement {
   const scene = useAppStore((state) => state.scene)
   const selectedCabinetId = useAppStore((state) => state.selectedCabinetId)
+  const editingPieceId = useAppStore((state) => state.editor.editingPieceId)
+  const selectedPanelId = useAppStore((state) => state.editor.selectedPanelId)
   const selectCabinet = useAppStore((state) => state.selectCabinet)
+  const selectPanel = useAppStore((state) => state.selectPanel)
+  const enterPieceEditor = useAppStore((state) => state.enterPieceEditor)
   const moveSelected = useAppStore((state) => state.moveSelected)
   const dropSelected = useAppStore((state) => state.dropSelected)
   const fitViewNonce = useAppStore((state) => state.fitViewNonce)
   const priceDb = useAppStore((state) => state.priceDb)
+  const editing = editingPieceId !== null
 
   const { camera, gl } = useThree()
   const controlsRef = useRef<OrbitControlsImpl | null>(null)
   const raycaster = useMemo(() => new Raycaster(), [])
   const dragRef = useRef<DragState | null>(null)
   const [dragging, setDragging] = useState(false)
+  /** Where the camera stood before the editor framed the piece; restored on exit. */
+  const poseBeforeEditRef = useRef<CameraPose | null>(null)
 
   const pointOnPlaneMm = (event: PointerEvent, plane: Plane): { x: number; z: number } | null => {
     const rect = gl.domElement.getBoundingClientRect()
@@ -127,27 +173,41 @@ function SceneContents(): ReactElement {
     // Frame the room: every cabinet is inside it by invariant, so this always
     // contains the furniture too — including anything hanging on a wall.
     const bounds = roomInteriorRect(currentScene.room)
-    const minBottomMm = 0
     const maxTopMm = Math.max(
       currentScene.room.wallHeightMm,
       ...currentScene.cabinets.map((cabinet) => designVerticalExtent(cabinet.design).topMm)
     )
-    const center = new Vector3(
-      (bounds.minX + bounds.maxX) / 2000,
-      (minBottomMm + maxTopMm) / 2000,
-      (bounds.minZ + bounds.maxZ) / 2000
-    )
-    const spanX = (bounds.maxX - bounds.minX) / 1000
-    const spanZ = (bounds.maxZ - bounds.minZ) / 1000
-    const spanY = (maxTopMm - minBottomMm) / 1000
-    const radius = Math.max(0.6, Math.sqrt(spanX * spanX + spanY * spanY + spanZ * spanZ) / 2)
-    const distance = (radius / Math.sin((camera.fov * Math.PI) / 360)) * 1.15
-    const direction = camera.position.clone().sub(controls.target).normalize()
-    camera.position.copy(center.clone().add(direction.multiplyScalar(distance)))
-    controls.target.copy(center)
-    controls.update()
+    frameBounds(camera, controls, { ...bounds, minY: 0, maxY: maxTopMm }, 1.15)
     // Reacts to the nonce only; the scene is read fresh via getState above.
   }, [fitViewNonce])
+
+  // Entering the editor frames the piece; leaving it puts the camera back.
+  useEffect(() => {
+    const controls = controlsRef.current
+    if (controls === null || !(camera instanceof PerspectiveCamera)) {
+      return
+    }
+    if (editingPieceId !== null) {
+      const placed = findPlacedCabinet(useAppStore.getState().scene, editingPieceId)
+      if (placed === undefined) {
+        return
+      }
+      if (poseBeforeEditRef.current === null) {
+        poseBeforeEditRef.current = {
+          position: camera.position.clone(),
+          target: controls.target.clone()
+        }
+      }
+      const rect = placedCabinetRect(placed)
+      const { bottomMm, topMm } = placedVerticalInterval(placed)
+      frameBounds(camera, controls, { ...rect, minY: bottomMm, maxY: topMm }, 1.6)
+    } else if (poseBeforeEditRef.current !== null) {
+      camera.position.copy(poseBeforeEditRef.current.position)
+      controls.target.copy(poseBeforeEditRef.current.target)
+      controls.update()
+      poseBeforeEditRef.current = null
+    }
+  }, [editingPieceId, camera])
 
   return (
     <>
@@ -156,26 +216,47 @@ function SceneContents(): ReactElement {
       <directionalLight position={[3, 6, 4]} intensity={1.2} />
       <directionalLight position={[-4, 3, -3]} intensity={0.35} />
 
-      {scene.cabinets.map((placed) => (
-        <PlacedCabinetMesh
-          key={placed.id}
-          placed={placed}
-          selected={placed.id === selectedCabinetId}
-          priceDb={priceDb}
-          onPointerDown={(event) => startDrag(placed, event)}
-        />
-      ))}
+      {scene.cabinets.map((placed) =>
+        editing ? (
+          <PlacedCabinetMesh
+            key={placed.id}
+            placed={placed}
+            selected={placed.id === selectedCabinetId}
+            priceDb={priceDb}
+            editing={placed.id === editingPieceId}
+            selectedPanelId={selectedPanelId}
+            onSelectPanel={selectPanel}
+            dimmed={placed.id !== editingPieceId}
+          />
+        ) : (
+          <PlacedCabinetMesh
+            key={placed.id}
+            placed={placed}
+            selected={placed.id === selectedCabinetId}
+            priceDb={priceDb}
+            onPointerDown={(event) => startDrag(placed, event)}
+            // Selects on the first press, opens the editor on the second; a
+            // no-op for catalog cabinets (the store checks the family).
+            onDoubleClick={(event) => {
+              event.stopPropagation()
+              enterPieceEditor()
+            }}
+          />
+        )
+      )}
 
       <RoomView room={scene.room} />
 
-      <MeasureLine />
+      {!editing && <MeasureLine />}
 
-      {/* Invisible catcher below the grid: clicking empty floor deselects. */}
+      {/* Invisible catcher below the grid: clicking empty floor deselects (the panel while editing). */}
       <mesh
         rotation-x={-Math.PI / 2}
         position={[0, -0.002, 0]}
         onPointerDown={() => {
-          if (!dragging) {
+          if (editing) {
+            selectPanel(null)
+          } else if (!dragging) {
             selectCabinet(null)
           }
         }}
@@ -211,26 +292,30 @@ function SceneContents(): ReactElement {
   )
 }
 
+function isTypingTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)
+  )
+}
+
 export function Viewport(): ReactElement {
   const rotateSelected = useAppStore((state) => state.rotateSelected)
+  const exitPieceEditor = useAppStore((state) => state.exitPieceEditor)
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key.toLowerCase() !== 'r') {
+      if (isTypingTarget(event.target)) {
         return
       }
-      const target = event.target
-      if (
-        target instanceof HTMLElement &&
-        ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)
-      ) {
-        return
+      if (event.key.toLowerCase() === 'r') {
+        rotateSelected() // a no-op while a piece is open
+      } else if (event.key === 'Escape') {
+        exitPieceEditor()
       }
-      rotateSelected()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [rotateSelected])
+  }, [rotateSelected, exitPieceEditor])
 
   return (
     // Outside the default room's front-right corner, so the near walls hide
