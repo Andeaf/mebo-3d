@@ -3,8 +3,10 @@ import type { CabinetDesign } from '@core/cabinet'
 import {
   clampDesign,
   createDefaultDesign,
+  isCustomPieceDesign,
   type CabinetKind
 } from '@core/catalog/registry'
+import { createDefaultCustomPieceSpec, CUSTOM_PIECE_KIND } from '@core/customPiece'
 import { cabinetOverlapsOthers, placedCabinetRect } from '@core/footprint'
 import type { PriceDatabase } from '@core/materials'
 import type { ProjectDocument } from '@core/project'
@@ -19,6 +21,15 @@ import {
 } from '@core/scene'
 import { placeWithoutOverlap, resolveDragPose, spawnPlacement } from '@core/snap'
 import { loadStoredLanguage, storeLanguage, type Language } from './language'
+import {
+  cabinetRemoved,
+  enterEditor,
+  isEditing,
+  reconcilePanels,
+  selectPanel as selectPanelIn,
+  type PieceEditorState,
+  NO_EDITOR
+} from './pieceEditor'
 import { markDirty, markOpened, markSaved, type ProjectStatus, NEW_PROJECT } from './projectStatus'
 import { loadRecentProjects, storeRecentProjects, type RecentProject } from './recentProjects'
 
@@ -59,7 +70,15 @@ interface AppState {
   readonly recentProjects: readonly RecentProject[]
   /** The last failed open/save, shown until dismissed; never silent. */
   readonly projectError: string | null
+  /** The piece editor: which custom piece is open, which panel is selected. */
+  readonly editor: PieceEditorState
   addCabinet: (kind: CabinetKind) => void
+  /** Adds an empty custom piece (the name is the renderer's translated default) and opens its editor. */
+  addCustomPiece: (name: string) => void
+  /** Opens the editor on the selected cabinet; ignored unless it is a custom piece. */
+  enterPieceEditor: () => void
+  exitPieceEditor: () => void
+  selectPanel: (panelId: string | null) => void
   duplicateSelected: () => void
   deleteSelected: () => void
   selectCabinet: (id: string | null) => void
@@ -127,8 +146,37 @@ function sceneChange(
     : { scene, project: markDirty(state.project) }
 }
 
+/**
+ * Adds a design at the spawn spot as the next `cab-<n>` and selects it, or
+ * changes nothing when the room holds no free spot (the id is not consumed).
+ */
+function spawnDesign(
+  state: Pick<AppState, 'scene' | 'project' | 'nextCabinetNumber'>,
+  design: CabinetDesign
+): Partial<AppState> {
+  const spawn = spawnPlacement(state.scene, design)
+  const cabinet: PlacedCabinet = {
+    id: `cab-${state.nextCabinetNumber}`,
+    design,
+    positionX: spawn.positionX,
+    positionZ: spawn.positionZ,
+    rotationDeg: spawn.rotationDeg
+  }
+  const change = sceneChange(state, placeWithoutOverlap(state.scene, cabinet))
+  if (change.scene === undefined) {
+    return {}
+  }
+  return {
+    ...change,
+    selectedCabinetId: cabinet.id,
+    nextCabinetNumber: state.nextCabinetNumber + 1
+  }
+}
+
 // Scene invariant: every mutation that adds or moves a cabinet goes through
 // placeWithoutOverlap (or is rejected), so the store never holds overlaps.
+// While the piece editor is open the scene-level gestures (select, move,
+// rotate, duplicate) are no-ops: the UI hides them, and this backs that up.
 export const useAppStore = create<AppState>((set) => ({
   scene: initialScene(),
   selectedCabinetId: 'cab-1',
@@ -141,33 +189,44 @@ export const useAppStore = create<AppState>((set) => ({
   project: NEW_PROJECT,
   recentProjects: loadRecentProjects(),
   projectError: null,
+  editor: NO_EDITOR,
 
   addCabinet: (kind) =>
+    set((state) => (isEditing(state.editor) ? {} : spawnDesign(state, createDefaultDesign(kind)))),
+
+  addCustomPiece: (name) =>
     set((state) => {
-      const design = createDefaultDesign(kind)
-      const spawn = spawnPlacement(state.scene, design)
-      const cabinet: PlacedCabinet = {
-        id: `cab-${state.nextCabinetNumber}`,
-        design,
-        positionX: spawn.positionX,
-        positionZ: spawn.positionZ,
-        rotationDeg: spawn.rotationDeg
+      if (isEditing(state.editor)) {
+        return {}
       }
-      const change = sceneChange(state, placeWithoutOverlap(state.scene, cabinet))
-      if (change.scene === undefined) {
-        return {} // no free spot: nothing added, id not consumed
+      const added = spawnDesign(state, {
+        kind: CUSTOM_PIECE_KIND,
+        spec: createDefaultCustomPieceSpec(name)
+      })
+      const addedId = added.selectedCabinetId
+      if (typeof addedId !== 'string') {
+        return {}
       }
-      return {
-        ...change,
-        selectedCabinetId: cabinet.id,
-        nextCabinetNumber: state.nextCabinetNumber + 1
-      }
+      return { ...added, editor: enterEditor(addedId) }
     }),
+
+  enterPieceEditor: () =>
+    set((state) => {
+      const selected = selectedOf(state)
+      if (selected === undefined || !isCustomPieceDesign(selected.design)) {
+        return {}
+      }
+      return { editor: enterEditor(selected.id) }
+    }),
+
+  exitPieceEditor: () => set({ editor: NO_EDITOR }),
+
+  selectPanel: (panelId) => set((state) => ({ editor: selectPanelIn(state.editor, panelId) })),
 
   duplicateSelected: () =>
     set((state) => {
       const selected = selectedOf(state)
-      if (selected === undefined) {
+      if (selected === undefined || isEditing(state.editor)) {
         return {}
       }
       // Aim flush beside the original; placeWithoutOverlap resolves the rest.
@@ -194,19 +253,21 @@ export const useAppStore = create<AppState>((set) => ({
 
   deleteSelected: () =>
     set((state) => {
-      if (state.selectedCabinetId === null) {
+      const removedId = state.selectedCabinetId
+      if (removedId === null) {
         return {}
       }
       return {
         ...sceneChange(state, {
           ...state.scene,
-          cabinets: state.scene.cabinets.filter((cabinet) => cabinet.id !== state.selectedCabinetId)
+          cabinets: state.scene.cabinets.filter((cabinet) => cabinet.id !== removedId)
         }),
-        selectedCabinetId: null
+        selectedCabinetId: null,
+        editor: cabinetRemoved(state.editor, removedId)
       }
     }),
 
-  selectCabinet: (id) => set({ selectedCabinetId: id }),
+  selectCabinet: (id) => set((state) => (isEditing(state.editor) ? {} : { selectedCabinetId: id })),
 
   updateSelectedDesign: (design) =>
     set((state) => {
@@ -214,8 +275,20 @@ export const useAppStore = create<AppState>((set) => ({
       if (selected === undefined) {
         return {}
       }
-      const updated: PlacedCabinet = { ...selected, design: clampDesign(design) }
-      return sceneChange(state, placeWithoutOverlap(state.scene, updated))
+      const clamped = clampDesign(design)
+      const updated: PlacedCabinet = { ...selected, design: clamped }
+      const change = sceneChange(state, placeWithoutOverlap(state.scene, updated))
+      if (change.scene === undefined || !isCustomPieceDesign(clamped)) {
+        return change
+      }
+      // A panel selection must not outlive its panel.
+      return {
+        ...change,
+        editor: reconcilePanels(
+          state.editor,
+          clamped.spec.panels.map((panel) => panel.id)
+        )
+      }
     }),
 
   updateRoom: (room) =>
@@ -238,7 +311,7 @@ export const useAppStore = create<AppState>((set) => ({
   moveSelected: (positionX, positionZ) =>
     set((state) => {
       const selected = selectedOf(state)
-      if (selected === undefined) {
+      if (selected === undefined || isEditing(state.editor)) {
         return {}
       }
       const others = state.scene.cabinets.filter((cabinet) => cabinet.id !== selected.id)
@@ -269,7 +342,7 @@ export const useAppStore = create<AppState>((set) => ({
   dropSelected: (positionX, positionZ) =>
     set((state) => {
       const selected = selectedOf(state)
-      if (selected === undefined) {
+      if (selected === undefined || isEditing(state.editor)) {
         return {}
       }
       return sceneChange(
@@ -281,7 +354,7 @@ export const useAppStore = create<AppState>((set) => ({
   rotateSelected: () =>
     set((state) => {
       const selected = selectedOf(state)
-      if (selected === undefined) {
+      if (selected === undefined || isEditing(state.editor)) {
         return {}
       }
       return sceneChange(
@@ -320,6 +393,7 @@ export const useAppStore = create<AppState>((set) => ({
       nextCabinetNumber: 2,
       project: NEW_PROJECT,
       projectError: null,
+      editor: NO_EDITOR,
       fitViewNonce: state.fitViewNonce + 1
     })),
 
@@ -331,6 +405,7 @@ export const useAppStore = create<AppState>((set) => ({
       nextCabinetNumber: nextCabinetNumberFor(document.scene),
       project: markOpened(path, document.metadata.createdAt),
       projectError: null,
+      editor: NO_EDITOR,
       fitViewNonce: state.fitViewNonce + 1
     })),
 
