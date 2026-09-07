@@ -562,3 +562,159 @@ tbody:first-child .quote__category-row th {
   font-size: 1.2rem;
   font-variant-numeric: tabular-nums;
 }
+
+/* ---- shared small buttons ---- */
+
+.button {
+  padding: 5px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.button--primary {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.button--danger:hover:not(:disabled) {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.field__actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.field__text {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+}
+
+.field__text:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.checkbox-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.checkbox input {
+  accent-color: var(--accent);
+}
+
+.toolbar__menu-divider {
+  margin: 4px 6px;
+  border-top: 1px solid var(--border);
+}
+
+/* ---- piece editor ---- */
+
+.panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.panel__head .panel__title {
+  margin: 0;
+}
+
+.panel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.panel-list__row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.panel-list__row:hover {
+  border-color: var(--accent);
+}
+
+.panel-list__row--active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.panel-list__role {
+  flex: 1;
+}
+
+.panel-list__dims {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hardware-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.hardware-row .field__select {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.hardware-row .field__number {
+  width: 56px;
+  flex-shrink: 0;
+}

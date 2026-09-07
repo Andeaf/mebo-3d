@@ -19,6 +19,7 @@ import {
   panelBox,
   panelBoxSize,
   panelExtent,
+  panelRanges,
   removePanel,
   resizeEnvelope,
   validateCustomPieceSpec,
@@ -381,6 +382,23 @@ describe('clamping', () => {
     expect(once.panels[0].lengthMm).toBe(1000)
     expect(once.panels[0].originMm.x).toBe(10)
     expect(clampCustomPieceSpec(once)).toEqual(once)
+  })
+})
+
+describe('panelRanges', () => {
+  it('bounds sizes by the axis extent and origins by what is left', () => {
+    const shelf = built('shelf').panels[0]
+    const ranges = panelRanges(envelope, shelf)
+    expect(ranges.lengthMaxMm).toBe(1800)
+    expect(ranges.widthMaxMm).toBe(400 + FRONT_OVERLAY_ZONE_MM)
+    expect(ranges.originMaxMm).toEqual({
+      x: 1800 - shelf.lengthMm,
+      y: 500 - t,
+      z: 418 - shelf.widthMm
+    })
+    const side = built('side').panels[0]
+    expect(panelRanges(envelope, side).lengthMaxMm).toBe(500)
+    expect(panelRanges(envelope, side).originMaxMm.x).toBe(1800 - t)
   })
 })
 

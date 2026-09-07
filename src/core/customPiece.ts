@@ -241,6 +241,32 @@ export function panelSpace(spec: Pick<CustomPieceSpec, 'widthMm' | 'heightMm' | 
   return { x: spec.widthMm, y: spec.heightMm, z: spec.depthMm + FRONT_OVERLAY_ZONE_MM }
 }
 
+/** The most a panel's fields may be, given the envelope and its own current size (for the editor's sliders). */
+export interface PanelRanges {
+  readonly lengthMaxMm: number
+  readonly widthMaxMm: number
+  readonly originMaxMm: Vec3
+}
+
+export function panelRanges(
+  spec: Pick<CustomPieceSpec, 'widthMm' | 'heightMm' | 'depthMm'>,
+  panel: PanelShape & Pick<CustomPanelSpec, 'originMm'>
+): PanelRanges {
+  const space = panelSpace(spec)
+  const axes = axesOf(panel.orientation)
+  const size = panelBoxSize(panel)
+  const limit = CUSTOM_PIECE_LIMITS.panelSizeMm.max
+  return {
+    lengthMaxMm: Math.min(limit, space[axes.length]),
+    widthMaxMm: Math.min(limit, space[axes.width]),
+    originMaxMm: {
+      x: Math.max(0, space.x - size.x),
+      y: Math.max(0, space.y - size.y),
+      z: Math.max(0, space.z - size.z)
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Validation (used by the file decoder; the editor clamps instead)
 

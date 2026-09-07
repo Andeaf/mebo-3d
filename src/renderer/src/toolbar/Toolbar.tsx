@@ -7,6 +7,7 @@ import { useT } from '../i18n'
 function AddCabinetMenu(): ReactElement {
   const t = useT()
   const addCabinet = useAppStore((state) => state.addCabinet)
+  const addCustomPiece = useAppStore((state) => state.addCustomPiece)
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement | null>(null)
 
@@ -62,6 +63,18 @@ function AddCabinetMenu(): ReactElement {
               {t(`kind.${kind}`)}
             </button>
           ))}
+          <div className="toolbar__menu-divider" role="separator" />
+          <button
+            type="button"
+            role="menuitem"
+            className="toolbar__menu-item"
+            onClick={() => {
+              addCustomPiece(t('piece.defaultName'))
+              setOpen(false)
+            }}
+          >
+            {t('kind.custom-piece')}…
+          </button>
         </div>
       )}
     </div>
@@ -71,10 +84,23 @@ function AddCabinetMenu(): ReactElement {
 export function Toolbar(): ReactElement {
   const t = useT()
   const hasSelection = useAppStore((state) => state.selectedCabinetId !== null)
+  const editing = useAppStore((state) => state.editor.editingPieceId !== null)
   const duplicateSelected = useAppStore((state) => state.duplicateSelected)
   const deleteSelected = useAppStore((state) => state.deleteSelected)
   const rotateSelected = useAppStore((state) => state.rotateSelected)
   const requestFitView = useAppStore((state) => state.requestFitView)
+  const exitPieceEditor = useAppStore((state) => state.exitPieceEditor)
+
+  if (editing) {
+    // The scene gestures are off while a piece is open; only the way out remains.
+    return (
+      <div className="toolbar">
+        <button type="button" className="toolbar__button" onClick={exitPieceEditor}>
+          {t('piece.done')}
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="toolbar">

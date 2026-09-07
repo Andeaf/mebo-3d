@@ -19,6 +19,7 @@ import { useSelectedCabinet } from '@state/selectors'
 import { useAppStore } from '@state/store'
 import { useT, type TranslationKey } from '../i18n'
 import { DimensionField } from './DimensionField'
+import { MaterialSelect } from './MaterialSelect'
 
 /** Whole-number picker (shelves, drawers): slider plus the current value. */
 function CountField({
@@ -57,7 +58,7 @@ function CountField({
   )
 }
 
-/** Carcass board picker, shared by every kind (18 mm boards only). */
+/** Carcass board picker, shared by every catalog kind (18 mm boards only). */
 function MaterialField({
   value,
   onChange
@@ -65,34 +66,15 @@ function MaterialField({
   readonly value: string
   readonly onChange: (materialId: string) => void
 }): ReactElement {
-  const t = useT()
-  const priceDb = useAppStore((state) => state.priceDb)
-  const options =
-    priceDb?.materials.filter(
-      (material) => material.category === 'board' && material.thicknessMm === CARCASS_THICKNESS_MM
-    ) ?? []
-
   return (
-    <div className="field">
-      <div className="field__head">
-        <label className="field__label" htmlFor="carcass-material">
-          {t('params.material')}
-        </label>
-      </div>
-      <select
-        id="carcass-material"
-        className="field__select"
-        value={value}
-        disabled={options.length === 0}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        {options.map((material) => (
-          <option key={material.id} value={material.id}>
-            {material.name}
-          </option>
-        ))}
-      </select>
-    </div>
+    <MaterialSelect
+      id="carcass-material"
+      labelKey="params.material"
+      category="board"
+      thicknessMm={CARCASS_THICKNESS_MM}
+      value={value}
+      onChange={onChange}
+    />
   )
 }
 
@@ -368,6 +350,7 @@ function DrawerCabinetFields({
  */
 function CustomPieceSummary({ spec }: { readonly spec: CustomPieceSpec }): ReactElement {
   const t = useT()
+  const enterPieceEditor = useAppStore((state) => state.enterPieceEditor)
   const row = (label: string, value: string): ReactElement => (
     <div className="field">
       <div className="field__head">
@@ -387,6 +370,11 @@ function CustomPieceSummary({ spec }: { readonly spec: CustomPieceSpec }): React
           : t('piece.mounting.floor')
       )}
       {row(t('piece.panelCount'), String(spec.panels.length))}
+      <div className="field__actions">
+        <button type="button" className="button button--primary" onClick={enterPieceEditor}>
+          {t('piece.edit')}
+        </button>
+      </div>
     </>
   )
 }
