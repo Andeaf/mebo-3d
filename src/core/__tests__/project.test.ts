@@ -121,7 +121,9 @@ describe('project round trip', () => {
       node(document, 'scene', 'cabinets', 0, 'design', 'params').carcassMaterialId = 'discontinued-board'
     })
     const loaded = parseProject(text).scene.cabinets[0]
-    expect(loaded.design.params.carcassMaterialId).toBe('discontinued-board')
+    expect(loaded.design.kind === 'base-cabinet' && loaded.design.params.carcassMaterialId).toBe(
+      'discontinued-board'
+    )
   })
 })
 

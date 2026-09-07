@@ -12,6 +12,14 @@ export const en: Record<TranslationKey, string> = {
   'kind.wall-cabinet': 'Wall cabinet',
   'kind.tall-cabinet': 'Tall cabinet',
   'kind.drawer-cabinet': 'Drawer cabinet',
+  'kind.custom-piece': 'Custom piece',
+
+  'piece.name': 'Name',
+  'piece.envelope': 'Envelope (W × H × D)',
+  'piece.panelCount': 'Panels',
+  'piece.mounting': 'Placement',
+  'piece.mounting.floor': 'On the floor',
+  'piece.mounting.wall': 'On the wall',
 
   'toolbar.duplicate': 'Duplicate',
   'toolbar.delete': 'Delete',

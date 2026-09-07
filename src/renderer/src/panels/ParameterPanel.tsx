@@ -13,6 +13,7 @@ import {
 } from '@core/catalog/drawerCabinet'
 import type { DesignOfKind } from '@core/catalog/registry'
 import { TALL_CABINET_LIMITS, type TallCabinetParams } from '@core/catalog/tallCabinet'
+import type { CustomPieceSpec } from '@core/customPiece'
 import { WALL_CABINET_LIMITS, type WallCabinetParams } from '@core/catalog/wallCabinet'
 import { useSelectedCabinet } from '@state/selectors'
 import { useAppStore } from '@state/store'
@@ -361,7 +362,36 @@ function DrawerCabinetFields({
   )
 }
 
-/** Kind → field group. Adding a kind adds one case here. */
+/**
+ * A custom piece outside its editor: what it is, at a glance. Its panels are
+ * edited in the piece editor, never here.
+ */
+function CustomPieceSummary({ spec }: { readonly spec: CustomPieceSpec }): ReactElement {
+  const t = useT()
+  const row = (label: string, value: string): ReactElement => (
+    <div className="field">
+      <div className="field__head">
+        <span className="field__label">{label}</span>
+        <span className="field__value-badge">{value}</span>
+      </div>
+    </div>
+  )
+  return (
+    <>
+      {row(t('piece.name'), spec.name === '' ? t('kind.custom-piece') : spec.name)}
+      {row(t('piece.envelope'), `${spec.widthMm} × ${spec.heightMm} × ${spec.depthMm} ${t('unit.mm')}`)}
+      {row(
+        t('piece.mounting'),
+        spec.mountingHeightMm > 0
+          ? `${t('piece.mounting.wall')}, ${spec.mountingHeightMm} ${t('unit.mm')}`
+          : t('piece.mounting.floor')
+      )}
+      {row(t('piece.panelCount'), String(spec.panels.length))}
+    </>
+  )
+}
+
+/** Kind → field group. Adding a catalog kind adds one case here. */
 function KindFields({ design }: { readonly design: CabinetDesign }): ReactElement {
   switch (design.kind) {
     case 'base-cabinet':
@@ -372,6 +402,8 @@ function KindFields({ design }: { readonly design: CabinetDesign }): ReactElemen
       return <TallCabinetFields design={design} />
     case 'drawer-cabinet':
       return <DrawerCabinetFields design={design} />
+    case 'custom-piece':
+      return <CustomPieceSummary spec={design.spec} />
   }
 }
 

@@ -14,6 +14,14 @@ export const nl = {
   'kind.wall-cabinet': 'Bovenkast',
   'kind.tall-cabinet': 'Kolomkast',
   'kind.drawer-cabinet': 'Ladekast',
+  'kind.custom-piece': 'Maatwerk',
+
+  'piece.name': 'Naam',
+  'piece.envelope': 'Omhulling (B × H × D)',
+  'piece.panelCount': 'Panelen',
+  'piece.mounting': 'Plaatsing',
+  'piece.mounting.floor': 'Op de vloer',
+  'piece.mounting.wall': 'Aan de wand',
 
   'toolbar.duplicate': 'Dupliceren',
   'toolbar.delete': 'Verwijderen',

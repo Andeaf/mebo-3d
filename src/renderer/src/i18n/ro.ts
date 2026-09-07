@@ -12,6 +12,14 @@ export const ro: Record<TranslationKey, string> = {
   'kind.wall-cabinet': 'Corp suspendat',
   'kind.tall-cabinet': 'Corp coloană',
   'kind.drawer-cabinet': 'Corp cu sertare',
+  'kind.custom-piece': 'Piesă la comandă',
+
+  'piece.name': 'Nume',
+  'piece.envelope': 'Gabarit (L × H × A)',
+  'piece.panelCount': 'Panouri',
+  'piece.mounting': 'Amplasare',
+  'piece.mounting.floor': 'Pe podea',
+  'piece.mounting.wall': 'Pe perete',
 
   'toolbar.duplicate': 'Duplică',
   'toolbar.delete': 'Șterge',

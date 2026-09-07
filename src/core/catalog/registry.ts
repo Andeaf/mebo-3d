@@ -4,6 +4,15 @@ import {
   validateBaseCabinetParams,
   type BaseCabinetParams
 } from '../cabinet'
+import {
+  clampCustomPieceSpec,
+  customPieceFootprintSize,
+  customPieceVerticalExtent,
+  generateCustomPiece,
+  validateCustomPieceSpec,
+  CUSTOM_PIECE_KIND,
+  type CustomPieceDesign
+} from '../customPiece'
 // Type-only on purpose: footprint.ts calls this module at runtime, so a value
 // import here would close a runtime cycle.
 import type { FootprintSize, VerticalExtentMm } from '../footprint'
@@ -32,11 +41,19 @@ import {
 } from './wallCabinet'
 
 /**
- * The catalog registry: the one place that knows which cabinet kinds exist.
+ * The catalog registry: the one place that knows which cabinet kinds exist,
+ * and the one place that knows what a design can be.
  *
- * Adding a kind = one generator file + one entry in CABINET_REGISTRY + one
- * case in `visitDesign` below. Scene placement, pricing, state and UI stay
- * kind-agnostic because they only ever go through the dispatch helpers.
+ * A design belongs to one of exactly TWO families:
+ *   - a catalog kind: `{ kind, params }` with params total and scalar, listed
+ *     in CABINET_REGISTRY and decoded from files by the template decoder;
+ *   - a custom piece: `{ kind: 'custom-piece', spec }`, structured data
+ *     (a panel list) with its own hand-written decoder in `project.ts`.
+ * The dispatch helpers below branch once on the family; the catalog family
+ * then goes through the exhaustive `visitDesign` switch. Adding a catalog
+ * kind = one generator file + one entry in CABINET_REGISTRY + one case in
+ * `visitDesign`. Scene placement, pricing, state and UI stay kind-agnostic
+ * because they only ever go through the dispatch helpers.
  */
 
 export interface CabinetParamsByKind {
@@ -48,13 +65,23 @@ export interface CabinetParamsByKind {
 
 export type CabinetKind = keyof CabinetParamsByKind
 
-/** A complete design: a kind plus the params of exactly that kind. */
-export type CabinetDesign = {
+/** A catalog design: a kind plus the params of exactly that kind. */
+export type CatalogDesign = {
   [K in CabinetKind]: { readonly kind: K; readonly params: CabinetParamsByKind[K] }
 }[CabinetKind]
 
-/** The design variant of exactly one kind (for per-kind UI and generators). */
-export type DesignOfKind<K extends CabinetKind> = Extract<CabinetDesign, { kind: K }>
+/** Any design the scene can hold: a catalog kind or a custom piece. */
+export type CabinetDesign = CatalogDesign | CustomPieceDesign
+
+/** Every `design.kind` value, catalog kinds and the custom piece (for labels). */
+export type DesignKind = CabinetKind | typeof CUSTOM_PIECE_KIND
+
+/** The design variant of exactly one catalog kind (for per-kind UI and generators). */
+export type DesignOfKind<K extends CabinetKind> = Extract<CatalogDesign, { kind: K }>
+
+export function isCustomPieceDesign(design: CabinetDesign): design is CustomPieceDesign {
+  return design.kind === CUSTOM_PIECE_KIND
+}
 
 // The design→scene contract lives beside FootprintSize; re-exported here
 // because this is where consumers have always found it.
@@ -63,9 +90,9 @@ export type { VerticalExtentMm }
 export interface CabinetKindDefinition<K extends CabinetKind> {
   readonly kind: K
   /** A ready-to-place design with this kind's defaults (used by the type picker). */
-  readonly createDefaultDesign: () => CabinetDesign
+  readonly createDefaultDesign: () => CatalogDesign
   /** Wraps this kind's params back into a design; keeps dispatch cast-free. */
-  readonly designOf: (params: CabinetParamsByKind[K]) => CabinetDesign
+  readonly designOf: (params: CabinetParamsByKind[K]) => CatalogDesign
   readonly clampParams: (params: CabinetParamsByKind[K]) => CabinetParamsByKind[K]
   readonly validateParams: (params: CabinetParamsByKind[K]) => string[]
   readonly generate: (params: CabinetParamsByKind[K]) => CabinetBuild
@@ -208,7 +235,7 @@ export function decodeParams<K extends CabinetKind>(kind: K, raw: unknown): Cabi
 }
 
 /** `decodeParams` wrapped back into a design of that kind. */
-export function decodeDesign<K extends CabinetKind>(kind: K, rawParams: unknown): CabinetDesign {
+export function decodeDesign<K extends CabinetKind>(kind: K, rawParams: unknown): CatalogDesign {
   const definition: CabinetKindDefinition<K> = CABINET_REGISTRY[kind]
   return definition.designOf(decodeParams(kind, rawParams))
 }
@@ -223,7 +250,7 @@ type DesignVisitor<R> = <K extends CabinetKind>(
  * discriminant is what pairs a definition with params of its own kind, so
  * every helper below stays fully typed without a cast.
  */
-function visitDesign<R>(design: CabinetDesign, visit: DesignVisitor<R>): R {
+function visitDesign<R>(design: CatalogDesign, visit: DesignVisitor<R>): R {
   switch (design.kind) {
     case 'base-cabinet':
       return visit(CABINET_REGISTRY[design.kind], design.params)
@@ -236,17 +263,30 @@ function visitDesign<R>(design: CabinetDesign, visit: DesignVisitor<R>): R {
   }
 }
 
-export function createDefaultDesign(kind: CabinetKind): CabinetDesign {
+export function createDefaultDesign(kind: CabinetKind): CatalogDesign {
   return CABINET_REGISTRY[kind].createDefaultDesign()
 }
 
+// The five dispatch helpers: one family branch each, then the catalog switch.
+// A custom piece answers from its spec; everything downstream (cutting list,
+// price engine, geometry, scene) only ever sees what these return.
+
 /** design → panels + hardware. The single source of truth for one cabinet. */
 export function generateCabinet(design: CabinetDesign): CabinetBuild {
+  if (isCustomPieceDesign(design)) {
+    return generateCustomPiece(design.spec)
+  }
   return visitDesign(design, (definition, params) => definition.generate(params))
 }
 
-/** Forces the design's params into their allowed ranges (used on every edit). */
+/** Forces the design's values into their allowed ranges (used on every edit). */
+export function clampDesign(design: CatalogDesign): CatalogDesign
+export function clampDesign(design: CustomPieceDesign): CustomPieceDesign
+export function clampDesign(design: CabinetDesign): CabinetDesign
 export function clampDesign(design: CabinetDesign): CabinetDesign {
+  if (isCustomPieceDesign(design)) {
+    return { kind: CUSTOM_PIECE_KIND, spec: clampCustomPieceSpec(design.spec) }
+  }
   return visitDesign(design, (definition, params) =>
     definition.designOf(definition.clampParams(params))
   )
@@ -254,15 +294,24 @@ export function clampDesign(design: CabinetDesign): CabinetDesign {
 
 /** Returns a list of violations (empty when the design is valid). */
 export function validateDesign(design: CabinetDesign): string[] {
+  if (isCustomPieceDesign(design)) {
+    return validateCustomPieceSpec(design.spec)
+  }
   return visitDesign(design, (definition, params) => definition.validateParams(params))
 }
 
 /** Carcass floor footprint (overlay fronts excluded on purpose). */
 export function designFootprintSize(design: CabinetDesign): FootprintSize {
+  if (isCustomPieceDesign(design)) {
+    return customPieceFootprintSize(design.spec)
+  }
   return visitDesign(design, (definition, params) => definition.footprintSize(params))
 }
 
 /** Vertical interval the carcass occupies above the floor, in mm. */
 export function designVerticalExtent(design: CabinetDesign): VerticalExtentMm {
+  if (isCustomPieceDesign(design)) {
+    return customPieceVerticalExtent(design.spec)
+  }
   return visitDesign(design, (definition, params) => definition.verticalExtent(params))
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CabinetDesign } from '@core/cabinet'
 import { createDefaultDesign, type CabinetKind } from '@core/catalog/registry'
+import { createDefaultCustomPieceSpec, type CustomPanelSpec } from '@core/customPiece'
 import type { PriceDatabase } from '@core/materials'
 import { quoteForDesign } from '@core/pricing'
 import { createDefaultRoom } from '@core/room'
@@ -68,5 +69,65 @@ describe('pricing a scene of mixed cabinet kinds', () => {
     expect(quantityOf('hinge-standard')).toBe(18)
     // 2 + 2 + 2 door handles + 3 drawer handles
     expect(quantityOf('handle-standard')).toBe(9)
+  })
+})
+
+describe('pricing a scene that holds a custom piece', () => {
+  // Two 720 × 400 sides on the 10 EUR/m² board, front edge banded, four hinges.
+  const side = (id: string, x: number): CustomPanelSpec => ({
+    id,
+    role: x === 0 ? 'side-left' : 'side-right',
+    materialId: 'melamine-white-18',
+    lengthMm: 720,
+    widthMm: 400,
+    thicknessMm: 18,
+    edgeBanding: { materialId: 'abs-edge', edges: ['length-1'] },
+    orientation: 'yz',
+    originMm: { x, y: 0, z: 0 }
+  })
+  const piece: CabinetDesign = {
+    kind: 'custom-piece',
+    spec: {
+      ...createDefaultCustomPieceSpec('Kastje'),
+      widthMm: 900,
+      heightMm: 720,
+      depthMm: 400,
+      panels: [side('panel-1', 0), side('panel-2', 882)],
+      hardware: [{ materialId: 'hinge-standard', quantity: 4 }]
+    }
+  }
+  const withPiece: SceneDesign = {
+    room: createDefaultRoom(),
+    cabinets: [...mixedScene.cabinets, { id: 'cab-5', design: piece, positionX: 3000, positionZ: 0, rotationDeg: 0 }]
+  }
+
+  it('prices the piece from its own panel list, by hand', () => {
+    const quote = quoteForDesign(piece, fixtureDb)
+    // Board: 2 × 0.72 × 0.40 m² = 0.576 m² × 10; band: 2 × 0.72 m × 1; hinges 4 × 2.
+    expect(quote.subtotalsEur.board).toBeCloseTo(5.76, 9)
+    expect(quote.subtotalsEur.edgeband).toBeCloseTo(1.44, 9)
+    expect(quote.subtotalsEur.hardware).toBe(8)
+    expect(quote.totalEur).toBeCloseTo(15.2, 9)
+    expect(quote.missingMaterialIds).toEqual([])
+  })
+
+  it('adds up with the catalog cabinets through the same engine', () => {
+    const quote = quoteForScene(withPiece, fixtureDb)
+    const catalogOnly = quoteForScene(mixedScene, fixtureDb)
+    expect(quote.cabinets).toHaveLength(5)
+    expect(quote.cabinets[4].cabinetId).toBe('cab-5')
+    expect(quote.totalEur).toBeCloseTo(catalogOnly.totalEur + 15.2, 9)
+    const hinges = quote.materialTotals.find((line) => line.materialId === 'hinge-standard')
+    expect(hinges?.quantity).toBe(18 + 4)
+  })
+
+  it('reports a discontinued board on the piece as missing, not as an error', () => {
+    const stale: CabinetDesign = {
+      kind: 'custom-piece',
+      spec: { ...piece.spec, panels: [{ ...piece.spec.panels[0], materialId: 'discontinued-board' }] }
+    }
+    const quote = quoteForScene({ ...withPiece, cabinets: [{ ...withPiece.cabinets[4], design: stale }] }, fixtureDb)
+    expect(quote.missingMaterialIds).toEqual(['discontinued-board'])
+    expect(quote.totalEur).toBeCloseTo(0.72 * 1 + 8, 9)
   })
 })

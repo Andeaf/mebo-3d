@@ -98,7 +98,11 @@ function CabinetList({ sceneQuote }: { sceneQuote: SceneQuote }): ReactElement |
             onClick={() => selectCabinet(entry.cabinetId)}
           >
             <span className="cabinet-list__number">#{entry.cabinetId.replace('cab-', '')}</span>
-            <span className="cabinet-list__kind">{t(`kind.${placed.design.kind}`)}</span>
+            <span className="cabinet-list__kind">
+              {placed.design.kind === 'custom-piece' && placed.design.spec.name !== ''
+                ? placed.design.spec.name
+                : t(`kind.${placed.design.kind}`)}
+            </span>
             <span className="cabinet-list__width">
               {designFootprintSize(placed.design).widthMm} {t('unit.mm')}
             </span>
