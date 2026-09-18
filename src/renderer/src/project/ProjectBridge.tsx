@@ -80,9 +80,22 @@ export function ProjectBridge(): null {
     const offClose = window.api.onCloseRequested(() => {
       run(commandsRef.current.requestClose)
     })
+    // A .mebo double-clicked while the app runs. Arriving during a dialog it
+    // is ignored (not queued); the window is focused, so the user sees the
+    // dialog that is up.
+    const offOpenFile = window.api.onOpenFileRequested((path) => {
+      run(() => commandsRef.current.openExternal(path))
+    })
+    // The file this launch was started with, pulled now that the listeners exist.
+    void window.api.getLaunchProjectPath().then((path) => {
+      if (path !== null) {
+        run(() => commandsRef.current.openExternal(path))
+      }
+    })
     return () => {
       offMenu()
       offClose()
+      offOpenFile()
     }
   }, [])
 

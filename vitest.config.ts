@@ -11,6 +11,10 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/core/__tests__/**/*.test.ts', 'src/state/__tests__/**/*.test.ts']
+    include: [
+      'src/core/__tests__/**/*.test.ts',
+      'src/state/__tests__/**/*.test.ts',
+      'src/main/__tests__/**/*.test.ts'
+    ]
   }
 })

@@ -9,7 +9,7 @@ import {
   type MenuItemConstructorOptions
 } from 'electron'
 import { promises as fs } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import type {
   MenuAction,
   MenuModel,
@@ -19,8 +19,7 @@ import type {
   UnsavedChoice,
   UnsavedDialogLabels
 } from '../preload/api'
-
-const PROJECT_EXTENSION = 'mebo'
+import { PROJECT_EXTENSION, projectPathFromArgv } from './launchArgs'
 
 /**
  * The price database is read from disk on every app start so that editing
@@ -54,6 +53,43 @@ function guardOf(window: BrowserWindow): WindowGuard {
 
 function windowOf(event: IpcMainEvent | IpcMainInvokeEvent): BrowserWindow | null {
   return BrowserWindow.fromWebContents(event.sender)
+}
+
+// ---------------------------------------------------------------------------
+// Launch with a project file (the .mebo association) and the single instance.
+// Main never opens a file itself: it hands the path to the renderer, which
+// owns the open flow and the unsaved-changes guard. The first launch's path
+// waits until the renderer PULLS it (`launch:project-path`) — a push could
+// fire before the renderer's listener exists. Once pulled, later paths (a
+// double-click while the app runs) are PUSHED as `project:open-request`.
+
+/** The launch's project file as an absolute path; null when the launch carries none. */
+function launchProjectPath(argv: readonly string[], workingDirectory: string): string | null {
+  const path = projectPathFromArgv(argv)
+  return path === null ? null : resolve(workingDirectory, path)
+}
+
+let pendingProjectPath: string | null = launchProjectPath(process.argv, process.cwd())
+let rendererPulled = false
+
+function deliverProjectPath(path: string): void {
+  const window = BrowserWindow.getAllWindows()[0]
+  if (!rendererPulled || window === undefined) {
+    pendingProjectPath = path
+    return
+  }
+  window.webContents.send('project:open-request', path)
+}
+
+function focusMainWindow(): void {
+  const window = BrowserWindow.getAllWindows()[0]
+  if (window === undefined) {
+    return
+  }
+  if (window.isMinimized()) {
+    window.restore()
+  }
+  window.focus()
 }
 
 /** Dev only: the window icon from the repo. A packaged exe carries it embedded (electron-builder). */
@@ -277,20 +313,41 @@ function registerIpc(): void {
   ipcMain.on('menu:update', (_event, model: MenuModel) => {
     applyMenu(model)
   })
+
+  ipcMain.handle('launch:project-path', (): string | null => {
+    rendererPulled = true
+    const path = pendingProjectPath
+    pendingProjectPath = null
+    return path
+  })
 }
 
-app.whenReady().then(() => {
-  // No default menu flash: File appears once the renderer sends its labels.
-  applyMenu(null)
-  registerIpc()
-  createWindow()
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
+// One instance: a second launch (a double-clicked .mebo while the app runs)
+// hands its arguments to the running one and quits at once.
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, argv, workingDirectory) => {
+    focusMainWindow()
+    const path = launchProjectPath(argv, workingDirectory)
+    if (path !== null) {
+      deliverProjectPath(path)
     }
   })
-})
+
+  app.whenReady().then(() => {
+    // No default menu flash: File appears once the renderer sends its labels.
+    applyMenu(null)
+    registerIpc()
+    createWindow()
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow()
+      }
+    })
+  })
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

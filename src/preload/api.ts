@@ -85,4 +85,9 @@ export interface MeboApi {
   readonly onMenuAction: (listener: (action: MenuAction) => void) => () => void
   /** Fired when a dirty window is being closed; returns the unsubscribe function. */
   readonly onCloseRequested: (listener: () => void) => () => void
+
+  /** The `.mebo` file this launch was started with (file association), handed out once; null when none. */
+  readonly getLaunchProjectPath: () => Promise<string | null>
+  /** A `.mebo` file opened while the app runs (second instance); returns the unsubscribe function. */
+  readonly onOpenFileRequested: (listener: (path: string) => void) => () => void
 }

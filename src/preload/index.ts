@@ -51,6 +51,17 @@ const api: MeboApi = {
     return () => {
       ipcRenderer.removeListener('window:close-requested', handler)
     }
+  },
+
+  getLaunchProjectPath: (): Promise<string | null> => ipcRenderer.invoke('launch:project-path'),
+  onOpenFileRequested: (listener: (path: string) => void): (() => void) => {
+    const handler = (_event: IpcRendererEvent, path: string): void => {
+      listener(path)
+    }
+    ipcRenderer.on('project:open-request', handler)
+    return () => {
+      ipcRenderer.removeListener('project:open-request', handler)
+    }
   }
 }
 

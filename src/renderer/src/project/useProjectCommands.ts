@@ -21,6 +21,8 @@ export interface ProjectCommands {
   readonly newProject: () => Promise<boolean>
   readonly openProject: () => Promise<boolean>
   readonly openRecent: (path: string) => Promise<boolean>
+  /** A file handed over by the OS (double-clicked .mebo, first or second instance): guard, then open. */
+  readonly openExternal: (path: string) => Promise<boolean>
   readonly save: () => Promise<boolean>
   readonly saveAs: () => Promise<boolean>
   /** The window is closing: run the guard, then let main close for real. */
@@ -152,13 +154,20 @@ function buildCommands(t: Translate): ProjectCommands {
     return true
   }
 
+  const openExternal = async (path: string): Promise<boolean> => {
+    if (!(await guardUnsaved())) {
+      return false
+    }
+    return openPath(path, false)
+  }
+
   const requestClose = async (): Promise<void> => {
     if (await guardUnsaved()) {
       api.confirmClose()
     }
   }
 
-  return { guardUnsaved, newProject, openProject, openRecent, save, saveAs, requestClose }
+  return { guardUnsaved, newProject, openProject, openRecent, openExternal, save, saveAs, requestClose }
 }
 
 export function useProjectCommands(): ProjectCommands {
