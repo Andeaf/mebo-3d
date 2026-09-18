@@ -56,6 +56,11 @@ function windowOf(event: IpcMainEvent | IpcMainInvokeEvent): BrowserWindow | nul
   return BrowserWindow.fromWebContents(event.sender)
 }
 
+/** Dev only: the window icon from the repo. A packaged exe carries it embedded (electron-builder). */
+function windowIcon(): string | undefined {
+  return app.isPackaged ? undefined : join(app.getAppPath(), 'build', 'icon.ico')
+}
+
 function createWindow(): void {
   const window = new BrowserWindow({
     width: 1440,
@@ -63,6 +68,7 @@ function createWindow(): void {
     minWidth: 1100,
     minHeight: 700,
     title: 'Mebo 3D',
+    icon: windowIcon(),
     backgroundColor: '#16181d',
     show: false,
     webPreferences: {

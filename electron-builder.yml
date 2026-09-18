@@ -1,0 +1,46 @@
+# Windows installer (NSIS, x64): `npm run dist` → release/Mebo-3D-Setup-<version>.exe
+# The version comes from package.json. Unsigned (see README.md: SmartScreen).
+appId: nl.mebokeukens.mebo3d
+productName: Mebo 3D
+directories:
+  output: release
+  buildResources: build
+# Main and preload import only electron + node built-ins, and vite bundles every
+# UI library into out/renderer, so the asar holds the build output alone.
+files:
+  - out/**/*
+  - package.json
+  - '!node_modules/**'
+# The price database ships beside the app, never inside the asar, so the firm can
+# edit it: <install dir>/resources/data/materials.json (process.resourcesPath).
+extraResources:
+  - from: data
+    to: data
+    filter:
+      - '**/*'
+asar: true
+# No update feed: auto-updates are out of scope (this also stops app-update.yml / latest.yml).
+publish: null
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.ico
+  artifactName: Mebo-3D-Setup-${version}.exe
+nsis:
+  # Assisted (not one-click): the user sees where the app is installed.
+  oneClick: false
+  # Per-user, no admin: %LOCALAPPDATA%\Programs\Mebo 3D
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Mebo 3D
+  # Recents and language (in %APPDATA%\Mebo 3D) survive a reinstall.
+  deleteAppDataOnUninstall: false
+fileAssociations:
+  - ext: mebo
+    name: Mebo3DProject
+    description: Mebo 3D-project
+    role: Editor
