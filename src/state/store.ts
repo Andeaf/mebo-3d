@@ -20,7 +20,11 @@ import {
   type SceneDesign
 } from '@core/scene'
 import { placeWithoutOverlap, resolveDragPose, spawnPlacement } from '@core/snap'
-import { createDefaultWorktopSettings } from '@core/worktop'
+import {
+  clampWorktopSettings,
+  createDefaultWorktopSettings,
+  type WorktopSettings
+} from '@core/worktop'
 import { loadStoredLanguage, storeLanguage, type Language } from './language'
 import {
   cabinetRemoved,
@@ -89,6 +93,8 @@ interface AppState {
   updateSelectedDesign: (design: CabinetDesign) => void
   /** Resizes the room, re-placing every cabinet into it (rejected if one cannot fit). */
   updateRoom: (room: RoomDesign) => void
+  /** Replaces the scene's worktop settings (clamped); the slabs follow by derivation. */
+  updateWorktop: (settings: WorktopSettings) => void
   /** Live drag: snap applied; ignored when the snapped spot would overlap. */
   moveSelected: (positionX: number, positionZ: number) => void
   /** Drag end: the attempted position resolves to the nearest free spot. */
@@ -123,12 +129,22 @@ function samePlacement(a: PlacedCabinet, b: PlacedCabinet): boolean {
   )
 }
 
-/** Same room and the same cabinets in the same poses (design identity counts). */
+function sameWorktop(a: WorktopSettings, b: WorktopSettings): boolean {
+  return (
+    a.enabled === b.enabled &&
+    a.materialId === b.materialId &&
+    a.thicknessMm === b.thicknessMm &&
+    a.frontOverhangMm === b.frontOverhangMm
+  )
+}
+
+/** Same room, same worktop settings and the same cabinets in the same poses (design identity counts). */
 function sameScene(a: SceneDesign, b: SceneDesign): boolean {
   return (
     a.room.widthMm === b.room.widthMm &&
     a.room.lengthMm === b.room.lengthMm &&
     a.room.wallHeightMm === b.room.wallHeightMm &&
+    sameWorktop(a.worktop, b.worktop) &&
     a.cabinets.length === b.cabinets.length &&
     a.cabinets.every((cabinet, index) => samePlacement(cabinet, b.cabinets[index]))
   )
@@ -307,6 +323,11 @@ export const useAppStore = create<AppState>((set) => ({
       }
       return sceneChange(state, next)
     }),
+
+  updateWorktop: (settings) =>
+    set((state) =>
+      sceneChange(state, { ...state.scene, worktop: clampWorktopSettings(settings) })
+    ),
 
   moveSelected: (positionX, positionZ) =>
     set((state) => {

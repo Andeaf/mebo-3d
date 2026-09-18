@@ -4,11 +4,11 @@ import type { ThreeEvent } from '@react-three/fiber'
 import { BoxGeometry } from 'three'
 import { designFootprintSize, designVerticalExtent } from '@core/catalog/registry'
 import { GeneratedGeometry } from '@core/geometry/GeometrySource'
-import { findMaterial, type PriceDatabase } from '@core/materials'
+import type { PriceDatabase } from '@core/materials'
 import type { PlacedCabinet } from '@core/scene'
 import { buildForDesign } from '@state/selectors'
+import { colorForMaterial, darken, FALLBACK_PANEL_COLOR } from './materialColor'
 
-const FALLBACK_PANEL_COLOR = '#c8c8c2'
 export const SELECTION_COLOR = '#4f8cff'
 const PANEL_SELECTION_COLOR = '#ffb547'
 /**
@@ -16,16 +16,6 @@ const PANEL_SELECTION_COLOR = '#ffb547'
  * purpose: a cabinet is several overlapping panels, and their alphas stack.
  */
 const DIMMED_OPACITY = 0.08
-
-/** Darkens a #rrggbb color; used to draw panel seams that work on any material color. */
-function darken(hex: string, factor: number): string {
-  const value = Number.parseInt(hex.slice(1), 16)
-  if (Number.isNaN(value) || hex.length !== 7) {
-    return '#55554f'
-  }
-  const channel = (shift: number): number => Math.round(((value >> shift) & 0xff) * factor)
-  return `rgb(${channel(16)}, ${channel(8)}, ${channel(0)})`
-}
 
 interface PlacedCabinetMeshProps {
   readonly placed: PlacedCabinet
@@ -71,13 +61,6 @@ export function PlacedCabinetMesh({
     [editing, widthMm, heightMm, depthMm]
   )
 
-  const colorForMaterial = (materialId: string): string => {
-    if (priceDb === null) {
-      return FALLBACK_PANEL_COLOR
-    }
-    return findMaterial(priceDb, materialId)?.color ?? FALLBACK_PANEL_COLOR
-  }
-
   const ignorePointer = dimmed ? { raycast: () => null } : {}
 
   return (
@@ -92,7 +75,7 @@ export function PlacedCabinetMesh({
       <group scale={[0.001, 0.001, 0.001]}>
         <group position={[-widthMm / 2, 0, -depthMm / 2]}>
           {description.boxes.map((instance) => {
-            const color = colorForMaterial(instance.materialId)
+            const color = colorForMaterial(priceDb, instance.materialId, FALLBACK_PANEL_COLOR)
             const panelSelected = editing && instance.panelId === selectedPanelId
             return (
               <mesh

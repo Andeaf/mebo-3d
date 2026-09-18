@@ -90,6 +90,12 @@ export const en: Record<TranslationKey, string> = {
   'room.length': 'Room length',
   'room.wallHeight': 'Wall height',
 
+  'worktop.title': 'Worktop',
+  'worktop.enabled': 'Worktop on the base cabinets',
+  'worktop.material': 'Worktop material',
+  'worktop.thickness': 'Worktop thickness',
+  'worktop.overhang': 'Front overhang',
+
   'params.title': 'Dimensions & options',
   'params.noSelection': 'Click a cabinet in the 3D view to edit it.',
   'params.width': 'Width',

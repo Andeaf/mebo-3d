@@ -71,6 +71,24 @@
       "category": "hardware",
       "priceUnit": "piece",
       "pricePerUnitEur": 8.5
+    },
+    {
+      "id": "worktop-hpl-38",
+      "name": "HPL werkblad 38 mm",
+      "category": "worktop",
+      "priceUnit": "m2",
+      "pricePerUnitEur": 85.0,
+      "thicknessMm": 38,
+      "color": "#4a4d52"
+    },
+    {
+      "id": "worktop-oak-40",
+      "name": "Eiken massief werkblad 40 mm",
+      "category": "worktop",
+      "priceUnit": "m2",
+      "pricePerUnitEur": 245.0,
+      "thicknessMm": 40,
+      "color": "#c49a5c"
     }
   ]
 }

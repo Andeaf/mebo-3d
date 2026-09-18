@@ -90,6 +90,12 @@ export const ro: Record<TranslationKey, string> = {
   'room.length': 'Lungime cameră',
   'room.wallHeight': 'Înălțime perete',
 
+  'worktop.title': 'Blat',
+  'worktop.enabled': 'Blat pe corpurile de bază',
+  'worktop.material': 'Material blat',
+  'worktop.thickness': 'Grosime blat',
+  'worktop.overhang': 'Depășire în față',
+
   'params.title': 'Dimensiuni și opțiuni',
   'params.noSelection': 'Dă clic pe un corp în vederea 3D ca să îl editezi.',
   'params.width': 'Lățime',

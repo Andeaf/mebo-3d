@@ -6,6 +6,8 @@ interface DimensionFieldProps {
   readonly value: number
   readonly min: number
   readonly max: number
+  /** Slider step in mm (the numeric input always takes whole mm); 10 for cabinet and room sizes. */
+  readonly step?: number
   readonly onChange: (value: number) => void
 }
 
@@ -21,6 +23,7 @@ export function DimensionField({
   value,
   min,
   max,
+  step = 10,
   onChange
 }: DimensionFieldProps): ReactElement {
   const t = useT()
@@ -80,7 +83,7 @@ export function DimensionField({
         type="range"
         min={min}
         max={max}
-        step={10}
+        step={step}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
         aria-label={t(labelKey)}

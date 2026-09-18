@@ -2,13 +2,14 @@ import type { ReactElement } from 'react'
 import { designFootprintSize } from '@core/catalog/registry'
 import type { MaterialCategory, PriceUnit } from '@core/materials'
 import type { QuoteLine } from '@core/pricing'
-import type { SceneQuote } from '@core/scenePricing'
+import type { SceneQuote, WorktopQuoteLine } from '@core/scenePricing'
 import { useSceneQuote } from '@state/selectors'
 import { useAppStore } from '@state/store'
 import { formatEur, formatQuantity } from '../format'
 import { useT, type TranslationKey } from '../i18n'
 
-const CATEGORY_ORDER: readonly MaterialCategory[] = ['board', 'edgeband', 'hardware']
+/** The cabinet material blocks; the worktop category has a block of its own (slabs + any worktop-material line). */
+const CABINET_CATEGORIES: readonly MaterialCategory[] = ['board', 'edgeband', 'hardware']
 
 const CATEGORY_LABEL_KEYS: Readonly<Record<MaterialCategory, TranslationKey>> = {
   board: 'price.category.board',
@@ -78,12 +79,73 @@ function CategoryBlock({
   )
 }
 
+/** One worktop slab: the material, the slab size under it, the quantity in the material's unit. */
+function WorktopLineRow({ line }: { line: WorktopQuoteLine }): ReactElement {
+  const t = useT()
+  const unitLabel = t(UNIT_LABEL_KEYS[line.unit])
+  return (
+    <tr>
+      <td>
+        <span className="quote__description">{line.description}</span>
+        <span className="quote__unit-price">
+          {Math.round(line.lengthMm)} × {Math.round(line.depthMm)} {t('unit.mm')} ·{' '}
+          {formatEur(line.unitPriceEur)}/{unitLabel}
+        </span>
+      </td>
+      <td className="quote__qty">
+        {formatQuantity(line.quantity)} {unitLabel}
+      </td>
+      <td className="quote__amount">{formatEur(line.totalEur)}</td>
+    </tr>
+  )
+}
+
+/**
+ * The worktop block: one row per slab, then any material line of the
+ * worktop category (only a hand-edited file puts a worktop material on a
+ * panel — counted here, never invisible). Its subtotal is the category's,
+ * which by construction is exactly these lines.
+ */
+function WorktopBlock({
+  quote,
+  worktops
+}: {
+  quote: QuoteView
+  worktops: readonly WorktopQuoteLine[]
+}): ReactElement | null {
+  const t = useT()
+  const materialLines = quote.lines.filter((line) => line.category === 'worktop')
+  if (worktops.length === 0 && materialLines.length === 0) {
+    return null
+  }
+  return (
+    <tbody>
+      <tr className="quote__category-row">
+        <th colSpan={3}>{t(CATEGORY_LABEL_KEYS.worktop)}</th>
+      </tr>
+      {worktops.map((line) => (
+        <WorktopLineRow key={line.slabId} line={line} />
+      ))}
+      {materialLines.map((line) => (
+        <QuoteLineRow key={line.materialId} line={line} />
+      ))}
+      <tr className="quote__subtotal-row">
+        <td colSpan={2}>{t('price.subtotal')}</td>
+        <td className="quote__amount">{formatEur(quote.subtotalsEur.worktop)}</td>
+      </tr>
+    </tbody>
+  )
+}
+
 /** Per-category material lines, total and the missing-materials warning; shared by the scene and the piece price. */
 export function QuoteTable({
   quote,
+  worktops = [],
   children
 }: {
   readonly quote: QuoteView
+  /** The scene's slab lines; a single-cabinet quote has none. */
+  readonly worktops?: readonly WorktopQuoteLine[]
   /** Rendered between the lines and the total (the scene's cabinet list). */
   readonly children?: ReactElement | null
 }): ReactElement {
@@ -91,9 +153,10 @@ export function QuoteTable({
   return (
     <>
       <table className="quote">
-        {CATEGORY_ORDER.map((category) => (
+        {CABINET_CATEGORIES.map((category) => (
           <CategoryBlock key={category} category={category} quote={quote} />
         ))}
+        <WorktopBlock quote={quote} worktops={worktops} />
       </table>
       {children}
       <div className="quote__total-row">
@@ -181,7 +244,10 @@ export function PricePanel(): ReactElement {
       <h2 className="panel__title">{t('price.title')}</h2>
       <MaterialsStatus />
       {sceneQuote !== null && (
-        <QuoteTable quote={{ ...sceneQuote, lines: sceneQuote.materialTotals }}>
+        <QuoteTable
+          quote={{ ...sceneQuote, lines: sceneQuote.materialTotals }}
+          worktops={sceneQuote.worktops}
+        >
           <CabinetList sceneQuote={sceneQuote} />
         </QuoteTable>
       )}

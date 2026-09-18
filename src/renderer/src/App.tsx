@@ -7,6 +7,7 @@ import { LanguageSwitcher } from './LanguageSwitcher'
 import { ParameterPanel } from './panels/ParameterPanel'
 import { PricePanel } from './panels/PricePanel'
 import { RoomPanel } from './panels/RoomPanel'
+import { WorktopPanel } from './panels/WorktopPanel'
 import { PieceEditor } from './piece/PieceEditor'
 import { PiecePricePanel } from './piece/PiecePricePanel'
 import { ProjectBridge } from './project/ProjectBridge'
@@ -37,6 +38,7 @@ function SidebarPanels(): ReactElement {
   return (
     <>
       <RoomPanel />
+      <WorktopPanel />
       <ParameterPanel />
       <PricePanel />
     </>

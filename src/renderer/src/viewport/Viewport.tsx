@@ -7,10 +7,12 @@ import { designVerticalExtent } from '@core/catalog/registry'
 import { placedCabinetRect, placedVerticalInterval } from '@core/footprint'
 import { roomInteriorRect } from '@core/room'
 import { findPlacedCabinet, type PlacedCabinet } from '@core/scene'
+import { useWorktops } from '@state/selectors'
 import { useAppStore } from '@state/store'
 import { MeasureLine } from './MeasureLine'
 import { PlacedCabinetMesh } from './PlacedCabinetMesh'
 import { RoomView } from './RoomView'
+import { WorktopView } from './WorktopView'
 
 /** Horizontal drag plane at a given height (meters); y = 0 for floor kinds. */
 function planeAtHeight(heightMeters: number): Plane {
@@ -77,6 +79,7 @@ function SceneContents(): ReactElement {
   const dropSelected = useAppStore((state) => state.dropSelected)
   const fitViewNonce = useAppStore((state) => state.fitViewNonce)
   const priceDb = useAppStore((state) => state.priceDb)
+  const slabs = useWorktops()
   const editing = editingPieceId !== null
 
   const { camera, gl } = useThree()
@@ -256,6 +259,9 @@ function SceneContents(): ReactElement {
           />
         )
       )}
+
+      {/* Derived from the scene, never picked: a click on a slab reaches the cabinet under it. */}
+      <WorktopView slabs={slabs} priceDb={priceDb} dimmed={editing} />
 
       <RoomView room={scene.room} />
 

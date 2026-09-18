@@ -92,6 +92,12 @@ export const nl = {
   'room.length': 'Lengte ruimte',
   'room.wallHeight': 'Wandhoogte',
 
+  'worktop.title': 'Werkblad',
+  'worktop.enabled': 'Werkblad op de onderkasten',
+  'worktop.material': 'Werkbladmateriaal',
+  'worktop.thickness': 'Dikte werkblad',
+  'worktop.overhang': 'Overstek voorzijde',
+
   'params.title': 'Afmetingen & opties',
   'params.noSelection': 'Klik op een kast in het 3D-beeld om deze te bewerken.',
   'params.width': 'Breedte',

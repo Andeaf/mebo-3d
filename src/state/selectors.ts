@@ -5,6 +5,7 @@ import { generateCabinet } from '@core/catalog/registry'
 import type { PlacedCabinet } from '@core/scene'
 import { quoteForScene, type SceneQuote } from '@core/scenePricing'
 import { connectedRun, type ConnectedRun } from '@core/snap'
+import { computeWorktops, type WorktopSlab } from '@core/worktopLayout'
 import { useAppStore } from './store'
 
 // Design objects are immutable (every edit creates a new one), so builds can
@@ -38,6 +39,12 @@ export function useSceneQuote(): SceneQuote | null {
     () => (priceDb === null ? null : quoteForScene(scene, priceDb)),
     [scene, priceDb]
   )
+}
+
+/** The worktop slabs derived from the scene (its settings included); recomputed with the scene, like the run. */
+export function useWorktops(): readonly WorktopSlab[] {
+  const scene = useAppStore((state) => state.scene)
+  return useMemo(() => computeWorktops(scene, scene.worktop), [scene])
 }
 
 /** The flush run the selected cabinet belongs to (for the measure line). */
