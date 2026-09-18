@@ -37,7 +37,9 @@ function placed(id: string, positionX: number): PlacedCabinet {
 
 const twoCabinetScene: SceneDesign = {
   room: createDefaultRoom(),
-  worktop: createDefaultWorktopSettings(),
+  // Worktops off: these tests are about cabinet materials, and the default
+  // worktop material is not in this fixture database (it would be reported missing).
+  worktop: { ...createDefaultWorktopSettings(), enabled: false },
   cabinets: [placed('cab-1', 0), placed('cab-2', 600)]
 }
 

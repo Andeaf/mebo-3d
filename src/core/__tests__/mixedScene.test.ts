@@ -37,7 +37,9 @@ function placed(kind: CabinetKind, index: number): PlacedCabinet {
 
 const mixedScene: SceneDesign = {
   room: createDefaultRoom(),
-  worktop: createDefaultWorktopSettings(),
+  // Worktops off: these tests are about cabinet materials, and the default
+  // worktop material is not in this fixture database (it would be reported missing).
+  worktop: { ...createDefaultWorktopSettings(), enabled: false },
   cabinets: KINDS.map((kind, index) => placed(kind, index))
 }
 
@@ -100,7 +102,9 @@ describe('pricing a scene that holds a custom piece', () => {
   }
   const withPiece: SceneDesign = {
     room: createDefaultRoom(),
-    worktop: createDefaultWorktopSettings(),
+    // Worktops off: these tests are about cabinet materials, and the default
+    // worktop material is not in this fixture database (it would be reported missing).
+    worktop: { ...createDefaultWorktopSettings(), enabled: false },
     cabinets: [...mixedScene.cabinets, { id: 'cab-5', design: piece, positionX: 3000, positionZ: 0, rotationDeg: 0 }]
   }
 
