@@ -8,6 +8,7 @@ import {
   type ProjectMetadata
 } from '@core/project'
 import { nextCabinetNumberFor, type PlacedCabinet, type SceneDesign } from '@core/scene'
+import { createDefaultWorktopSettings } from '@core/worktop'
 
 // A 5000 × 4000 room (non-default) holding every kind, every rotation, a
 // hanging cabinet above a standing one, and a gap in the id sequence.
@@ -26,7 +27,7 @@ const cabinets: readonly PlacedCabinet[] = [
   { id: 'cab-7', design: createDefaultDesign('base-cabinet'), positionX: 2220, positionZ: 800, rotationDeg: 270 }
 ]
 
-const scene: SceneDesign = { room, cabinets }
+const scene: SceneDesign = { room, worktop: createDefaultWorktopSettings(), cabinets }
 
 const metadata: ProjectMetadata = {
   projectName: 'Keuken Jansen',
@@ -89,13 +90,13 @@ describe('project round trip', () => {
   })
 
   it('round-trips an empty room', () => {
-    const empty: SceneDesign = { room, cabinets: [] }
+    const empty: SceneDesign = { room, worktop: createDefaultWorktopSettings(), cabinets: [] }
     expect(parseProject(serializeProject(empty, metadata)).scene).toEqual(empty)
   })
 
   it('writes pretty-printed JSON with a fixed key order', () => {
     const text = serializeProject(scene, metadata)
-    expect(text).toContain('\n  "schemaVersion": 2,\n')
+    expect(text).toContain('\n  "schemaVersion": 3,\n')
     const document: unknown = JSON.parse(text)
     expect(Object.keys(node(document))).toEqual(['schemaVersion', 'metadata', 'scene'])
     expect(Object.keys(node(document, 'metadata'))).toEqual([
@@ -104,7 +105,7 @@ describe('project round trip', () => {
       'modifiedAt',
       'appVersion'
     ])
-    expect(Object.keys(node(document, 'scene'))).toEqual(['room', 'cabinets'])
+    expect(Object.keys(node(document, 'scene'))).toEqual(['room', 'worktop', 'cabinets'])
     expect(Object.keys(node(document, 'scene', 'room'))).toEqual(['widthMm', 'lengthMm', 'wallHeightMm'])
     expect(Object.keys(node(document, 'scene', 'cabinets', 0))).toEqual([
       'id',
@@ -131,10 +132,10 @@ describe('schema version', () => {
   it('refuses a file from a newer app', () => {
     expectRefusal(
       edited((document) => {
-        document.schemaVersion = 3
+        document.schemaVersion = 4
       }),
       /newer version/,
-      /schema 3/
+      /schema 4/
     )
   })
 
@@ -391,6 +392,6 @@ describe('registry template decoder', () => {
 describe('cabinet numbering', () => {
   it('derives the next free number from the highest id', () => {
     expect(nextCabinetNumberFor(scene)).toBe(8)
-    expect(nextCabinetNumberFor({ room, cabinets: [] })).toBe(1)
+    expect(nextCabinetNumberFor({ room, worktop: createDefaultWorktopSettings(), cabinets: [] })).toBe(1)
   })
 })

@@ -1,4 +1,12 @@
-export type MaterialCategory = 'board' | 'edgeband' | 'hardware'
+/**
+ * `worktop` is its own category on purpose: the worktop picker offers only
+ * worktop materials, the carcass pickers never offer a 38 mm top as a panel
+ * board, the price panel gives worktops their own block, and — the seam for
+ * the company's real prices — only the slab pricing honours a material's
+ * `priceUnit` (the cutting-list engine prices every board line as m²), so a
+ * per-metre worktop must never be reachable as a panel board.
+ */
+export type MaterialCategory = 'board' | 'edgeband' | 'hardware' | 'worktop'
 
 export type PriceUnit = 'm2' | 'm' | 'piece'
 
@@ -8,7 +16,7 @@ export interface Material {
   readonly category: MaterialCategory
   readonly priceUnit: PriceUnit
   readonly pricePerUnitEur: number
-  /** Boards and edge banding only. */
+  /** Boards, edge banding and worktops only. */
   readonly thicknessMm?: number
   /** Optional rendering hint (hex color); the core itself never renders. */
   readonly color?: string
@@ -22,7 +30,13 @@ export function findMaterial(db: PriceDatabase, id: string): Material | undefine
   return db.materials.find((material) => material.id === id)
 }
 
-const MATERIAL_CATEGORIES: readonly MaterialCategory[] = ['board', 'edgeband', 'hardware']
+/** Every category, in the order the price panel lists them. */
+export const MATERIAL_CATEGORIES: readonly MaterialCategory[] = [
+  'board',
+  'edgeband',
+  'hardware',
+  'worktop'
+]
 const PRICE_UNITS: readonly PriceUnit[] = ['m2', 'm', 'piece']
 
 function isRecord(value: unknown): value is Record<string, unknown> {

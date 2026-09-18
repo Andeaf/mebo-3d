@@ -3,6 +3,7 @@ import { createDefaultBaseCabinetParams, type BaseCabinetParams } from '@core/ca
 import type { PriceDatabase } from '@core/materials'
 import { createDefaultRoom } from '@core/room'
 import type { PlacedCabinet, SceneDesign } from '@core/scene'
+import { createDefaultWorktopSettings } from '@core/worktop'
 import { quoteForScene } from '@core/scenePricing'
 
 // Same round-number fixture as pricing.test.ts.
@@ -36,15 +37,16 @@ function placed(id: string, positionX: number): PlacedCabinet {
 
 const twoCabinetScene: SceneDesign = {
   room: createDefaultRoom(),
+  worktop: createDefaultWorktopSettings(),
   cabinets: [placed('cab-1', 0), placed('cab-2', 600)]
 }
 
 describe('quoteForScene', () => {
   it('returns an empty quote for an empty scene', () => {
-    const quote = quoteForScene({ room: createDefaultRoom(), cabinets: [] }, fixtureDb)
+    const quote = quoteForScene({ room: createDefaultRoom(), worktop: createDefaultWorktopSettings(), cabinets: [] }, fixtureDb)
     expect(quote.cabinets).toEqual([])
     expect(quote.materialTotals).toEqual([])
-    expect(quote.subtotalsEur).toEqual({ board: 0, edgeband: 0, hardware: 0 })
+    expect(quote.subtotalsEur).toEqual({ board: 0, edgeband: 0, hardware: 0, worktop: 0 })
     expect(quote.totalEur).toBe(0)
     expect(quote.missingMaterialIds).toEqual([])
   })

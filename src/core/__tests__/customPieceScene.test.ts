@@ -10,6 +10,7 @@ import {
 } from '@core/footprint'
 import { createDefaultRoom, roomContainsRect } from '@core/room'
 import type { PlacedCabinet, RotationDegrees, SceneDesign } from '@core/scene'
+import { createDefaultWorktopSettings } from '@core/worktop'
 import { connectedRun, placeWithoutOverlap, resolveSnap, spawnPlacement } from '@core/snap'
 
 // An 1800 × 500 × 400 TV unit with a carcass and a front, so the overlay
@@ -40,7 +41,7 @@ function place(
 const room = createDefaultRoom()
 
 function scene(...cabinets: PlacedCabinet[]): SceneDesign {
-  return { room, cabinets }
+  return { room, worktop: createDefaultWorktopSettings(), cabinets }
 }
 
 describe('a custom piece in the scene', () => {

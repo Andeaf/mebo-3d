@@ -6,6 +6,7 @@ import type { PriceDatabase } from '@core/materials'
 import { quoteForDesign } from '@core/pricing'
 import { createDefaultRoom } from '@core/room'
 import type { PlacedCabinet, SceneDesign } from '@core/scene'
+import { createDefaultWorktopSettings } from '@core/worktop'
 import { quoteForScene } from '@core/scenePricing'
 
 // The shipped hardware ids plus round-number boards, so a mixed scene prices
@@ -36,6 +37,7 @@ function placed(kind: CabinetKind, index: number): PlacedCabinet {
 
 const mixedScene: SceneDesign = {
   room: createDefaultRoom(),
+  worktop: createDefaultWorktopSettings(),
   cabinets: KINDS.map((kind, index) => placed(kind, index))
 }
 
@@ -98,6 +100,7 @@ describe('pricing a scene that holds a custom piece', () => {
   }
   const withPiece: SceneDesign = {
     room: createDefaultRoom(),
+    worktop: createDefaultWorktopSettings(),
     cabinets: [...mixedScene.cabinets, { id: 'cab-5', design: piece, positionX: 3000, positionZ: 0, rotationDeg: 0 }]
   }
 

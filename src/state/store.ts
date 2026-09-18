@@ -20,6 +20,7 @@ import {
   type SceneDesign
 } from '@core/scene'
 import { placeWithoutOverlap, resolveDragPose, spawnPlacement } from '@core/snap'
+import { createDefaultWorktopSettings } from '@core/worktop'
 import { loadStoredLanguage, storeLanguage, type Language } from './language'
 import {
   cabinetRemoved,
@@ -39,11 +40,13 @@ const INITIAL_KIND: CabinetKind = 'base-cabinet'
 
 function initialScene(): SceneDesign {
   const room = createDefaultRoom()
+  const worktop = createDefaultWorktopSettings()
   const design = createDefaultDesign(INITIAL_KIND)
   // Same rule as any other add: the first cabinet starts against the back wall.
-  const spawn = spawnPlacement({ room, cabinets: [] }, design)
+  const spawn = spawnPlacement({ room, worktop, cabinets: [] }, design)
   return {
     room,
+    worktop,
     cabinets: [
       {
         id: 'cab-1',
@@ -230,10 +233,7 @@ export const useAppStore = create<AppState>((set) => ({
         return {}
       }
       // Aim flush beside the original; placeWithoutOverlap resolves the rest.
-      const beside = spawnPlacement(
-        { room: state.scene.room, cabinets: [selected] },
-        selected.design
-      )
+      const beside = spawnPlacement({ ...state.scene, cabinets: [selected] }, selected.design)
       const copy: PlacedCabinet = {
         ...selected,
         id: `cab-${state.nextCabinetNumber}`,
@@ -297,7 +297,7 @@ export const useAppStore = create<AppState>((set) => ({
       // Re-place every cabinet into the new room, in scene order, so shrinking
       // pulls them in. If even one has nowhere to go, keep the old room rather
       // than strand or drop furniture.
-      let next: SceneDesign = { room: clamped, cabinets: [] }
+      let next: SceneDesign = { ...state.scene, room: clamped, cabinets: [] }
       for (const cabinet of state.scene.cabinets) {
         const placed = placeWithoutOverlap(next, cabinet)
         if (placed.cabinets.length === next.cabinets.length) {

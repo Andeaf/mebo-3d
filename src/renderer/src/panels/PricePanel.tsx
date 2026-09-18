@@ -13,7 +13,8 @@ const CATEGORY_ORDER: readonly MaterialCategory[] = ['board', 'edgeband', 'hardw
 const CATEGORY_LABEL_KEYS: Readonly<Record<MaterialCategory, TranslationKey>> = {
   board: 'price.category.board',
   edgeband: 'price.category.edgeband',
-  hardware: 'price.category.hardware'
+  hardware: 'price.category.hardware',
+  worktop: 'price.category.worktop'
 }
 
 const UNIT_LABEL_KEYS: Readonly<Record<PriceUnit, TranslationKey>> = {

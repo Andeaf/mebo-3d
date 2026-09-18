@@ -3,8 +3,10 @@ import { createDefaultBaseCabinetParams } from '@core/cabinet'
 import { sceneHasOverlap } from '@core/footprint'
 import { createDefaultRoom } from '@core/room'
 import type { SceneDesign } from '@core/scene'
+import { createDefaultWorktopSettings } from '@core/worktop'
 import {
   connectedRun,
+  connectedRuns,
   placeWithoutOverlap,
   resolveNonOverlapping,
   resolveSnap,
@@ -16,7 +18,7 @@ import { makePlaced } from './footprint.test'
 const cabA = makePlaced('a', 0, 0)
 
 function scene(...cabinets: ReturnType<typeof makePlaced>[]): SceneDesign {
-  return { room: createDefaultRoom(), cabinets }
+  return { room: createDefaultRoom(), worktop: createDefaultWorktopSettings(), cabinets }
 }
 
 describe('resolveSnap', () => {
@@ -117,7 +119,7 @@ describe('spawnPlacement', () => {
 
   it('starts back-to-the-wall for an empty room', () => {
     // 3000 mm room, 560 deep cabinet: back flush at z = −1500, centre at −1220.
-    expect(spawnPlacement({ room: createDefaultRoom(), cabinets: [] }, defaultDesign)).toEqual({
+    expect(spawnPlacement({ room: createDefaultRoom(), worktop: createDefaultWorktopSettings(), cabinets: [] }, defaultDesign)).toEqual({
       positionX: 0,
       positionZ: -1220,
       rotationDeg: 0
@@ -187,5 +189,36 @@ describe('connectedRun', () => {
 
   it('returns null for an unknown cabinet', () => {
     expect(connectedRun(scene(cabA), 'nope')).toBeNull()
+  })
+})
+
+describe('connectedRuns', () => {
+  it('puts every cabinet in exactly one run, runs in order of their first member', () => {
+    const layout = scene(
+      makePlaced('cab-1', 0, 0),
+      makePlaced('cab-2', 600, 0),
+      // Same row but turned around: never part of the run.
+      makePlaced('cab-3', 0, 1000, 180),
+      // A second run further left, listed out of position order.
+      makePlaced('cab-4', -1000, 0),
+      makePlaced('cab-5', -1600, 0)
+    )
+    const runs = connectedRuns(layout)
+    expect(runs.map((run) => run.memberIds)).toEqual([
+      ['cab-1', 'cab-2'],
+      ['cab-3'],
+      ['cab-5', 'cab-4']
+    ])
+    expect(runs.flatMap((run) => run.memberIds).sort()).toEqual([
+      'cab-1',
+      'cab-2',
+      'cab-3',
+      'cab-4',
+      'cab-5'
+    ])
+    // The partition is made of the very runs connectedRun reports.
+    expect(runs[0]).toEqual(connectedRun(layout, 'cab-2'))
+    expect(runs[2]).toEqual(connectedRun(layout, 'cab-5'))
+    expect(connectedRuns(scene())).toEqual([])
   })
 })

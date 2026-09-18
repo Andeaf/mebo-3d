@@ -117,6 +117,7 @@ export const en: Record<TranslationKey, string> = {
   'price.category.board': 'Sheet material',
   'price.category.edgeband': 'Edge banding',
   'price.category.hardware': 'Hardware',
+  'price.category.worktop': 'Worktops',
   'price.cabinets': 'Cabinets',
   'price.subtotal': 'Subtotal',
   'price.total': 'Total (excl. VAT)',

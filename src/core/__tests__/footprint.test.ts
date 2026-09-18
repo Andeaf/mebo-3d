@@ -12,6 +12,7 @@ import {
 } from '@core/footprint'
 import { createDefaultRoom } from '@core/room'
 import type { PlacedCabinet, RotationDegrees, SceneDesign } from '@core/scene'
+import { createDefaultWorktopSettings } from '@core/worktop'
 
 export function makePlaced(
   id: string,
@@ -34,7 +35,7 @@ export function makePlaced(
 }
 
 function makeScene(...cabinets: PlacedCabinet[]): SceneDesign {
-  return { room: createDefaultRoom(), cabinets }
+  return { room: createDefaultRoom(), worktop: createDefaultWorktopSettings(), cabinets }
 }
 
 describe('footprint sizes and rects', () => {

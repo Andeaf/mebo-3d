@@ -119,6 +119,7 @@ export const nl = {
   'price.category.board': 'Plaatmateriaal',
   'price.category.edgeband': 'Kantenband',
   'price.category.hardware': 'Beslag',
+  'price.category.worktop': 'Werkbladen',
   'price.cabinets': 'Kasten',
   'price.subtotal': 'Subtotaal',
   'price.total': 'Totaal (excl. btw)',

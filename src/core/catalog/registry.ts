@@ -98,6 +98,12 @@ export interface CabinetKindDefinition<K extends CabinetKind> {
   readonly generate: (params: CabinetParamsByKind[K]) => CabinetBuild
   readonly footprintSize: (params: CabinetParamsByKind[K]) => FootprintSize
   readonly verticalExtent: (params: CabinetParamsByKind[K]) => VerticalExtentMm
+  /**
+   * Does a worktop belong on top of this kind? (Phase 7.) Floor-standing
+   * kitchen carcasses say yes; a kind that IS the full height (tall) or hangs
+   * (wall) says no. Kind #5 declares its own answer or the registry test fails.
+   */
+  readonly worktopEligible: boolean
 }
 
 export const CABINET_REGISTRY: { readonly [K in CabinetKind]: CabinetKindDefinition<K> } = {
@@ -112,7 +118,9 @@ export const CABINET_REGISTRY: { readonly [K in CabinetKind]: CabinetKindDefinit
     validateParams: validateBaseCabinetParams,
     generate: generateBaseCabinet,
     footprintSize: (params) => ({ widthMm: params.widthMm, depthMm: params.depthMm }),
-    verticalExtent: (params) => ({ bottomMm: 0, topMm: params.heightMm })
+    verticalExtent: (params) => ({ bottomMm: 0, topMm: params.heightMm }),
+    // Also with a full top panel: that closes the carcass, it is not the worktop.
+    worktopEligible: true
   },
   'wall-cabinet': {
     kind: 'wall-cabinet',
@@ -128,7 +136,8 @@ export const CABINET_REGISTRY: { readonly [K in CabinetKind]: CabinetKindDefinit
     verticalExtent: (params) => ({
       bottomMm: params.mountingHeightMm,
       topMm: params.mountingHeightMm + params.heightMm
-    })
+    }),
+    worktopEligible: false
   },
   'tall-cabinet': {
     kind: 'tall-cabinet',
@@ -141,7 +150,8 @@ export const CABINET_REGISTRY: { readonly [K in CabinetKind]: CabinetKindDefinit
     validateParams: validateTallCabinetParams,
     generate: generateTallCabinet,
     footprintSize: (params) => ({ widthMm: params.widthMm, depthMm: params.depthMm }),
-    verticalExtent: (params) => ({ bottomMm: 0, topMm: params.heightMm })
+    verticalExtent: (params) => ({ bottomMm: 0, topMm: params.heightMm }),
+    worktopEligible: false
   },
   'drawer-cabinet': {
     kind: 'drawer-cabinet',
@@ -154,7 +164,8 @@ export const CABINET_REGISTRY: { readonly [K in CabinetKind]: CabinetKindDefinit
     validateParams: validateDrawerCabinetParams,
     generate: generateDrawerCabinet,
     footprintSize: (params) => ({ widthMm: params.widthMm, depthMm: params.depthMm }),
-    verticalExtent: (params) => ({ bottomMm: 0, topMm: params.heightMm })
+    verticalExtent: (params) => ({ bottomMm: 0, topMm: params.heightMm }),
+    worktopEligible: true
   }
 }
 
@@ -314,4 +325,15 @@ export function designVerticalExtent(design: CabinetDesign): VerticalExtentMm {
     return customPieceVerticalExtent(design.spec)
   }
   return visitDesign(design, (definition, params) => definition.verticalExtent(params))
+}
+
+/**
+ * Does a worktop belong on this design? A per-kind fact of the registry; a
+ * custom piece gets none in Phase 7 (no params to consult, so no visit).
+ */
+export function designWorktopEligible(design: CabinetDesign): boolean {
+  if (isCustomPieceDesign(design)) {
+    return false
+  }
+  return CABINET_REGISTRY[design.kind].worktopEligible
 }

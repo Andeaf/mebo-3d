@@ -24,6 +24,7 @@ import {
   type SceneDesign
 } from './scene'
 import type { Vec3 } from './units'
+import { createDefaultWorktopSettings, validateWorktopSettings, type WorktopSettings } from './worktop'
 
 /**
  * The `.mebo` project file: the scene plus a small metadata envelope, as
@@ -49,10 +50,11 @@ import type { Vec3 } from './units'
  * moves.
  *
  * History: 1 = Phase 5 (catalog cabinets only); 2 = Phase 6 adds the custom
- * piece design shape `{ kind: 'custom-piece', spec }`.
+ * piece design shape `{ kind: 'custom-piece', spec }`; 3 = Phase 7 adds
+ * `scene.worktop` (the worktop settings — the slabs are derived, not stored).
  */
 
-export const PROJECT_SCHEMA_VERSION = 2
+export const PROJECT_SCHEMA_VERSION = 3
 export const PROJECT_FILE_EXTENSION = 'mebo'
 
 export interface ProjectMetadata {
@@ -88,7 +90,23 @@ const MIGRATIONS: ReadonlyArray<Migration | undefined> = [
   undefined,
   // 1 → 2: custom pieces arrived as a second design shape. Every v1 document
   // is a valid v2 document apart from its version stamp.
-  (document) => ({ ...requireRecord(document, 'project file'), schemaVersion: 2 })
+  (document) => ({ ...requireRecord(document, 'project file'), schemaVersion: 2 }),
+  // 2 → 3: the worktop settings arrived on the scene; a v2 file gets the
+  // defaults (worktops on). A v2 writer never wrote `scene.worktop`, so one
+  // already there is a foreign key — refused like any other unknown field
+  // rather than silently replaced by the defaults.
+  (document) => {
+    const record = requireRecord(document, 'project file')
+    const scene = requireRecord(record.scene, 'scene')
+    if (scene.worktop !== undefined) {
+      fail('scene.worktop is not a known field in schema 2')
+    }
+    return {
+      ...record,
+      schemaVersion: 3,
+      scene: { ...scene, worktop: createDefaultWorktopSettings() }
+    }
+  }
 ]
 
 function migrateToCurrent(document: unknown, from: number): unknown {
@@ -160,6 +178,12 @@ export function serializeProject(scene: SceneDesign, metadata: ProjectMetadata):
         lengthMm: scene.room.lengthMm,
         wallHeightMm: scene.room.wallHeightMm
       },
+      worktop: {
+        enabled: scene.worktop.enabled,
+        materialId: scene.worktop.materialId,
+        thicknessMm: scene.worktop.thicknessMm,
+        frontOverhangMm: scene.worktop.frontOverhangMm
+      },
       cabinets: scene.cabinets.map((cabinet) => ({
         id: cabinet.id,
         design: serializeDesign(cabinet.design),
@@ -177,8 +201,9 @@ export function serializeProject(scene: SceneDesign, metadata: ProjectMetadata):
 
 const DOCUMENT_KEYS = ['schemaVersion', 'metadata', 'scene'] as const
 const METADATA_KEYS = ['projectName', 'createdAt', 'modifiedAt', 'appVersion'] as const
-const SCENE_KEYS = ['room', 'cabinets'] as const
+const SCENE_KEYS = ['room', 'worktop', 'cabinets'] as const
 const ROOM_KEYS = ['widthMm', 'lengthMm', 'wallHeightMm'] as const
+const WORKTOP_KEYS = ['enabled', 'materialId', 'thicknessMm', 'frontOverhangMm'] as const
 const CABINET_KEYS = ['id', 'design', 'positionX', 'positionZ', 'rotationDeg'] as const
 const DESIGN_KEYS = ['kind', 'params'] as const
 const CUSTOM_DESIGN_KEYS = ['kind', 'spec'] as const
@@ -246,6 +271,16 @@ function requireString(value: unknown, path: string): string {
   }
   if (typeof value !== 'string') {
     fail(`${path} must be a string (got ${show(value)})`)
+  }
+  return value
+}
+
+function requireBoolean(value: unknown, path: string): boolean {
+  if (value === undefined) {
+    fail(`${path} is missing`)
+  }
+  if (typeof value !== 'boolean') {
+    fail(`${path} must be a boolean (got ${show(value)})`)
   }
   return value
 }
@@ -325,6 +360,24 @@ function decodeRoom(raw: unknown): RoomDesign {
     fail(errors.map((error) => `${path}.${error}`).join('; '))
   }
   return room
+}
+
+function decodeWorktop(raw: unknown): WorktopSettings {
+  const path = 'scene.worktop'
+  const record = requireRecord(raw, path)
+  rejectUnknownKeys(record, path, WORKTOP_KEYS)
+  const settings: WorktopSettings = {
+    enabled: requireBoolean(record.enabled, `${path}.enabled`),
+    // Never checked against the database: prices are not in the file.
+    materialId: requireString(record.materialId, `${path}.materialId`),
+    thicknessMm: requireFiniteNumber(record.thicknessMm, `${path}.thicknessMm`),
+    frontOverhangMm: requireFiniteNumber(record.frontOverhangMm, `${path}.frontOverhangMm`)
+  }
+  const errors = validateWorktopSettings(settings)
+  if (errors.length > 0) {
+    fail(errors.map((error) => `${path}.${error}`).join('; '))
+  }
+  return settings
 }
 
 // --- custom pieces: the hand-written decoder (see customPiece.ts) ----------
@@ -472,6 +525,7 @@ function decodeScene(raw: unknown): SceneDesign {
   const record = requireRecord(raw, 'scene')
   rejectUnknownKeys(record, 'scene', SCENE_KEYS)
   const room = decodeRoom(record.room)
+  const worktop = decodeWorktop(record.worktop)
   if (record.cabinets === undefined) {
     fail('scene.cabinets is missing')
   }
@@ -480,7 +534,7 @@ function decodeScene(raw: unknown): SceneDesign {
   }
   const seen = new Set<string>()
   const cabinets = record.cabinets.map((entry: unknown, index) => decodeCabinet(entry, index, seen))
-  const scene: SceneDesign = { room, cabinets }
+  const scene: SceneDesign = { room, worktop, cabinets }
 
   // Rule 10, applied to the file: refuse rather than repair.
   const pair = firstOverlappingPair(scene)

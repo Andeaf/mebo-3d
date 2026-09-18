@@ -1,5 +1,5 @@
-import type { MaterialCategory, PriceDatabase } from './materials'
-import { quoteForDesign, type Quote, type QuoteLine } from './pricing'
+import { MATERIAL_CATEGORIES, type PriceDatabase } from './materials'
+import { emptySubtotals, quoteForDesign, sumSubtotals, type Quote, type QuoteLine } from './pricing'
 import type { SceneDesign } from './scene'
 
 export interface CabinetQuoteSummary {
@@ -12,12 +12,10 @@ export interface SceneQuote {
   readonly cabinets: readonly CabinetQuoteSummary[]
   /** Quantities and totals aggregated per material across the whole scene. */
   readonly materialTotals: readonly QuoteLine[]
-  readonly subtotalsEur: Readonly<Record<MaterialCategory, number>>
+  readonly subtotalsEur: Quote['subtotalsEur']
   readonly totalEur: number
   readonly missingMaterialIds: readonly string[]
 }
-
-const CATEGORY_ORDER: readonly MaterialCategory[] = ['board', 'edgeband', 'hardware']
 
 /**
  * Scene pricing: pure composition of the single-cabinet price engine.
@@ -30,7 +28,7 @@ export function quoteForScene(scene: SceneDesign, db: PriceDatabase): SceneQuote
   }))
 
   const totalsByMaterial = new Map<string, QuoteLine>()
-  const subtotals: Record<MaterialCategory, number> = { board: 0, edgeband: 0, hardware: 0 }
+  const subtotals = emptySubtotals()
   const missing = new Set<string>()
 
   for (const { quote } of cabinets) {
@@ -54,7 +52,8 @@ export function quoteForScene(scene: SceneDesign, db: PriceDatabase): SceneQuote
   }
 
   const materialTotals = [...totalsByMaterial.values()].sort((a, b) => {
-    const categoryDelta = CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category)
+    const categoryDelta =
+      MATERIAL_CATEGORIES.indexOf(a.category) - MATERIAL_CATEGORIES.indexOf(b.category)
     return categoryDelta !== 0 ? categoryDelta : a.materialId.localeCompare(b.materialId)
   })
 
@@ -62,7 +61,7 @@ export function quoteForScene(scene: SceneDesign, db: PriceDatabase): SceneQuote
     cabinets,
     materialTotals,
     subtotalsEur: subtotals,
-    totalEur: subtotals.board + subtotals.edgeband + subtotals.hardware,
+    totalEur: sumSubtotals(subtotals),
     missingMaterialIds: [...missing].sort((a, b) => a.localeCompare(b))
   }
 }

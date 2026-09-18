@@ -1,5 +1,6 @@
 import type { CabinetDesign } from './cabinet'
 import { createDefaultRoom, type RoomDesign } from './room'
+import { createDefaultWorktopSettings, type WorktopSettings } from './worktop'
 
 /** Yaw of a placed cabinet, counterclockwise seen from above. At 0° the front faces +Z. */
 export type RotationDegrees = 0 | 90 | 180 | 270
@@ -25,15 +26,22 @@ export interface PlacedCabinet {
 }
 
 /**
- * A scene is a room plus the cabinets standing in it. The room is never
- * optional: an empty scene is an empty room, not a roomless void.
+ * A scene is a room, the worktop settings and the cabinets standing in it.
+ * Neither the room nor the settings is ever optional: an empty scene is an
+ * empty room, not a roomless void. The worktop SLABS are not here — they
+ * are derived from the cabinets and the settings (`computeWorktops`).
  */
 export interface SceneDesign {
   readonly room: RoomDesign
+  readonly worktop: WorktopSettings
   readonly cabinets: readonly PlacedCabinet[]
 }
 
-export const EMPTY_SCENE: SceneDesign = { room: createDefaultRoom(), cabinets: [] }
+export const EMPTY_SCENE: SceneDesign = {
+  room: createDefaultRoom(),
+  worktop: createDefaultWorktopSettings(),
+  cabinets: []
+}
 
 export function findPlacedCabinet(scene: SceneDesign, id: string): PlacedCabinet | undefined {
   return scene.cabinets.find((cabinet) => cabinet.id === id)

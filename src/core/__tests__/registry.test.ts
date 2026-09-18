@@ -8,6 +8,7 @@ import {
   createDefaultDesign,
   designFootprintSize,
   designVerticalExtent,
+  designWorktopEligible,
   generateCabinet,
   isCabinetKind,
   isCustomPieceDesign,
@@ -66,6 +67,21 @@ describe('catalog registry', () => {
       expect(extent.topMm).toBeGreaterThan(extent.bottomMm)
     }
   })
+
+  it('declares worktop eligibility per kind, and the dispatch helper reads it', () => {
+    for (const kind of CABINET_KINDS) {
+      expect(typeof CABINET_REGISTRY[kind].worktopEligible).toBe('boolean')
+      expect(designWorktopEligible(createDefaultDesign(kind))).toBe(
+        CABINET_REGISTRY[kind].worktopEligible
+      )
+    }
+    // Floor-standing kitchen carcasses carry a worktop; the tall cabinet is
+    // the full height itself and the wall cabinet hangs above it.
+    expect(CABINET_REGISTRY['base-cabinet'].worktopEligible).toBe(true)
+    expect(CABINET_REGISTRY['drawer-cabinet'].worktopEligible).toBe(true)
+    expect(CABINET_REGISTRY['wall-cabinet'].worktopEligible).toBe(false)
+    expect(CABINET_REGISTRY['tall-cabinet'].worktopEligible).toBe(false)
+  })
 })
 
 describe('custom pieces dispatch outside the registry', () => {
@@ -83,6 +99,13 @@ describe('custom pieces dispatch outside the registry', () => {
     expect(isCabinetKind('custom-piece')).toBe(false)
     expect(isCustomPieceDesign(design)).toBe(true)
     expect(isCustomPieceDesign(createDefaultDesign('base-cabinet'))).toBe(false)
+  })
+
+  it('gets no worktop in Phase 7, standing or hanging', () => {
+    expect(designWorktopEligible(design)).toBe(false)
+    expect(
+      designWorktopEligible({ kind: 'custom-piece', spec: { ...spec, mountingHeightMm: 0 } })
+    ).toBe(false)
   })
 
   it('answers the five helpers from its spec', () => {

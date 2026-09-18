@@ -168,6 +168,23 @@ export function unionRect(rects: readonly FloorRect[]): FloorRect | null {
   }))
 }
 
+/**
+ * The common area of two rects, or null when they merely touch or miss: an
+ * overlap thinner than OVERLAP_EPSILON_MM on either axis does not count,
+ * mirroring `rectsOverlap`.
+ */
+export function intersectRects(a: FloorRect, b: FloorRect): FloorRect | null {
+  const rect: FloorRect = {
+    minX: Math.max(a.minX, b.minX),
+    maxX: Math.min(a.maxX, b.maxX),
+    minZ: Math.max(a.minZ, b.minZ),
+    maxZ: Math.min(a.maxZ, b.maxZ)
+  }
+  return rect.maxX - rect.minX > OVERLAP_EPSILON_MM && rect.maxZ - rect.minZ > OVERLAP_EPSILON_MM
+    ? rect
+    : null
+}
+
 export function sceneBoundingRect(scene: SceneDesign): FloorRect | null {
   return unionRect(scene.cabinets.map(placedCabinetRect))
 }

@@ -15,6 +15,7 @@ import {
   type ProjectMetadata
 } from '@core/project'
 import type { PlacedCabinet, SceneDesign } from '@core/scene'
+import { createDefaultWorktopSettings } from '@core/worktop'
 
 // A TV unit built through the presets (carcass, shelf, two fronts) with
 // hinges and handles, standing in a 5000 × 4000 room beside a base cabinet
@@ -66,7 +67,7 @@ const cabinets: readonly PlacedCabinet[] = [
   { id: 'cab-3', design: hangingShelves, positionX: -300, positionZ: -1875, rotationDeg: 0 }
 ]
 
-const scene: SceneDesign = { room, cabinets }
+const scene: SceneDesign = { room, worktop: createDefaultWorktopSettings(), cabinets }
 
 const metadata: ProjectMetadata = {
   projectName: 'Woonkamer De Vries',
@@ -132,7 +133,7 @@ describe('custom pieces round-trip through the project file', () => {
     const document = parseProject(text)
     expect(document.scene).toEqual(scene)
     expect(serializeProject(document.scene, document.metadata)).toBe(text)
-    expect(text).toContain('\n  "schemaVersion": 2,\n')
+    expect(text).toContain('\n  "schemaVersion": 3,\n')
   })
 
   it('writes the spec, its panels and their nested objects in a fixed key order', () => {
@@ -183,18 +184,23 @@ describe('custom pieces round-trip through the project file', () => {
   })
 })
 
-describe('schema 1 → 2', () => {
-  it('opens a Phase 5 file through the stamping migration and re-saves it as v2', () => {
-    const catalogOnly: SceneDesign = { room, cabinets: [cabinets[0]] }
-    const v1 = serializeProject(catalogOnly, metadata).replace('"schemaVersion": 2', '"schemaVersion": 1')
-    expect(v1).toContain('"schemaVersion": 1')
+describe('schema 1 → 2 → 3', () => {
+  it('opens a Phase 5 file through the stamping migrations and re-saves it as v3', () => {
+    // A Phase 5 writer knew neither custom pieces nor worktop settings; the
+    // migrated file gets the default settings, which the fixture also carries.
+    const catalogOnly: SceneDesign = { room, worktop: createDefaultWorktopSettings(), cabinets: [cabinets[0]] }
+    const root: unknown = JSON.parse(serializeProject(catalogOnly, metadata))
+    node(root).schemaVersion = 1
+    delete node(root, 'scene').worktop
+    const v1 = JSON.stringify(root)
+    expect(v1).toContain('"schemaVersion":1')
     const document = parseProject(v1)
     expect(document.schemaVersion).toBe(PROJECT_SCHEMA_VERSION)
     expect(document.scene).toEqual(catalogOnly)
-    expect(serializeProject(document.scene, document.metadata)).toContain('"schemaVersion": 2')
+    expect(serializeProject(document.scene, document.metadata)).toContain('"schemaVersion": 3')
   })
 
-  it('still refuses schema 0 (no migration) and schema 3 (newer)', () => {
+  it('still refuses schema 0 (no migration) and schema 4 (newer)', () => {
     expectRefusal(
       edited((document) => {
         document.schemaVersion = 0
@@ -203,7 +209,7 @@ describe('schema 1 → 2', () => {
     )
     expectRefusal(
       edited((document) => {
-        document.schemaVersion = 3
+        document.schemaVersion = 4
       }),
       /newer version/
     )

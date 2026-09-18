@@ -3,6 +3,7 @@ import { createDefaultDesign } from '@core/catalog/registry'
 import { placedCabinetRect, sceneHasOverlap } from '@core/footprint'
 import { createDefaultRoom, roomContainsRect, type RoomDesign } from '@core/room'
 import type { PlacedCabinet, RotationDegrees, SceneDesign } from '@core/scene'
+import { createDefaultWorktopSettings } from '@core/worktop'
 import { placeWithoutOverlap, resolveNonOverlapping, spawnPlacement } from '@core/snap'
 import { makePlaced } from './footprint.test'
 
@@ -10,7 +11,7 @@ import { makePlaced } from './footprint.test'
 const room = createDefaultRoom()
 
 function scene(roomDesign: RoomDesign, ...cabinets: PlacedCabinet[]): SceneDesign {
-  return { room: roomDesign, cabinets }
+  return { room: roomDesign, worktop: createDefaultWorktopSettings(), cabinets }
 }
 
 /** Every cabinet in the scene is inside the room and free of overlaps. */

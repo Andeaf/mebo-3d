@@ -657,20 +657,14 @@ export interface ConnectedRun {
   readonly bottomMm: number
 }
 
-/**
- * The connected run the cabinet belongs to: the chain of same-rotation
- * cabinets standing flush side-to-side with fronts aligned (within
- * FLUSH_TOLERANCE_MM) at an overlapping height. Used for the total-width
- * measure line, so wall cabinets measure among themselves while a base and a
- * tall cabinet standing flush do form one mixed run.
- */
-export function connectedRun(scene: SceneDesign, cabinetId: string): ConnectedRun | null {
-  const start = findPlacedCabinet(scene, cabinetId)
-  if (start === undefined) {
-    return null
-  }
+function runAxisOf(rotationDeg: RotationDegrees): ConnectedRun['axis'] {
+  return facesAlongZ(rotationDeg) ? 'x' : 'z'
+}
+
+/** The members of the run `start` belongs to (`start` included), in scene order. */
+function runMembers(scene: SceneDesign, start: PlacedCabinet): PlacedCabinet[] {
   const rotationDeg = start.rotationDeg
-  const axis: 'x' | 'z' = facesAlongZ(rotationDeg) ? 'x' : 'z'
+  const axis = runAxisOf(rotationDeg)
   const startFront = frontFaceCoordinate(start)
   const startInterval = placedVerticalInterval(start)
 
@@ -710,13 +704,20 @@ export function connectedRun(scene: SceneDesign, cabinetId: string): ConnectedRu
       }
     }
   }
+  return candidates.filter((cabinet) => members.has(cabinet.id))
+}
 
-  const memberCabinets = candidates.filter((cabinet) => members.has(cabinet.id))
-  const runRect = unionRect(memberCabinets.map((cabinet) => placedCabinetRect(cabinet)))
+/** The run record for a set of members already known to be flush; null for none. */
+function assembleRun(
+  members: readonly PlacedCabinet[],
+  rotationDeg: RotationDegrees
+): ConnectedRun | null {
+  const axis = runAxisOf(rotationDeg)
+  const runRect = unionRect(members.map((cabinet) => placedCabinetRect(cabinet)))
   if (runRect === null) {
     return null
   }
-  const sorted = [...memberCabinets].sort((a, b) =>
+  const sorted = [...members].sort((a, b) =>
     axis === 'x' ? a.positionX - b.positionX : a.positionZ - b.positionZ
   )
   return {
@@ -725,6 +726,48 @@ export function connectedRun(scene: SceneDesign, cabinetId: string): ConnectedRu
     runRect,
     axis,
     rotationDeg,
-    bottomMm: Math.min(...memberCabinets.map((cabinet) => placedVerticalInterval(cabinet).bottomMm))
+    bottomMm: Math.min(...members.map((cabinet) => placedVerticalInterval(cabinet).bottomMm))
   }
+}
+
+/**
+ * The connected run the cabinet belongs to: the chain of same-rotation
+ * cabinets standing flush side-to-side with fronts aligned (within
+ * FLUSH_TOLERANCE_MM) at an overlapping height. Used for the total-width
+ * measure line, so wall cabinets measure among themselves while a base and a
+ * tall cabinet standing flush do form one mixed run.
+ */
+export function connectedRun(scene: SceneDesign, cabinetId: string): ConnectedRun | null {
+  const start = findPlacedCabinet(scene, cabinetId)
+  if (start === undefined) {
+    return null
+  }
+  return assembleRun(runMembers(scene, start), start.rotationDeg)
+}
+
+/**
+ * Every cabinet in exactly one run: `connectedRun` repeated over the
+ * cabinets not yet assigned, in scene order, so the runs come out in the
+ * order of their first member. Among cabinets standing at one floor level
+ * (all the worktop ever passes in) the run relation is an equivalence and
+ * this is a true partition; with mixed elevations a member an earlier run
+ * already claimed stays there and the later run is assembled from the rest.
+ */
+export function connectedRuns(scene: SceneDesign): readonly ConnectedRun[] {
+  const assigned = new Set<string>()
+  const runs: ConnectedRun[] = []
+  for (const cabinet of scene.cabinets) {
+    if (assigned.has(cabinet.id)) {
+      continue
+    }
+    const members = runMembers(scene, cabinet).filter((member) => !assigned.has(member.id))
+    for (const member of members) {
+      assigned.add(member.id)
+    }
+    const run = assembleRun(members, cabinet.rotationDeg)
+    if (run !== null) {
+      runs.push(run)
+    }
+  }
+  return runs
 }

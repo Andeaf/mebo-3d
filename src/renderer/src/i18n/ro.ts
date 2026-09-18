@@ -117,6 +117,7 @@ export const ro: Record<TranslationKey, string> = {
   'price.category.board': 'Plăci',
   'price.category.edgeband': 'Cant',
   'price.category.hardware': 'Feronerie',
+  'price.category.worktop': 'Blaturi',
   'price.cabinets': 'Corpuri',
   'price.subtotal': 'Subtotal',
   'price.total': 'Total (fără TVA)',
