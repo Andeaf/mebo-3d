@@ -96,7 +96,11 @@ export function PlacedCabinetMesh({
                 <boxGeometry
                   args={[instance.box.size.x, instance.box.size.y, instance.box.size.z]}
                 />
+                {/* Keyed on `dimmed`: three.js bakes OPAQUE into the shader of a
+                    material created with transparent=false, so toggling the flag
+                    on a live material never fades — a fresh material does. */}
                 <meshStandardMaterial
+                  key={dimmed ? 'dimmed' : 'solid'}
                   color={color}
                   roughness={0.85}
                   metalness={0.05}

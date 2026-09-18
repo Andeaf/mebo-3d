@@ -44,7 +44,10 @@ export function WorktopView({ slabs, priceDb, dimmed = false }: WorktopViewProps
                 (rect.maxZ - rect.minZ) / 1000
               ]}
             />
+            {/* Keyed on `dimmed` for the same reason as the cabinet panels: a
+                material compiled opaque never fades, a fresh one does. */}
             <meshStandardMaterial
+              key={dimmed ? 'dimmed' : 'solid'}
               color={color}
               roughness={0.6}
               metalness={0.05}
