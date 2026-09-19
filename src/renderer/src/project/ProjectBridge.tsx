@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { canRedo, canUndo } from '@state/history'
 import { isProjectDirty, useAppStore } from '@state/store'
 import { useT } from '../i18n'
 import { useProjectCommands } from './useProjectCommands'
@@ -19,6 +20,8 @@ export function ProjectBridge(): null {
   const dirty = useAppStore(isProjectDirty)
   const recentProjects = useAppStore((state) => state.recentProjects)
   const language = useAppStore((state) => state.language)
+  const canUndoNow = useAppStore((state) => canUndo(state.history))
+  const canRedoNow = useAppStore((state) => canRedo(state.history))
 
   // Title: "● Name — Mebo 3D" while dirty; Electron mirrors document.title
   // onto the window.
@@ -31,7 +34,9 @@ export function ProjectBridge(): null {
     window.api.setProjectDirty(dirty)
   }, [dirty])
 
-  // The menu is rebuilt whenever its labels (language) or the recent list change.
+  // The menu is rebuilt whenever its labels (language), the recent list or
+  // the undo/redo enabled states change (those flip rarely: the first edit,
+  // the bottom of the stack, the top of the redo stack).
   useEffect(() => {
     window.api.updateMenu({
       labels: {
@@ -42,11 +47,16 @@ export function ProjectBridge(): null {
         noRecent: t('menu.noRecent'),
         save: t('menu.save'),
         saveAs: t('menu.saveAs'),
-        exit: t('menu.exit')
+        exit: t('menu.exit'),
+        edit: t('menu.edit'),
+        undo: t('menu.undo'),
+        redo: t('menu.redo')
       },
-      recent: recentProjects.map((entry) => ({ path: entry.path, name: entry.name }))
+      recent: recentProjects.map((entry) => ({ path: entry.path, name: entry.name })),
+      canUndo: canUndoNow,
+      canRedo: canRedoNow
     })
-  }, [language, recentProjects, t])
+  }, [language, recentProjects, canUndoNow, canRedoNow, t])
 
   // Subscriptions read the latest commands through a ref, so a language
   // switch mid-session does not tear down and re-register the IPC listeners.
@@ -76,6 +86,12 @@ export function ProjectBridge(): null {
         run(current.save)
       } else if (action === 'save-as') {
         run(current.saveAs)
+      } else if (action === 'undo') {
+        // Straight to the store: no dialog, so not a flow for busyRef; the
+        // store itself ignores it during a gesture.
+        useAppStore.getState().undo()
+      } else if (action === 'redo') {
+        useAppStore.getState().redo()
       } else {
         run(() => current.openRecent(action.openRecent))
       }

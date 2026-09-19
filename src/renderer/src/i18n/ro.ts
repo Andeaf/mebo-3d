@@ -84,6 +84,8 @@ export const ro: Record<TranslationKey, string> = {
   'toolbar.delete': 'Șterge',
   'toolbar.rotate': 'Rotește (R)',
   'toolbar.fitView': 'Încadrează tot',
+  'toolbar.undo': 'Anulează (Ctrl+Z)',
+  'toolbar.redo': 'Refă (Ctrl+Y)',
 
   'room.title': 'Cameră',
   'room.width': 'Lățime cameră',
@@ -136,6 +138,9 @@ export const ro: Record<TranslationKey, string> = {
   'menu.save': 'Salvează',
   'menu.saveAs': 'Salvează ca…',
   'menu.exit': 'Ieșire',
+  'menu.edit': 'Editare',
+  'menu.undo': 'Anulează',
+  'menu.redo': 'Refă',
 
   'project.untitled': 'Fără titlu',
   'project.fileFilter': 'Proiect Mebo 3D',

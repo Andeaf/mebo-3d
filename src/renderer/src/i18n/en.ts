@@ -84,6 +84,8 @@ export const en: Record<TranslationKey, string> = {
   'toolbar.delete': 'Delete',
   'toolbar.rotate': 'Rotate (R)',
   'toolbar.fitView': 'Fit view',
+  'toolbar.undo': 'Undo (Ctrl+Z)',
+  'toolbar.redo': 'Redo (Ctrl+Y)',
 
   'room.title': 'Room',
   'room.width': 'Room width',
@@ -136,6 +138,9 @@ export const en: Record<TranslationKey, string> = {
   'menu.save': 'Save',
   'menu.saveAs': 'Save As…',
   'menu.exit': 'Exit',
+  'menu.edit': 'Edit',
+  'menu.undo': 'Undo',
+  'menu.redo': 'Redo',
 
   'project.untitled': 'Untitled',
   'project.fileFilter': 'Mebo 3D project',

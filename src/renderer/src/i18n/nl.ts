@@ -86,6 +86,8 @@ export const nl = {
   'toolbar.delete': 'Verwijderen',
   'toolbar.rotate': 'Draaien (R)',
   'toolbar.fitView': 'Alles in beeld',
+  'toolbar.undo': 'Ongedaan maken (Ctrl+Z)',
+  'toolbar.redo': 'Opnieuw (Ctrl+Y)',
 
   'room.title': 'Ruimte',
   'room.width': 'Breedte ruimte',
@@ -138,6 +140,9 @@ export const nl = {
   'menu.save': 'Opslaan',
   'menu.saveAs': 'Opslaan als…',
   'menu.exit': 'Afsluiten',
+  'menu.edit': 'Bewerken',
+  'menu.undo': 'Ongedaan maken',
+  'menu.redo': 'Opnieuw',
 
   'project.untitled': 'Naamloos',
   'project.fileFilter': 'Mebo 3D-project',

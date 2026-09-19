@@ -75,6 +75,12 @@ body {
   cursor: default;
 }
 
+.toolbar__button--icon {
+  padding: 7px 10px;
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .toolbar__button--danger {
   border-color: var(--error);
   color: var(--error);

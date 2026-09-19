@@ -175,6 +175,35 @@ function fileMenu(model: MenuModel): MenuItemConstructorOptions {
   }
 }
 
+/**
+ * Edit › Undo / Redo. The accelerators are DISPLAYED but not registered
+ * (`registerAccelerator: false`): the renderer owns Ctrl+Z / Ctrl+Y so it
+ * can leave them to a text field's own undo while one has focus. A
+ * natively registered accelerator would fire the scene undo instead.
+ */
+function editMenu(model: MenuModel): MenuItemConstructorOptions {
+  const { labels } = model
+  return {
+    label: menuLabel(labels.edit),
+    submenu: [
+      {
+        label: menuLabel(labels.undo),
+        accelerator: 'CmdOrCtrl+Z',
+        registerAccelerator: false,
+        enabled: model.canUndo,
+        click: () => sendMenuAction('undo')
+      },
+      {
+        label: menuLabel(labels.redo),
+        accelerator: 'CmdOrCtrl+Y',
+        registerAccelerator: false,
+        enabled: model.canRedo,
+        click: () => sendMenuAction('redo')
+      }
+    ]
+  }
+}
+
 /** Development only: keep reload and devtools reachable once the default menu is gone. */
 function devMenu(): MenuItemConstructorOptions[] {
   return app.isPackaged
@@ -183,7 +212,7 @@ function devMenu(): MenuItemConstructorOptions[] {
 }
 
 function applyMenu(model: MenuModel | null): void {
-  const template = [...(model === null ? [] : [fileMenu(model)]), ...devMenu()]
+  const template = [...(model === null ? [] : [fileMenu(model), editMenu(model)]), ...devMenu()]
   Menu.setApplicationMenu(template.length === 0 ? null : Menu.buildFromTemplate(template))
 }
 

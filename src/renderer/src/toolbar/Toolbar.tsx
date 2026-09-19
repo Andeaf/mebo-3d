@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { CABINET_KINDS, type CabinetKind } from '@core/catalog/registry'
+import { canRedo, canUndo } from '@state/history'
 import { useAppStore } from '@state/store'
 import { useT } from '../i18n'
 
@@ -81,6 +82,39 @@ function AddCabinetMenu(): ReactElement {
   )
 }
 
+/** Undo / redo as two icon buttons; the Edit menu carries the words and the shortcuts. */
+function HistoryButtons(): ReactElement {
+  const t = useT()
+  const canUndoNow = useAppStore((state) => canUndo(state.history))
+  const canRedoNow = useAppStore((state) => canRedo(state.history))
+  const undo = useAppStore((state) => state.undo)
+  const redo = useAppStore((state) => state.redo)
+  return (
+    <>
+      <button
+        type="button"
+        className="toolbar__button toolbar__button--icon"
+        title={t('toolbar.undo')}
+        aria-label={t('toolbar.undo')}
+        disabled={!canUndoNow}
+        onClick={undo}
+      >
+        ↶
+      </button>
+      <button
+        type="button"
+        className="toolbar__button toolbar__button--icon"
+        title={t('toolbar.redo')}
+        aria-label={t('toolbar.redo')}
+        disabled={!canRedoNow}
+        onClick={redo}
+      >
+        ↷
+      </button>
+    </>
+  )
+}
+
 export function Toolbar(): ReactElement {
   const t = useT()
   const hasSelection = useAppStore((state) => state.selectedCabinetId !== null)
@@ -92,9 +126,11 @@ export function Toolbar(): ReactElement {
   const exitPieceEditor = useAppStore((state) => state.exitPieceEditor)
 
   if (editing) {
-    // The scene gestures are off while a piece is open; only the way out remains.
+    // The scene gestures are off while a piece is open; only the way out
+    // remains — and undo/redo, since piece edits are entries too.
     return (
       <div className="toolbar">
+        <HistoryButtons />
         <button type="button" className="toolbar__button" onClick={exitPieceEditor}>
           {t('piece.done')}
         </button>
@@ -104,6 +140,7 @@ export function Toolbar(): ReactElement {
 
   return (
     <div className="toolbar">
+      <HistoryButtons />
       <AddCabinetMenu />
       <button
         type="button"

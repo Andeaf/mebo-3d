@@ -46,6 +46,9 @@ export interface MenuLabels {
   readonly save: string
   readonly saveAs: string
   readonly exit: string
+  readonly edit: string
+  readonly undo: string
+  readonly redo: string
 }
 
 export interface MenuRecentEntry {
@@ -56,9 +59,19 @@ export interface MenuRecentEntry {
 export interface MenuModel {
   readonly labels: MenuLabels
   readonly recent: readonly MenuRecentEntry[]
+  /** Enabled states of Edit › Undo / Redo (the renderer owns the history). */
+  readonly canUndo: boolean
+  readonly canRedo: boolean
 }
 
-export type MenuAction = 'new' | 'open' | 'save' | 'save-as' | { readonly openRecent: string }
+export type MenuAction =
+  | 'new'
+  | 'open'
+  | 'save'
+  | 'save-as'
+  | 'undo'
+  | 'redo'
+  | { readonly openRecent: string }
 
 export interface MeboApi {
   /** Raw text of data/materials.json; parsing/validation happens in the core. */
