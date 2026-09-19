@@ -190,7 +190,10 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
       {selectedPanel === undefined ? (
         spec.panels.length > 0 && <p className="field__hint">{t('panel.noSelection')}</p>
       ) : (
-        <PanelFields spec={spec} panel={selectedPanel} onSpec={onSpec} />
+        <>
+          <p className="field__hint">{t('panel.moveHint')}</p>
+          <PanelFields spec={spec} panel={selectedPanel} onSpec={onSpec} />
+        </>
       )}
     </section>
   )

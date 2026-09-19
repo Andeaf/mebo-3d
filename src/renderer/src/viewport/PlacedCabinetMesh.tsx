@@ -28,6 +28,11 @@ interface PlacedCabinetMeshProps {
   readonly editing?: boolean
   readonly selectedPanelId?: string | null
   readonly onSelectPanel?: (panelId: string) => void
+  /**
+   * True while a gizmo handle is under the pointer: the press belongs to the
+   * gizmo, so a panel behind the handle must not be (re)selected.
+   */
+  readonly pointerBlocked?: () => boolean
   /** Edit mode, every other cabinet: faded, ignoring the pointer. */
   readonly dimmed?: boolean
 }
@@ -47,6 +52,7 @@ export function PlacedCabinetMesh({
   editing = false,
   selectedPanelId = null,
   onSelectPanel,
+  pointerBlocked,
   dimmed = false
 }: PlacedCabinetMeshProps): ReactElement {
   const build = buildForDesign(placed.design)
@@ -84,6 +90,9 @@ export function PlacedCabinetMesh({
                 onPointerDown={
                   editing && onSelectPanel !== undefined
                     ? (event) => {
+                        if (pointerBlocked?.() === true) {
+                          return // the press is the gizmo's
+                        }
                         event.stopPropagation()
                         if (event.button === 0) {
                           onSelectPanel(instance.panelId)

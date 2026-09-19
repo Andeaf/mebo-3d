@@ -51,6 +51,8 @@ export const nl = {
 
   'panel.title': 'Geselecteerd paneel',
   'panel.noSelection': 'Klik op een paneel in het 3D-beeld of in de lijst.',
+  'panel.moveHint':
+    'Verplaats het paneel met de pijlen in het 3D-beeld (stappen van 10 mm) of met de pijltjestoetsen: 1 mm, Shift = 10 mm, PgUp/PgDn = hoogte.',
   'panel.role': 'Functie',
   'panel.material': 'Materiaal',
   'panel.length': 'Lengte',

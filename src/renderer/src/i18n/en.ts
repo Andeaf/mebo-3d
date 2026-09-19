@@ -49,6 +49,8 @@ export const en: Record<TranslationKey, string> = {
 
   'panel.title': 'Selected panel',
   'panel.noSelection': 'Click a panel in the 3D view or in the list.',
+  'panel.moveHint':
+    'Move the panel with the arrows in the 3D view (10 mm steps) or with the arrow keys: 1 mm, Shift = 10 mm, PgUp/PgDn = height.',
   'panel.role': 'Role',
   'panel.material': 'Material',
   'panel.length': 'Length',

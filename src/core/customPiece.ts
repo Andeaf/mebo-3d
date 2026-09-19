@@ -780,3 +780,49 @@ export function duplicatePanel(spec: CustomPieceSpec, panelId: string): PanelCha
 export function removePanel(spec: CustomPieceSpec, panelId: string): CustomPieceSpec {
   return { ...spec, panels: spec.panels.filter((panel) => panel.id !== panelId) }
 }
+
+// ---------------------------------------------------------------------------
+// Moving a panel by hand (Phase 9: the gizmo and the arrow keys)
+
+/**
+ * The grid a gizmo drag lands on: absolute multiples of 10 mm on the origin,
+ * the same step the origin sliders use, so a drag and a slider agree.
+ * Cabinetry positions are round numbers; 1 mm precision is on the keys.
+ */
+export const PANEL_MOVE_STEP_MM = 10
+
+/** Rounds to the nearest multiple of `step` (a positive number). */
+export function snapToStep(value: number, step: number): number {
+  return Math.round(value / step) * step
+}
+
+/**
+ * Moves one panel to `originMm`, then clamps it into the envelope exactly
+ * like any other edit — a drag past a face lands flush against it. The spec
+ * comes back unchanged for an unknown id.
+ */
+export function movePanel(spec: CustomPieceSpec, panelId: string, originMm: Vec3): CustomPieceSpec {
+  const space = panelSpace(spec)
+  let found = false
+  const panels = spec.panels.map((panel) => {
+    if (panel.id !== panelId) {
+      return panel
+    }
+    found = true
+    return clampPanelInto(space, { ...panel, originMm })
+  })
+  return found ? { ...spec, panels } : spec
+}
+
+/** `movePanel` by a delta (an arrow-key nudge); missing axes are 0. */
+export function nudgePanel(spec: CustomPieceSpec, panelId: string, delta: Partial<Vec3>): CustomPieceSpec {
+  const panel = spec.panels.find((candidate) => candidate.id === panelId)
+  if (panel === undefined) {
+    return spec
+  }
+  return movePanel(spec, panelId, {
+    x: panel.originMm.x + (delta.x ?? 0),
+    y: panel.originMm.y + (delta.y ?? 0),
+    z: panel.originMm.z + (delta.z ?? 0)
+  })
+}

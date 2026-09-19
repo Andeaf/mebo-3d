@@ -49,6 +49,8 @@ export const ro: Record<TranslationKey, string> = {
 
   'panel.title': 'Panou selectat',
   'panel.noSelection': 'Dă clic pe un panou în vederea 3D sau în listă.',
+  'panel.moveHint':
+    'Mută panoul cu săgețile din vederea 3D (pași de 10 mm) sau cu tastele săgeți: 1 mm, Shift = 10 mm, PgUp/PgDn = înălțime.',
   'panel.role': 'Rol',
   'panel.material': 'Material',
   'panel.length': 'Lungime',

@@ -3,14 +3,16 @@ import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber'
 import { ContactShadows, Grid, OrbitControls } from '@react-three/drei'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { PerspectiveCamera, Plane, Raycaster, Vector2, Vector3 } from 'three'
-import { designVerticalExtent } from '@core/catalog/registry'
+import { designVerticalExtent, isCustomPieceDesign } from '@core/catalog/registry'
+import { nudgePanel, CUSTOM_PIECE_KIND } from '@core/customPiece'
 import { placedCabinetRect, placedVerticalInterval } from '@core/footprint'
 import { roomInteriorRect } from '@core/room'
 import { findPlacedCabinet, type PlacedCabinet } from '@core/scene'
 import { useWorktops } from '@state/selectors'
 import { useAppStore } from '@state/store'
-import { isTypingTarget, keyCommand } from './keymap'
+import { isTypingTarget, keyCommand, nudgeDistanceMm } from './keymap'
 import { MeasureLine } from './MeasureLine'
+import { PanelGizmo, type GizmoHandle } from './PanelGizmo'
 import { PlacedCabinetMesh } from './PlacedCabinetMesh'
 import { RoomView } from './RoomView'
 import { WorktopView } from './WorktopView'
@@ -80,6 +82,7 @@ function SceneContents(): ReactElement {
   const moveSelected = useAppStore((state) => state.moveSelected)
   const dropSelected = useAppStore((state) => state.dropSelected)
   const rotateSelected = useAppStore((state) => state.rotateSelected)
+  const updateSelectedDesign = useAppStore((state) => state.updateSelectedDesign)
   const beginGesture = useAppStore((state) => state.beginGesture)
   const endGesture = useAppStore((state) => state.endGesture)
   const cancelGesture = useAppStore((state) => state.cancelGesture)
@@ -97,6 +100,17 @@ function SceneContents(): ReactElement {
   const [dragging, setDragging] = useState(false)
   /** Where the camera stood before the editor framed the piece; restored on exit. */
   const poseBeforeEditRef = useRef<CameraPose | null>(null)
+  /**
+   * The mounted gizmo, if any. Its control and r3f's picking listen to the
+   * same canvas, so a press on a handle must not also reach the meshes or
+   * the floor catcher (a panel would be reselected, or the selection
+   * cleared and the gizmo unmounted mid-drag).
+   */
+  const gizmoRef = useRef<GizmoHandle | null>(null)
+  const setGizmoHandle = useCallback((handle: GizmoHandle | null): void => {
+    gizmoRef.current = handle
+  }, [])
+  const pointerOnGizmo = useCallback((): boolean => gizmoRef.current?.isActive() ?? false, [])
 
   const pointOnPlaneMm = (event: PointerEvent, plane: Plane): { x: number; z: number } | null => {
     const rect = gl.domElement.getBoundingClientRect()
@@ -115,6 +129,9 @@ function SceneContents(): ReactElement {
   // A drag is one undo gesture: frames move the cabinet without recording,
   // the drop records the pre-drag scene as one entry, Escape restores it.
   const startDrag = (placed: PlacedCabinet, event: ThreeEvent<PointerEvent>): void => {
+    if (pointerOnGizmo()) {
+      return
+    }
     event.stopPropagation()
     selectCabinet(placed.id)
     if (event.button !== 0) {
@@ -201,6 +218,30 @@ function SceneContents(): ReactElement {
       if (command === null) {
         return
       }
+      if (typeof command === 'object') {
+        // A nudge: the selected panel of the open piece, in the piece's own
+        // axes (the gizmo's), through the same clamp; a key burst is one
+        // undo entry. Cabinets get their own nudge in scene mode (step 4).
+        const { scene: current, editor } = useAppStore.getState()
+        const piece = editor.editingPieceId === null ? undefined : findPlacedCabinet(current, editor.editingPieceId)
+        if (
+          piece !== undefined &&
+          isCustomPieceDesign(piece.design) &&
+          editor.selectedPanelId !== null &&
+          !(gizmoRef.current?.isDragging() ?? false)
+        ) {
+          event.preventDefault()
+          const panelId = editor.selectedPanelId
+          updateSelectedDesign(
+            {
+              kind: CUSTOM_PIECE_KIND,
+              spec: nudgePanel(piece.design.spec, panelId, { [command.axis]: nudgeDistanceMm(command) })
+            },
+            `nudge:${panelId}`
+          )
+        }
+        return
+      }
       switch (command) {
         case 'undo':
           event.preventDefault()
@@ -214,7 +255,11 @@ function SceneContents(): ReactElement {
           rotateSelected() // a no-op while a piece is open
           break
         case 'escape':
-          if (dragRef.current !== null) {
+          // Whatever is being dragged goes back first; only then does
+          // Escape mean "leave the editor".
+          if (gizmoRef.current?.isDragging() ?? false) {
+            gizmoRef.current?.cancel()
+          } else if (dragRef.current !== null) {
             cancelDrag()
           } else {
             exitPieceEditor()
@@ -224,7 +269,7 @@ function SceneContents(): ReactElement {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [undo, redo, rotateSelected, exitPieceEditor, cancelDrag])
+  }, [undo, redo, rotateSelected, exitPieceEditor, cancelDrag, updateSelectedDesign])
 
   // Runs on mount too (nonce 0), so the room is framed from the first frame:
   // OrbitControls does not apply its target prop before the first render.
@@ -302,6 +347,7 @@ function SceneContents(): ReactElement {
             editing={placed.id === editingPieceId}
             selectedPanelId={selectedPanelId}
             onSelectPanel={selectPanel}
+            pointerBlocked={pointerOnGizmo}
             dimmed={placed.id !== editingPieceId}
           />
         ) : (
@@ -321,6 +367,18 @@ function SceneContents(): ReactElement {
         )
       )}
 
+      {/* The translate gizmo on the selected panel of the open piece. */}
+      {editedPiece !== undefined &&
+        isCustomPieceDesign(editedPiece.design) &&
+        selectedPanelId !== null &&
+        (() => {
+          const spec = editedPiece.design.spec
+          const panel = spec.panels.find((candidate) => candidate.id === selectedPanelId)
+          return panel === undefined ? null : (
+            <PanelGizmo placed={editedPiece} spec={spec} panel={panel} onHandle={setGizmoHandle} />
+          )
+        })()}
+
       {/* Derived from the scene, never picked: a click on a slab reaches the cabinet under it. */}
       <WorktopView slabs={slabs} priceDb={priceDb} dimmed={editing} />
 
@@ -333,6 +391,9 @@ function SceneContents(): ReactElement {
         rotation-x={-Math.PI / 2}
         position={[0, -0.002, 0]}
         onPointerDown={() => {
+          if (pointerOnGizmo()) {
+            return // the press is the gizmo's; clearing the selection would unmount it mid-drag
+          }
           if (editing) {
             selectPanel(null)
           } else if (!dragging) {
