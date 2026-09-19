@@ -20,8 +20,11 @@ import { MaterialSelect } from '../panels/MaterialSelect'
 interface PanelFieldsProps {
   readonly spec: CustomPieceSpec
   readonly panel: CustomPanelSpec
-  /** Hands the next spec to the store (which clamps it). */
-  readonly onSpec: (spec: CustomPieceSpec) => void
+  /**
+   * Hands the next spec to the store (which clamps it). A `coalesceKey`
+   * names the field a slider is dragging so the burst is one undo entry.
+   */
+  readonly onSpec: (spec: CustomPieceSpec, coalesceKey?: string) => void
 }
 
 /** Every field of the selected panel; sizes and positions are bounded by the envelope. */
@@ -32,11 +35,17 @@ export function PanelFields({ spec, panel, onSpec }: PanelFieldsProps): ReactEle
   const ranges = panelRanges(spec, panel)
   const sizeMin = CUSTOM_PIECE_LIMITS.panelSizeMm.min
 
-  const patch = (next: Partial<Omit<CustomPanelSpec, 'id'>>): void =>
-    onSpec({
-      ...spec,
-      panels: spec.panels.map((entry) => (entry.id === panel.id ? { ...entry, ...next } : entry))
-    })
+  const withPanel = (next: Partial<Omit<CustomPanelSpec, 'id'>>): CustomPieceSpec => ({
+    ...spec,
+    panels: spec.panels.map((entry) => (entry.id === panel.id ? { ...entry, ...next } : entry))
+  })
+  /** A discrete pick (role, material, orientation, an edge): one undo entry each. */
+  const patch = (next: Partial<Omit<CustomPanelSpec, 'id'>>): void => onSpec(withPanel(next))
+  /** A slider or spinner: a burst on the same field is one undo entry. */
+  const burst = (
+    next: Partial<Omit<CustomPanelSpec, 'id'>>,
+    field: string = Object.keys(next).join('+')
+  ): void => onSpec(withPanel(next), `${panel.id}:${field}`)
 
   const chooseMaterial = (materialId: string): void => {
     // The thickness is the board's: a 22 mm top needs a 22 mm board.
@@ -110,14 +119,14 @@ export function PanelFields({ spec, panel, onSpec }: PanelFieldsProps): ReactEle
         value={panel.lengthMm}
         min={sizeMin}
         max={ranges.lengthMaxMm}
-        onChange={(lengthMm) => patch({ lengthMm })}
+        onChange={(lengthMm) => burst({ lengthMm })}
       />
       <DimensionField
         labelKey="panel.width"
         value={panel.widthMm}
         min={sizeMin}
         max={ranges.widthMaxMm}
-        onChange={(widthMm) => patch({ widthMm })}
+        onChange={(widthMm) => burst({ widthMm })}
       />
 
       <div className="field">
@@ -148,21 +157,21 @@ export function PanelFields({ spec, panel, onSpec }: PanelFieldsProps): ReactEle
         value={panel.originMm.x}
         min={0}
         max={ranges.originMaxMm.x}
-        onChange={(x) => patch({ originMm: { ...panel.originMm, x } })}
+        onChange={(x) => burst({ originMm: { ...panel.originMm, x } }, 'originMm.x')}
       />
       <DimensionField
         labelKey="panel.originY"
         value={panel.originMm.y}
         min={0}
         max={ranges.originMaxMm.y}
-        onChange={(y) => patch({ originMm: { ...panel.originMm, y } })}
+        onChange={(y) => burst({ originMm: { ...panel.originMm, y } }, 'originMm.y')}
       />
       <DimensionField
         labelKey="panel.originZ"
         value={panel.originMm.z}
         min={0}
         max={ranges.originMaxMm.z}
-        onChange={(z) => patch({ originMm: { ...panel.originMm, z } })}
+        onChange={(z) => burst({ originMm: { ...panel.originMm, z } }, 'originMm.z')}
       />
 
       <div className="field">

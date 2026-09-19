@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber'
 import { ContactShadows, Grid, OrbitControls } from '@react-three/drei'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
@@ -9,6 +9,7 @@ import { roomInteriorRect } from '@core/room'
 import { findPlacedCabinet, type PlacedCabinet } from '@core/scene'
 import { useWorktops } from '@state/selectors'
 import { useAppStore } from '@state/store'
+import { isTypingTarget, keyCommand } from './keymap'
 import { MeasureLine } from './MeasureLine'
 import { PlacedCabinetMesh } from './PlacedCabinetMesh'
 import { RoomView } from './RoomView'
@@ -75,8 +76,15 @@ function SceneContents(): ReactElement {
   const selectCabinet = useAppStore((state) => state.selectCabinet)
   const selectPanel = useAppStore((state) => state.selectPanel)
   const enterPieceEditor = useAppStore((state) => state.enterPieceEditor)
+  const exitPieceEditor = useAppStore((state) => state.exitPieceEditor)
   const moveSelected = useAppStore((state) => state.moveSelected)
   const dropSelected = useAppStore((state) => state.dropSelected)
+  const rotateSelected = useAppStore((state) => state.rotateSelected)
+  const beginGesture = useAppStore((state) => state.beginGesture)
+  const endGesture = useAppStore((state) => state.endGesture)
+  const cancelGesture = useAppStore((state) => state.cancelGesture)
+  const undo = useAppStore((state) => state.undo)
+  const redo = useAppStore((state) => state.redo)
   const fitViewNonce = useAppStore((state) => state.fitViewNonce)
   const priceDb = useAppStore((state) => state.priceDb)
   const slabs = useWorktops()
@@ -104,6 +112,8 @@ function SceneContents(): ReactElement {
     return { x: point.x * 1000, z: point.z * 1000 }
   }
 
+  // A drag is one undo gesture: frames move the cabinet without recording,
+  // the drop records the pre-drag scene as one entry, Escape restores it.
   const startDrag = (placed: PlacedCabinet, event: ThreeEvent<PointerEvent>): void => {
     event.stopPropagation()
     selectCabinet(placed.id)
@@ -126,8 +136,26 @@ function SceneContents(): ReactElement {
     if (controlsRef.current !== null) {
       controlsRef.current.enabled = false
     }
+    beginGesture()
     setDragging(true)
   }
+
+  const finishDrag = useCallback((): void => {
+    dragRef.current = null
+    if (controlsRef.current !== null) {
+      controlsRef.current.enabled = true
+    }
+    setDragging(false)
+  }, [])
+
+  /** Escape mid-drag: the cabinet returns to where it was picked up (Blender/Fusion convention). */
+  const cancelDrag = useCallback((): void => {
+    if (dragRef.current === null) {
+      return
+    }
+    cancelGesture()
+    finishDrag()
+  }, [cancelGesture, finishDrag])
 
   useEffect(() => {
     if (!dragging) {
@@ -151,11 +179,8 @@ function SceneContents(): ReactElement {
       if (drag !== null) {
         dropSelected(drag.attemptedX, drag.attemptedZ)
       }
-      dragRef.current = null
-      if (controlsRef.current !== null) {
-        controlsRef.current.enabled = true
-      }
-      setDragging(false)
+      endGesture()
+      finishDrag()
     }
     window.addEventListener('pointermove', onPointerMove)
     window.addEventListener('pointerup', onPointerUp)
@@ -163,7 +188,43 @@ function SceneContents(): ReactElement {
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
     }
-  }, [dragging, moveSelected, dropSelected])
+  }, [dragging, moveSelected, dropSelected, endGesture, finishDrag])
+
+  // Keyboard: the map lives in keymap.ts. Undo/redo are store no-ops during
+  // a gesture; Escape cancels a running drag before it means "leave the editor".
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (isTypingTarget(event.target)) {
+        return
+      }
+      const command = keyCommand(event)
+      if (command === null) {
+        return
+      }
+      switch (command) {
+        case 'undo':
+          event.preventDefault()
+          undo()
+          break
+        case 'redo':
+          event.preventDefault()
+          redo()
+          break
+        case 'rotate':
+          rotateSelected() // a no-op while a piece is open
+          break
+        case 'escape':
+          if (dragRef.current !== null) {
+            cancelDrag()
+          } else {
+            exitPieceEditor()
+          }
+          break
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [undo, redo, rotateSelected, exitPieceEditor, cancelDrag])
 
   // Runs on mount too (nonce 0), so the room is framed from the first frame:
   // OrbitControls does not apply its target prop before the first render.
@@ -310,31 +371,7 @@ function SceneContents(): ReactElement {
   )
 }
 
-function isTypingTarget(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)
-  )
-}
-
 export function Viewport(): ReactElement {
-  const rotateSelected = useAppStore((state) => state.rotateSelected)
-  const exitPieceEditor = useAppStore((state) => state.exitPieceEditor)
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (isTypingTarget(event.target)) {
-        return
-      }
-      if (event.key.toLowerCase() === 'r') {
-        rotateSelected() // a no-op while a piece is open
-      } else if (event.key === 'Escape') {
-        exitPieceEditor()
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [rotateSelected, exitPieceEditor])
-
   return (
     // Outside the default room's front-right corner, so the near walls hide
     // themselves; the fit-view on mount then frames whatever room is loaded.

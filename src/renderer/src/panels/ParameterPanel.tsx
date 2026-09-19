@@ -124,6 +124,15 @@ function DoorCountField({
   )
 }
 
+/**
+ * The undo coalescing key for a slider/spinner edit: the names of the
+ * fields it changes, so a drag on one slider is one entry and the next
+ * slider starts another. Discrete picks (doors, material) pass no key.
+ */
+function burstKey(next: object): string {
+  return Object.keys(next).join('+')
+}
+
 /** One field group per kind; each builds the next design and hands it to the store. */
 function BaseCabinetFields({
   design
@@ -135,6 +144,8 @@ function BaseCabinetFields({
   const limits = BASE_CABINET_LIMITS
   const patch = (next: Partial<BaseCabinetParams>): void =>
     updateSelectedDesign({ kind: 'base-cabinet', params: { ...params, ...next } })
+  const burst = (next: Partial<BaseCabinetParams>): void =>
+    updateSelectedDesign({ kind: 'base-cabinet', params: { ...params, ...next } }, burstKey(next))
 
   return (
     <>
@@ -143,28 +154,28 @@ function BaseCabinetFields({
         value={params.widthMm}
         min={limits.widthMm.min}
         max={limits.widthMm.max}
-        onChange={(widthMm) => patch({ widthMm })}
+        onChange={(widthMm) => burst({ widthMm })}
       />
       <DimensionField
         labelKey="params.height"
         value={params.heightMm}
         min={limits.heightMm.min}
         max={limits.heightMm.max}
-        onChange={(heightMm) => patch({ heightMm })}
+        onChange={(heightMm) => burst({ heightMm })}
       />
       <DimensionField
         labelKey="params.depth"
         value={params.depthMm}
         min={limits.depthMm.min}
         max={limits.depthMm.max}
-        onChange={(depthMm) => patch({ depthMm })}
+        onChange={(depthMm) => burst({ depthMm })}
       />
       <CountField
         labelKey="params.shelves"
         value={params.shelfCount}
         min={limits.shelfCount.min}
         max={limits.shelfCount.max}
-        onChange={(shelfCount) => patch({ shelfCount })}
+        onChange={(shelfCount) => burst({ shelfCount })}
       />
       <DoorCountField
         widthMm={params.widthMm}
@@ -189,6 +200,8 @@ function WallCabinetFields({
   const limits = WALL_CABINET_LIMITS
   const patch = (next: Partial<WallCabinetParams>): void =>
     updateSelectedDesign({ kind: 'wall-cabinet', params: { ...params, ...next } })
+  const burst = (next: Partial<WallCabinetParams>): void =>
+    updateSelectedDesign({ kind: 'wall-cabinet', params: { ...params, ...next } }, burstKey(next))
 
   return (
     <>
@@ -197,35 +210,35 @@ function WallCabinetFields({
         value={params.widthMm}
         min={limits.widthMm.min}
         max={limits.widthMm.max}
-        onChange={(widthMm) => patch({ widthMm })}
+        onChange={(widthMm) => burst({ widthMm })}
       />
       <DimensionField
         labelKey="params.height"
         value={params.heightMm}
         min={limits.heightMm.min}
         max={limits.heightMm.max}
-        onChange={(heightMm) => patch({ heightMm })}
+        onChange={(heightMm) => burst({ heightMm })}
       />
       <DimensionField
         labelKey="params.depth"
         value={params.depthMm}
         min={limits.depthMm.min}
         max={limits.depthMm.max}
-        onChange={(depthMm) => patch({ depthMm })}
+        onChange={(depthMm) => burst({ depthMm })}
       />
       <DimensionField
         labelKey="params.mountingHeight"
         value={params.mountingHeightMm}
         min={limits.mountingHeightMm.min}
         max={limits.mountingHeightMm.max}
-        onChange={(mountingHeightMm) => patch({ mountingHeightMm })}
+        onChange={(mountingHeightMm) => burst({ mountingHeightMm })}
       />
       <CountField
         labelKey="params.shelves"
         value={params.shelfCount}
         min={limits.shelfCount.min}
         max={limits.shelfCount.max}
-        onChange={(shelfCount) => patch({ shelfCount })}
+        onChange={(shelfCount) => burst({ shelfCount })}
       />
       <DoorCountField
         widthMm={params.widthMm}
@@ -250,6 +263,8 @@ function TallCabinetFields({
   const limits = TALL_CABINET_LIMITS
   const patch = (next: Partial<TallCabinetParams>): void =>
     updateSelectedDesign({ kind: 'tall-cabinet', params: { ...params, ...next } })
+  const burst = (next: Partial<TallCabinetParams>): void =>
+    updateSelectedDesign({ kind: 'tall-cabinet', params: { ...params, ...next } }, burstKey(next))
 
   return (
     <>
@@ -258,14 +273,14 @@ function TallCabinetFields({
         value={params.widthMm}
         min={limits.widthMm.min}
         max={limits.widthMm.max}
-        onChange={(widthMm) => patch({ widthMm })}
+        onChange={(widthMm) => burst({ widthMm })}
       />
       <DimensionField
         labelKey="params.height"
         value={params.heightMm}
         min={limits.heightMm.min}
         max={limits.heightMm.max}
-        onChange={(heightMm) => patch({ heightMm })}
+        onChange={(heightMm) => burst({ heightMm })}
       />
       {/* Fixed 560 mm for now, so this renders read-only. */}
       <DimensionField
@@ -273,14 +288,14 @@ function TallCabinetFields({
         value={params.depthMm}
         min={limits.depthMm.min}
         max={limits.depthMm.max}
-        onChange={(depthMm) => patch({ depthMm })}
+        onChange={(depthMm) => burst({ depthMm })}
       />
       <CountField
         labelKey="params.shelves"
         value={params.shelfCount}
         min={limits.shelfCount.min}
         max={limits.shelfCount.max}
-        onChange={(shelfCount) => patch({ shelfCount })}
+        onChange={(shelfCount) => burst({ shelfCount })}
       />
       <DoorCountField
         widthMm={params.widthMm}
@@ -305,6 +320,8 @@ function DrawerCabinetFields({
   const limits = DRAWER_CABINET_LIMITS
   const patch = (next: Partial<DrawerCabinetParams>): void =>
     updateSelectedDesign({ kind: 'drawer-cabinet', params: { ...params, ...next } })
+  const burst = (next: Partial<DrawerCabinetParams>): void =>
+    updateSelectedDesign({ kind: 'drawer-cabinet', params: { ...params, ...next } }, burstKey(next))
 
   return (
     <>
@@ -313,28 +330,28 @@ function DrawerCabinetFields({
         value={params.widthMm}
         min={limits.widthMm.min}
         max={limits.widthMm.max}
-        onChange={(widthMm) => patch({ widthMm })}
+        onChange={(widthMm) => burst({ widthMm })}
       />
       <DimensionField
         labelKey="params.height"
         value={params.heightMm}
         min={limits.heightMm.min}
         max={limits.heightMm.max}
-        onChange={(heightMm) => patch({ heightMm })}
+        onChange={(heightMm) => burst({ heightMm })}
       />
       <DimensionField
         labelKey="params.depth"
         value={params.depthMm}
         min={limits.depthMm.min}
         max={limits.depthMm.max}
-        onChange={(depthMm) => patch({ depthMm })}
+        onChange={(depthMm) => burst({ depthMm })}
       />
       <CountField
         labelKey="params.drawers"
         value={params.drawerCount}
         min={limits.drawerCount.min}
         max={limits.drawerCount.max}
-        onChange={(drawerCount) => patch({ drawerCount })}
+        onChange={(drawerCount) => burst({ drawerCount })}
       />
       <MaterialField
         value={params.carcassMaterialId}

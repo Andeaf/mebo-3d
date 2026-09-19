@@ -19,7 +19,11 @@ export function WorktopPanel(): ReactElement {
   const priceDb = useAppStore((state) => state.priceDb)
   const [open, setOpen] = useState(false)
 
+  /** A discrete change (the checkbox, a material): one undo entry each. */
   const patch = (next: Partial<WorktopSettings>): void => updateWorktop({ ...worktop, ...next })
+  /** A slider: a burst on the same field is one undo entry. */
+  const burst = (next: Partial<WorktopSettings>): void =>
+    updateWorktop({ ...worktop, ...next }, Object.keys(next).join('+'))
 
   const chooseMaterial = (materialId: string): void => {
     // The thickness follows the material when it states one: a 40 mm oak
@@ -70,7 +74,7 @@ export function WorktopPanel(): ReactElement {
                 min={WORKTOP_LIMITS.thicknessMm.min}
                 max={WORKTOP_LIMITS.thicknessMm.max}
                 step={1}
-                onChange={(thicknessMm) => patch({ thicknessMm })}
+                onChange={(thicknessMm) => burst({ thicknessMm })}
               />
               <DimensionField
                 labelKey="worktop.overhang"
@@ -78,7 +82,7 @@ export function WorktopPanel(): ReactElement {
                 min={WORKTOP_LIMITS.frontOverhangMm.min}
                 max={WORKTOP_LIMITS.frontOverhangMm.max}
                 step={5}
-                onChange={(frontOverhangMm) => patch({ frontOverhangMm })}
+                onChange={(frontOverhangMm) => burst({ frontOverhangMm })}
               />
             </>
           )}

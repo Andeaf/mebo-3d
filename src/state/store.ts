@@ -25,6 +25,14 @@ import {
   createDefaultWorktopSettings,
   type WorktopSettings
 } from '@core/worktop'
+import {
+  endBurst,
+  record,
+  redo as redoHistory,
+  undo as undoHistory,
+  type History,
+  EMPTY_HISTORY
+} from './history'
 import { loadStoredLanguage, storeLanguage, type Language } from './language'
 import {
   cabinetRemoved,
@@ -35,7 +43,7 @@ import {
   type PieceEditorState,
   NO_EDITOR
 } from './pieceEditor'
-import { markDirty, markOpened, markSaved, type ProjectStatus, NEW_PROJECT } from './projectStatus'
+import { markOpened, markSaved, type ProjectStatus, NEW_PROJECT } from './projectStatus'
 import { loadRecentProjects, storeRecentProjects, type RecentProject } from './recentProjects'
 
 export type MaterialsLoadState = 'loading' | 'ready' | 'error'
@@ -65,6 +73,20 @@ function initialScene(): SceneDesign {
 
 interface AppState {
   readonly scene: SceneDesign
+  /**
+   * The scene as it was last saved, opened or created. The project is dirty
+   * exactly when `scene` is not this reference (`isProjectDirty`): an undo
+   * back to it clears the flag, an edit away from it sets it.
+   */
+  readonly savedScene: SceneDesign
+  /** Undo / redo over the scene (Phase 9); see `history.ts` for the model. */
+  readonly history: History
+  /**
+   * The scene a pointer gesture (a drag) started from; null outside one.
+   * While set, scene changes are not recorded — the gesture records its
+   * base as ONE entry when it ends, or restores it when cancelled.
+   */
+  readonly gestureBase: SceneDesign | null
   readonly selectedCabinetId: string | null
   readonly nextCabinetNumber: number
   readonly fitViewNonce: number
@@ -72,7 +94,7 @@ interface AppState {
   readonly materialsState: MaterialsLoadState
   readonly materialsError: string | null
   readonly language: Language
-  /** Where the scene lives on disk and whether it has unsaved changes. */
+  /** Where the scene lives on disk (never whether it changed — see `savedScene`). */
   readonly project: ProjectStatus
   readonly recentProjects: readonly RecentProject[]
   /** The last failed open/save, shown until dismissed; never silent. */
@@ -89,27 +111,44 @@ interface AppState {
   duplicateSelected: () => void
   deleteSelected: () => void
   selectCabinet: (id: string | null) => void
-  /** Replaces the selected cabinet's design (clamped, then re-placed). */
-  updateSelectedDesign: (design: CabinetDesign) => void
+  /**
+   * Replaces the selected cabinet's design (clamped, then re-placed). A
+   * `coalesceKey` names the field being edited so a burst (a slider drag)
+   * is one undo entry; without one every call is its own entry.
+   */
+  updateSelectedDesign: (design: CabinetDesign, coalesceKey?: string) => void
   /** Resizes the room, re-placing every cabinet into it (rejected if one cannot fit). */
-  updateRoom: (room: RoomDesign) => void
+  updateRoom: (room: RoomDesign, coalesceKey?: string) => void
   /** Replaces the scene's worktop settings (clamped); the slabs follow by derivation. */
-  updateWorktop: (settings: WorktopSettings) => void
-  /** Live drag: snap applied; ignored when the snapped spot would overlap. */
+  updateWorktop: (settings: WorktopSettings, coalesceKey?: string) => void
+  /** Live drag frame (inside a gesture): snap applied; ignored when the snapped spot would overlap. */
   moveSelected: (positionX: number, positionZ: number) => void
   /** Drag end: the attempted position resolves to the nearest free spot. */
   dropSelected: (positionX: number, positionZ: number) => void
   rotateSelected: () => void
+  /** A pointer gesture starts: remember the scene to record (or restore) when it ends. */
+  beginGesture: () => void
+  /** The gesture ends: one undo entry if the scene changed, none otherwise. */
+  endGesture: () => void
+  /** Escape mid-gesture: the scene goes back to the gesture's base, nothing is recorded. */
+  cancelGesture: () => void
+  undo: () => void
+  redo: () => void
   requestFitView: () => void
   loadMaterials: (repository: MaterialRepository) => Promise<void>
   setLanguage: (language: Language) => void
-  /** File › New (after the unsaved guard): the start-up scene, no file, clean. */
+  /** File › New (after the unsaved guard): the start-up scene, no file, clean, no history. */
   resetProject: () => void
-  /** File › Open (after parsing): the file's scene, its creation stamp, clean, room framed. */
+  /** File › Open (after parsing): the file's scene, its creation stamp, clean, no history, room framed. */
   loadProject: (document: ProjectDocument, path: string) => void
   markProjectSaved: (path: string, savedAt: string) => void
   setProjectError: (message: string | null) => void
   setRecentProjects: (list: readonly RecentProject[]) => void
+}
+
+/** Unsaved changes exist exactly when the scene is not the saved reference. */
+export function isProjectDirty(state: Pick<AppState, 'scene' | 'savedScene'>): boolean {
+  return state.scene !== state.savedScene
 }
 
 function selectedOf(state: Pick<AppState, 'scene' | 'selectedCabinetId'>): PlacedCabinet | undefined {
@@ -150,19 +189,58 @@ function sameScene(a: SceneDesign, b: SceneDesign): boolean {
   )
 }
 
+type SceneState = Pick<AppState, 'scene' | 'history' | 'gestureBase'>
+
 /**
- * The one way a mutation lands: dirty exactly when the scene changed. A
+ * The one way a mutation lands, and the one place history is written. A
  * rejected placement (the gate handed the scene back unchanged) and a
  * placement that resolved to where the cabinet already stood (a click
- * without a drag) are both no-ops: no new scene, no dirty, no re-render.
+ * without a drag) are both no-ops: no new scene, no entry, no re-render.
+ * Inside a gesture the scene moves without an entry — the gesture records
+ * its base once, at the end. Dirty needs no bookkeeping: it is
+ * `scene !== savedScene`.
  */
-function sceneChange(
-  state: Pick<AppState, 'scene' | 'project'>,
+function sceneChange(state: SceneState, scene: SceneDesign, key: string | null = null): Partial<AppState> {
+  if (scene === state.scene || sameScene(state.scene, scene)) {
+    return {}
+  }
+  if (state.gestureBase !== null) {
+    return { scene }
+  }
+  return { scene, history: record(state.history, state.scene, key, Date.now()) }
+}
+
+/** A scoped coalescing key, or null (never coalesce) when the caller gave none. */
+function scoped(prefix: string, key: string | undefined): string | null {
+  return key === undefined ? null : `${prefix}:${key}`
+}
+
+/**
+ * After a scene arrives from history (undo, redo, a cancelled gesture): the
+ * transient state is reconciled, never restored. A selection whose cabinet
+ * is gone is dropped; the editor closes if its piece is gone and forgets a
+ * panel that is gone.
+ */
+function reconcileWith(
+  state: Pick<AppState, 'selectedCabinetId' | 'editor'>,
   scene: SceneDesign
-): Partial<AppState> {
-  return scene === state.scene || sameScene(state.scene, scene)
-    ? {}
-    : { scene, project: markDirty(state.project) }
+): Pick<AppState, 'selectedCabinetId' | 'editor'> {
+  const selectedCabinetId =
+    state.selectedCabinetId !== null && findPlacedCabinet(scene, state.selectedCabinetId) !== undefined
+      ? state.selectedCabinetId
+      : null
+  let editor = state.editor
+  if (editor.editingPieceId !== null) {
+    const piece = findPlacedCabinet(scene, editor.editingPieceId)
+    editor =
+      piece === undefined || !isCustomPieceDesign(piece.design)
+        ? NO_EDITOR
+        : reconcilePanels(
+            editor,
+            piece.design.spec.panels.map((panel) => panel.id)
+          )
+  }
+  return { selectedCabinetId, editor }
 }
 
 /**
@@ -170,7 +248,7 @@ function sceneChange(
  * changes nothing when the room holds no free spot (the id is not consumed).
  */
 function spawnDesign(
-  state: Pick<AppState, 'scene' | 'project' | 'nextCabinetNumber'>,
+  state: SceneState & Pick<AppState, 'nextCabinetNumber'>,
   design: CabinetDesign
 ): Partial<AppState> {
   const spawn = spawnPlacement(state.scene, design)
@@ -192,12 +270,17 @@ function spawnDesign(
   }
 }
 
+/** A fresh document: the given scene is both the present and the saved reference, with no history. */
+function freshDocument(scene: SceneDesign): Pick<AppState, 'scene' | 'savedScene' | 'history' | 'gestureBase'> {
+  return { scene, savedScene: scene, history: EMPTY_HISTORY, gestureBase: null }
+}
+
 // Scene invariant: every mutation that adds or moves a cabinet goes through
 // placeWithoutOverlap (or is rejected), so the store never holds overlaps.
 // While the piece editor is open the scene-level gestures (select, move,
 // rotate, duplicate) are no-ops: the UI hides them, and this backs that up.
 export const useAppStore = create<AppState>((set) => ({
-  scene: initialScene(),
+  ...freshDocument(initialScene()),
   selectedCabinetId: 'cab-1',
   nextCabinetNumber: 2,
   fitViewNonce: 0,
@@ -285,7 +368,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   selectCabinet: (id) => set((state) => (isEditing(state.editor) ? {} : { selectedCabinetId: id })),
 
-  updateSelectedDesign: (design) =>
+  updateSelectedDesign: (design, coalesceKey) =>
     set((state) => {
       const selected = selectedOf(state)
       if (selected === undefined) {
@@ -293,7 +376,11 @@ export const useAppStore = create<AppState>((set) => ({
       }
       const clamped = clampDesign(design)
       const updated: PlacedCabinet = { ...selected, design: clamped }
-      const change = sceneChange(state, placeWithoutOverlap(state.scene, updated))
+      const change = sceneChange(
+        state,
+        placeWithoutOverlap(state.scene, updated),
+        scoped(selected.id, coalesceKey)
+      )
       if (change.scene === undefined || !isCustomPieceDesign(clamped)) {
         return change
       }
@@ -307,7 +394,7 @@ export const useAppStore = create<AppState>((set) => ({
       }
     }),
 
-  updateRoom: (room) =>
+  updateRoom: (room, coalesceKey) =>
     set((state) => {
       const clamped = clampRoom(room)
       // Re-place every cabinet into the new room, in scene order, so shrinking
@@ -321,12 +408,16 @@ export const useAppStore = create<AppState>((set) => ({
         }
         next = placed
       }
-      return sceneChange(state, next)
+      return sceneChange(state, next, scoped('room', coalesceKey))
     }),
 
-  updateWorktop: (settings) =>
+  updateWorktop: (settings, coalesceKey) =>
     set((state) =>
-      sceneChange(state, { ...state.scene, worktop: clampWorktopSettings(settings) })
+      sceneChange(
+        state,
+        { ...state.scene, worktop: clampWorktopSettings(settings) },
+        scoped('worktop', coalesceKey)
+      )
     ),
 
   moveSelected: (positionX, positionZ) =>
@@ -387,6 +478,58 @@ export const useAppStore = create<AppState>((set) => ({
       )
     }),
 
+  beginGesture: () =>
+    set((state) =>
+      state.gestureBase !== null
+        ? {}
+        : { gestureBase: state.scene, history: endBurst(state.history) }
+    ),
+
+  endGesture: () =>
+    set((state) => {
+      const base = state.gestureBase
+      if (base === null) {
+        return {}
+      }
+      if (base === state.scene || sameScene(base, state.scene)) {
+        return { gestureBase: null }
+      }
+      return { gestureBase: null, history: record(state.history, base, null, Date.now()) }
+    }),
+
+  cancelGesture: () =>
+    set((state) => {
+      const base = state.gestureBase
+      if (base === null) {
+        return {}
+      }
+      return { gestureBase: null, scene: base, ...reconcileWith(state, base) }
+    }),
+
+  undo: () =>
+    set((state) => {
+      if (state.gestureBase !== null) {
+        return {}
+      }
+      const step = undoHistory(state.history, state.scene)
+      if (step === null) {
+        return {}
+      }
+      return { scene: step.present, history: step.history, ...reconcileWith(state, step.present) }
+    }),
+
+  redo: () =>
+    set((state) => {
+      if (state.gestureBase !== null) {
+        return {}
+      }
+      const step = redoHistory(state.history, state.scene)
+      if (step === null) {
+        return {}
+      }
+      return { scene: step.present, history: step.history, ...reconcileWith(state, step.present) }
+    }),
+
   requestFitView: () => set((state) => ({ fitViewNonce: state.fitViewNonce + 1 })),
 
   setLanguage: (language) => {
@@ -409,7 +552,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   resetProject: () =>
     set((state) => ({
-      scene: initialScene(),
+      ...freshDocument(initialScene()),
       selectedCabinetId: 'cab-1',
       nextCabinetNumber: 2,
       project: NEW_PROJECT,
@@ -420,7 +563,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   loadProject: (document, path) =>
     set((state) => ({
-      scene: document.scene,
+      ...freshDocument(document.scene),
       selectedCabinetId: null,
       // One above the highest loaded id, so an added cabinet can never collide.
       nextCabinetNumber: nextCabinetNumberFor(document.scene),
@@ -431,7 +574,7 @@ export const useAppStore = create<AppState>((set) => ({
     })),
 
   markProjectSaved: (path, savedAt) =>
-    set((state) => ({ project: markSaved(state.project, path, savedAt) })),
+    set((state) => ({ savedScene: state.scene, project: markSaved(state.project, path, savedAt) })),
 
   setProjectError: (message) => set({ projectError: message }),
 

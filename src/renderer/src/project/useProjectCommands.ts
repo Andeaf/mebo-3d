@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { parseProject, serializeProject, type ProjectMetadata } from '@core/project'
 import { projectNameFromPath } from '@state/projectStatus'
 import { pushRecent, removeRecent } from '@state/recentProjects'
-import { useAppStore } from '@state/store'
+import { isProjectDirty, useAppStore } from '@state/store'
 import { useT, type Translate } from '../i18n'
 
 /**
@@ -89,7 +89,7 @@ function buildCommands(t: Translate): ProjectCommands {
   }
 
   const guardUnsaved = async (): Promise<boolean> => {
-    if (!store.getState().project.dirty) {
+    if (!isProjectDirty(store.getState())) {
       return true
     }
     const choice = await api.confirmUnsaved({

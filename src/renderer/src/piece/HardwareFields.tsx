@@ -6,7 +6,8 @@ import { useT } from '../i18n'
 
 interface HardwareFieldsProps {
   readonly hardware: readonly HardwareItem[]
-  readonly onChange: (hardware: readonly HardwareItem[]) => void
+  /** The key names the row whose quantity spinner is running, so the burst is one undo entry. */
+  readonly onChange: (hardware: readonly HardwareItem[], coalesceKey?: string) => void
 }
 
 /**
@@ -23,8 +24,11 @@ export function HardwareFields({ hardware, onChange }: HardwareFieldsProps): Rea
   const nextFree = options.find((material) => !listed.has(material.id))
   const { min, max } = CUSTOM_PIECE_LIMITS.hardwareQuantity
 
-  const replace = (index: number, item: HardwareItem): void =>
-    onChange(hardware.map((entry, i) => (i === index ? item : entry)))
+  const replace = (index: number, item: HardwareItem, coalesceKey?: string): void =>
+    onChange(
+      hardware.map((entry, i) => (i === index ? item : entry)),
+      coalesceKey
+    )
 
   return (
     <div className="field">
@@ -76,7 +80,7 @@ export function HardwareFields({ hardware, onChange }: HardwareFieldsProps): Rea
               onChange={(event) => {
                 const quantity = Number(event.target.value)
                 if (Number.isFinite(quantity)) {
-                  replace(index, { ...item, quantity })
+                  replace(index, { ...item, quantity }, `hardware:${item.materialId}`)
                 }
               }}
             />

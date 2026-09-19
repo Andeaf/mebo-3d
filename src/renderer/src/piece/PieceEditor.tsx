@@ -38,8 +38,10 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
   const selectedPanelId = useAppStore((state) => state.editor.selectedPanelId)
   const limits = CUSTOM_PIECE_LIMITS
 
-  const onSpec = (next: CustomPieceSpec): void =>
-    updateSelectedDesign({ kind: CUSTOM_PIECE_KIND, spec: next })
+  // The optional key names the field a slider is dragging so the burst is
+  // one undo entry; discrete actions (a preset, a toggle) pass none.
+  const onSpec = (next: CustomPieceSpec, coalesceKey?: string): void =>
+    updateSelectedDesign({ kind: CUSTOM_PIECE_KIND, spec: next }, coalesceKey)
 
   const addPreset = (preset: (typeof PANEL_PRESETS)[number]): void => {
     const change = addPresetPanel(spec, preset)
@@ -78,21 +80,21 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
         value={spec.widthMm}
         min={limits.widthMm.min}
         max={limits.widthMm.max}
-        onChange={(widthMm) => onSpec(resizeEnvelope(spec, { widthMm }))}
+        onChange={(widthMm) => onSpec(resizeEnvelope(spec, { widthMm }), 'widthMm')}
       />
       <DimensionField
         labelKey="params.height"
         value={spec.heightMm}
         min={limits.heightMm.min}
         max={limits.heightMm.max}
-        onChange={(heightMm) => onSpec(resizeEnvelope(spec, { heightMm }))}
+        onChange={(heightMm) => onSpec(resizeEnvelope(spec, { heightMm }), 'heightMm')}
       />
       <DimensionField
         labelKey="params.depth"
         value={spec.depthMm}
         min={limits.depthMm.min}
         max={limits.depthMm.max}
-        onChange={(depthMm) => onSpec(resizeEnvelope(spec, { depthMm }))}
+        onChange={(depthMm) => onSpec(resizeEnvelope(spec, { depthMm }), 'depthMm')}
       />
 
       <div className="field">
@@ -126,11 +128,14 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
           value={spec.mountingHeightMm}
           min={1}
           max={limits.mountingHeightMm.max}
-          onChange={(mountingHeightMm) => onSpec({ ...spec, mountingHeightMm })}
+          onChange={(mountingHeightMm) => onSpec({ ...spec, mountingHeightMm }, 'mountingHeightMm')}
         />
       )}
 
-      <HardwareFields hardware={spec.hardware} onChange={(hardware) => onSpec({ ...spec, hardware })} />
+      <HardwareFields
+        hardware={spec.hardware}
+        onChange={(hardware, coalesceKey) => onSpec({ ...spec, hardware }, coalesceKey)}
+      />
 
       <div className="field">
         <div className="field__head">

@@ -16,7 +16,10 @@ export function RoomPanel(): ReactElement {
   const updateRoom = useAppStore((state) => state.updateRoom)
   const [open, setOpen] = useState(false)
 
-  const patch = (next: Partial<RoomDesign>): void => updateRoom({ ...room, ...next })
+  // Every room field is a slider: the changed field's name is the undo
+  // coalescing key, so a drag is one entry.
+  const patch = (next: Partial<RoomDesign>): void =>
+    updateRoom({ ...room, ...next }, Object.keys(next).join('+'))
 
   return (
     <section className="panel">

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useAppStore } from '@state/store'
+import { isProjectDirty, useAppStore } from '@state/store'
 import { useT } from '../i18n'
 import { useProjectCommands } from './useProjectCommands'
 
@@ -14,6 +14,9 @@ export function ProjectBridge(): null {
   const t = useT()
   const commands = useProjectCommands()
   const project = useAppStore((state) => state.project)
+  // Derived, not stored: the scene is not the saved reference (an undo back
+  // to it clears this without any bookkeeping).
+  const dirty = useAppStore(isProjectDirty)
   const recentProjects = useAppStore((state) => state.recentProjects)
   const language = useAppStore((state) => state.language)
 
@@ -21,12 +24,12 @@ export function ProjectBridge(): null {
   // onto the window.
   useEffect(() => {
     const name = project.name ?? t('project.untitled')
-    document.title = `${project.dirty ? '● ' : ''}${name} — ${APP_NAME}`
-  }, [project.name, project.dirty, t])
+    document.title = `${dirty ? '● ' : ''}${name} — ${APP_NAME}`
+  }, [project.name, dirty, t])
 
   useEffect(() => {
-    window.api.setProjectDirty(project.dirty)
-  }, [project.dirty])
+    window.api.setProjectDirty(dirty)
+  }, [dirty])
 
   // The menu is rebuilt whenever its labels (language) or the recent list change.
   useEffect(() => {
