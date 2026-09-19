@@ -54,6 +54,27 @@ projecten en je taalkeuze blijven bewaard; je eigen prijslijst niet — zie
   Verkenner opent het meteen in Mebo 3D. Sluit je het programma met
   niet-opgeslagen wijzigingen, dan vraagt het eerst of je wilt opslaan.
 
+## Sneltoetsen
+
+- **Ctrl+Z** maakt de laatste wijziging ongedaan, **Ctrl+Y** (of
+  Ctrl+Shift+Z) doet hem opnieuw — ook via menu **Bewerken** of de twee
+  pijltjes linksboven. Alles wat de tekening verandert kan terug: kasten
+  toevoegen, verplaatsen, draaien, verwijderen, maten, ruimte, werkblad en
+  elk paneel van een maatwerkstuk. Een sleep of een schuifregelaar telt als
+  één stap. Zit je in een tekstveld, dan geldt Ctrl+Z voor dat veld.
+- **Pijltjestoetsen** schuiven de geselecteerde kast 1 mm over de vloer,
+  met **Shift** 10 mm. Bij een hangende kast regelen **PgUp/PgDn** de
+  ophanghoogte, en de groene pijl in het 3D-beeld doet hetzelfde met de
+  muis. Onder de kastmaten staan **X** en **Z** om een positie te typen.
+  Let op: vlak bij een wand of een buurkast (tot 30 mm) klikt de kast weer
+  vast — kasten in een keuken sluiten aan, ze zweven niet 5 mm ervoor.
+- **In de maatwerk-editor** verplaats je het gekozen paneel met de rode,
+  groene en blauwe pijlen in het 3D-beeld (stappen van 10 mm) of met de
+  pijltjestoetsen (1 mm, Shift = 10 mm, PgUp/PgDn = hoogte). Een paneel
+  kan de buitenmaten van het stuk nooit verlaten.
+- **Esc** breekt een sleep af (de kast of het paneel springt terug) en
+  sluit daarna de maatwerk-editor. **R** draait de geselecteerde kast.
+
 ## Prijzen aanpassen
 
 Alle prijzen staan in één tekstbestand naast het programma:
