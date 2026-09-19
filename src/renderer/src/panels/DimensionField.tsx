@@ -1,5 +1,6 @@
-import { useState, type ReactElement } from 'react'
+import type { ReactElement } from 'react'
 import { useT, type TranslationKey } from '../i18n'
+import { NumberInput } from './NumberInput'
 
 interface DimensionFieldProps {
   readonly labelKey: TranslationKey
@@ -13,10 +14,11 @@ interface DimensionFieldProps {
 
 /**
  * Slider + numeric input for one dimension in millimetres. The slider commits
- * instantly; the numeric input commits on blur/Enter so intermediate
- * keystrokes are not clamped away while typing. A degenerate limit
- * (min === max, e.g. the tall cabinet's fixed depth) shows as a read-only
- * value instead. Shared by the cabinet parameters and the room settings.
+ * instantly; the numeric input (`NumberInput`) commits on blur/Enter so
+ * intermediate keystrokes are not clamped away while typing. A degenerate
+ * limit (min === max, e.g. the tall cabinet's fixed depth) shows as a
+ * read-only value instead. Shared by the cabinet parameters and the room
+ * settings.
  */
 export function DimensionField({
   labelKey,
@@ -27,17 +29,6 @@ export function DimensionField({
   onChange
 }: DimensionFieldProps): ReactElement {
   const t = useT()
-  const [draft, setDraft] = useState<string | null>(null)
-
-  const commitDraft = (): void => {
-    if (draft !== null) {
-      const parsed = Number(draft)
-      if (Number.isFinite(parsed)) {
-        onChange(parsed)
-      }
-      setDraft(null)
-    }
-  }
 
   if (min === max) {
     return (
@@ -58,25 +49,7 @@ export function DimensionField({
         <label className="field__label" htmlFor={`dim-${labelKey}`}>
           {t(labelKey)}
         </label>
-        <span className="field__number-wrap">
-          <input
-            id={`dim-${labelKey}`}
-            className="field__number"
-            type="number"
-            min={min}
-            max={max}
-            step={1}
-            value={draft ?? String(value)}
-            onChange={(event) => setDraft(event.target.value)}
-            onBlur={commitDraft}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                commitDraft()
-              }
-            }}
-          />
-          <span className="field__unit">{t('unit.mm')}</span>
-        </span>
+        <NumberInput id={`dim-${labelKey}`} value={value} min={min} max={max} onCommit={onChange} />
       </div>
       <input
         className="field__slider"

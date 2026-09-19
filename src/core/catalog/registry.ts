@@ -87,6 +87,15 @@ export function isCustomPieceDesign(design: CabinetDesign): design is CustomPiec
 // because this is where consumers have always found it.
 export type { VerticalExtentMm }
 
+/**
+ * How a kind that hangs exposes its mounting height (Phase 9: the vertical
+ * arrow and the PgUp/PgDn nudge read and write it without knowing the kind).
+ */
+export interface MountingAccess<P> {
+  readonly heightOf: (params: P) => number
+  readonly withHeight: (params: P, mountingHeightMm: number) => P
+}
+
 export interface CabinetKindDefinition<K extends CabinetKind> {
   readonly kind: K
   /** A ready-to-place design with this kind's defaults (used by the type picker). */
@@ -104,6 +113,11 @@ export interface CabinetKindDefinition<K extends CabinetKind> {
    * (wall) says no. Kind #5 declares its own answer or the registry test fails.
    */
   readonly worktopEligible: boolean
+  /**
+   * The mounting height of a kind that hangs, or null for a floor kind
+   * (Phase 9). Kind #5 declares its own answer or the registry test fails.
+   */
+  readonly mounting: MountingAccess<CabinetParamsByKind[K]> | null
 }
 
 export const CABINET_REGISTRY: { readonly [K in CabinetKind]: CabinetKindDefinition<K> } = {
@@ -120,7 +134,8 @@ export const CABINET_REGISTRY: { readonly [K in CabinetKind]: CabinetKindDefinit
     footprintSize: (params) => ({ widthMm: params.widthMm, depthMm: params.depthMm }),
     verticalExtent: (params) => ({ bottomMm: 0, topMm: params.heightMm }),
     // Also with a full top panel: that closes the carcass, it is not the worktop.
-    worktopEligible: true
+    worktopEligible: true,
+    mounting: null
   },
   'wall-cabinet': {
     kind: 'wall-cabinet',
@@ -137,7 +152,11 @@ export const CABINET_REGISTRY: { readonly [K in CabinetKind]: CabinetKindDefinit
       bottomMm: params.mountingHeightMm,
       topMm: params.mountingHeightMm + params.heightMm
     }),
-    worktopEligible: false
+    worktopEligible: false,
+    mounting: {
+      heightOf: (params) => params.mountingHeightMm,
+      withHeight: (params, mountingHeightMm) => ({ ...params, mountingHeightMm })
+    }
   },
   'tall-cabinet': {
     kind: 'tall-cabinet',
@@ -151,7 +170,8 @@ export const CABINET_REGISTRY: { readonly [K in CabinetKind]: CabinetKindDefinit
     generate: generateTallCabinet,
     footprintSize: (params) => ({ widthMm: params.widthMm, depthMm: params.depthMm }),
     verticalExtent: (params) => ({ bottomMm: 0, topMm: params.heightMm }),
-    worktopEligible: false
+    worktopEligible: false,
+    mounting: null
   },
   'drawer-cabinet': {
     kind: 'drawer-cabinet',
@@ -165,7 +185,8 @@ export const CABINET_REGISTRY: { readonly [K in CabinetKind]: CabinetKindDefinit
     generate: generateDrawerCabinet,
     footprintSize: (params) => ({ widthMm: params.widthMm, depthMm: params.depthMm }),
     verticalExtent: (params) => ({ bottomMm: 0, topMm: params.heightMm }),
-    worktopEligible: true
+    worktopEligible: true,
+    mounting: null
   }
 }
 
@@ -336,4 +357,39 @@ export function designWorktopEligible(design: CabinetDesign): boolean {
     return false
   }
   return CABINET_REGISTRY[design.kind].worktopEligible
+}
+
+/**
+ * The height a hanging design's bottom sits at, or null when it does not
+ * hang: a floor kind, or a custom piece standing on the floor (its
+ * `mountingHeightMm` is 0). The vertical arrow exists exactly when this is
+ * not null.
+ */
+export function designMountingHeightMm(design: CabinetDesign): number | null {
+  if (isCustomPieceDesign(design)) {
+    return design.spec.mountingHeightMm > 0 ? design.spec.mountingHeightMm : null
+  }
+  return visitDesign(design, (definition, params) =>
+    definition.mounting === null ? null : definition.mounting.heightOf(params)
+  )
+}
+
+/**
+ * The same design hung at another height (unclamped — `clampDesign` runs
+ * afterwards as for any edit), or null when it does not hang.
+ */
+export function designWithMountingHeightMm(
+  design: CabinetDesign,
+  mountingHeightMm: number
+): CabinetDesign | null {
+  if (isCustomPieceDesign(design)) {
+    return design.spec.mountingHeightMm > 0
+      ? { kind: CUSTOM_PIECE_KIND, spec: { ...design.spec, mountingHeightMm } }
+      : null
+  }
+  return visitDesign(design, (definition, params) =>
+    definition.mounting === null
+      ? null
+      : definition.designOf(definition.mounting.withHeight(params, mountingHeightMm))
+  )
 }

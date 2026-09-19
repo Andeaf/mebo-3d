@@ -113,6 +113,11 @@ export const nl = {
   'params.doors': 'Deuren',
   'params.material': 'Korpusmateriaal',
   'params.singleDoorLimit': 'Boven 600 mm breedte altijd twee deuren.',
+  'params.position': 'Positie (midden van de kast)',
+  'params.positionX': 'X',
+  'params.positionZ': 'Z',
+  'params.nudgeHint':
+    'Pijltjestoetsen verplaatsen de kast 1 mm (Shift = 10 mm); bij een hangende kast regelen PgUp/PgDn de hoogte. Vlak bij een wand of buurkast klikt hij weer vast.',
 
   'viewport.selected': 'Selectie',
   'viewport.mountedAt': 'Ophanghoogte',

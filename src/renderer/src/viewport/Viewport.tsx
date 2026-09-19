@@ -3,7 +3,12 @@ import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber'
 import { ContactShadows, Grid, OrbitControls } from '@react-three/drei'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { PerspectiveCamera, Plane, Raycaster, Vector2, Vector3 } from 'three'
-import { designVerticalExtent, isCustomPieceDesign } from '@core/catalog/registry'
+import {
+  designMountingHeightMm,
+  designVerticalExtent,
+  designWithMountingHeightMm,
+  isCustomPieceDesign
+} from '@core/catalog/registry'
 import { nudgePanel, CUSTOM_PIECE_KIND } from '@core/customPiece'
 import { placedCabinetRect, placedVerticalInterval } from '@core/footprint'
 import { roomInteriorRect } from '@core/room'
@@ -12,6 +17,7 @@ import { useWorktops } from '@state/selectors'
 import { useAppStore } from '@state/store'
 import { isTypingTarget, keyCommand, nudgeDistanceMm } from './keymap'
 import { MeasureLine } from './MeasureLine'
+import { MountingGizmo } from './MountingGizmo'
 import { PanelGizmo, type GizmoHandle } from './PanelGizmo'
 import { PlacedCabinetMesh } from './PlacedCabinetMesh'
 import { RoomView } from './RoomView'
@@ -83,6 +89,9 @@ function SceneContents(): ReactElement {
   const dropSelected = useAppStore((state) => state.dropSelected)
   const rotateSelected = useAppStore((state) => state.rotateSelected)
   const updateSelectedDesign = useAppStore((state) => state.updateSelectedDesign)
+  const nudgeSelected = useAppStore((state) => state.nudgeSelected)
+  /** Keeps the vertical arrow mounted for the whole drag, even past the point where the item lands on the floor. */
+  const [mountingDrag, setMountingDrag] = useState(false)
   const beginGesture = useAppStore((state) => state.beginGesture)
   const endGesture = useAppStore((state) => state.endGesture)
   const cancelGesture = useAppStore((state) => state.cancelGesture)
@@ -219,27 +228,47 @@ function SceneContents(): ReactElement {
         return
       }
       if (typeof command === 'object') {
-        // A nudge: the selected panel of the open piece, in the piece's own
-        // axes (the gizmo's), through the same clamp; a key burst is one
-        // undo entry. Cabinets get their own nudge in scene mode (step 4).
-        const { scene: current, editor } = useAppStore.getState()
-        const piece = editor.editingPieceId === null ? undefined : findPlacedCabinet(current, editor.editingPieceId)
-        if (
-          piece !== undefined &&
-          isCustomPieceDesign(piece.design) &&
-          editor.selectedPanelId !== null &&
-          !(gizmoRef.current?.isDragging() ?? false)
-        ) {
-          event.preventDefault()
-          const panelId = editor.selectedPanelId
-          updateSelectedDesign(
-            {
-              kind: CUSTOM_PIECE_KIND,
-              spec: nudgePanel(piece.design.spec, panelId, { [command.axis]: nudgeDistanceMm(command) })
-            },
-            `nudge:${panelId}`
-          )
+        if (gizmoRef.current?.isDragging() ?? false) {
+          return
         }
+        const { scene: current, editor, selectedCabinetId: selectedId } = useAppStore.getState()
+        const distance = nudgeDistanceMm(command)
+        const piece = editor.editingPieceId === null ? undefined : findPlacedCabinet(current, editor.editingPieceId)
+        if (piece !== undefined) {
+          // Edit mode: the selected panel of the open piece, in the piece's
+          // own axes (the gizmo's), through the same clamp; a key burst is
+          // one undo entry.
+          if (isCustomPieceDesign(piece.design) && editor.selectedPanelId !== null) {
+            event.preventDefault()
+            const panelId = editor.selectedPanelId
+            updateSelectedDesign(
+              {
+                kind: CUSTOM_PIECE_KIND,
+                spec: nudgePanel(piece.design.spec, panelId, { [command.axis]: distance })
+              },
+              `nudge:${panelId}`
+            )
+          }
+          return
+        }
+        // Scene mode: the selected cabinet on the floor in world axes, through
+        // the gate (near a wall or a neighbour it re-snaps flush); PgUp/PgDn
+        // move a hanging item's mounting height through clamp and gate.
+        const cabinet = selectedId === null ? undefined : findPlacedCabinet(current, selectedId)
+        if (cabinet === undefined) {
+          return
+        }
+        if (command.axis === 'y') {
+          const height = designMountingHeightMm(cabinet.design)
+          const hung = height === null ? null : designWithMountingHeightMm(cabinet.design, height + distance)
+          if (hung !== null) {
+            event.preventDefault()
+            updateSelectedDesign(hung, 'nudge:mounting')
+          }
+          return
+        }
+        event.preventDefault()
+        nudgeSelected(command.axis === 'x' ? distance : 0, command.axis === 'z' ? distance : 0)
         return
       }
       switch (command) {
@@ -269,7 +298,7 @@ function SceneContents(): ReactElement {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [undo, redo, rotateSelected, exitPieceEditor, cancelDrag, updateSelectedDesign])
+  }, [undo, redo, rotateSelected, exitPieceEditor, cancelDrag, updateSelectedDesign, nudgeSelected])
 
   // Runs on mount too (nonce 0), so the room is framed from the first frame:
   // OrbitControls does not apply its target prop before the first render.
@@ -296,6 +325,12 @@ function SceneContents(): ReactElement {
   // does not make the camera jump.
   const editedPiece = editingPieceId === null ? undefined : findPlacedCabinet(scene, editingPieceId)
   const editedBottomMm = editedPiece === undefined ? 0 : placedVerticalInterval(editedPiece).bottomMm
+  // Scene mode: the vertical arrow on the selected item while it hangs (and
+  // for the rest of a drag that just put it on the floor).
+  const selectedCabinet = selectedCabinetId === null ? undefined : findPlacedCabinet(scene, selectedCabinetId)
+  const selectedMountingMm = selectedCabinet === undefined ? null : designMountingHeightMm(selectedCabinet.design)
+  const showMountingGizmo =
+    !editing && selectedCabinet !== undefined && (selectedMountingMm !== null || mountingDrag)
   useEffect(() => {
     const controls = controlsRef.current
     if (controls === null || !(camera instanceof PerspectiveCamera)) {
@@ -378,6 +413,16 @@ function SceneContents(): ReactElement {
             <PanelGizmo placed={editedPiece} spec={spec} panel={panel} onHandle={setGizmoHandle} />
           )
         })()}
+
+      {/* The vertical arrow on a hanging item: drags its mounting height. */}
+      {showMountingGizmo && selectedCabinet !== undefined && (
+        <MountingGizmo
+          placed={selectedCabinet}
+          mountingHeightMm={selectedMountingMm ?? 0}
+          onHandle={setGizmoHandle}
+          onDragChange={setMountingDrag}
+        />
+      )}
 
       {/* Derived from the scene, never picked: a click on a slab reaches the cabinet under it. */}
       <WorktopView slabs={slabs} priceDb={priceDb} dimmed={editing} />

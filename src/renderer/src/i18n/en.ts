@@ -111,6 +111,11 @@ export const en: Record<TranslationKey, string> = {
   'params.doors': 'Doors',
   'params.material': 'Carcass material',
   'params.singleDoorLimit': 'Above 600 mm width a cabinet always gets two doors.',
+  'params.position': 'Position (cabinet centre)',
+  'params.positionX': 'X',
+  'params.positionZ': 'Z',
+  'params.nudgeHint':
+    'Arrow keys move the cabinet 1 mm (Shift = 10 mm); on a hanging cabinet PgUp/PgDn set the height. Close to a wall or a neighbour it snaps back flush.',
 
   'viewport.selected': 'Selection',
   'viewport.mountedAt': 'Mounted at',

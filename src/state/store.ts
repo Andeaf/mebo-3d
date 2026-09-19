@@ -3,6 +3,7 @@ import type { CabinetDesign } from '@core/cabinet'
 import {
   clampDesign,
   createDefaultDesign,
+  designWithMountingHeightMm,
   isCustomPieceDesign,
   type CabinetKind
 } from '@core/catalog/registry'
@@ -125,6 +126,20 @@ interface AppState {
   moveSelected: (positionX: number, positionZ: number) => void
   /** Drag end: the attempted position resolves to the nearest free spot. */
   dropSelected: (positionX: number, positionZ: number) => void
+  /**
+   * Puts the selected cabinet at a position through the gate (the X/Z
+   * fields): the resolved pose is what lands, a rejected value snaps back.
+   */
+  placeSelected: (positionX: number, positionZ: number) => void
+  /** Arrow keys in scene mode: `placeSelected` by a delta, one entry per key burst. */
+  nudgeSelected: (deltaX: number, deltaZ: number) => void
+  /**
+   * Live vertical drag frame (inside a gesture) of a hanging design: the
+   * floor drag turned 90°. The height is clamped; one at which the cabinet
+   * would overlap a neighbour is skipped (it stays at the last legal
+   * height instead of jumping sideways). The drop goes through the gate.
+   */
+  moveSelectedVertically: (mountingHeightMm: number) => void
   rotateSelected: () => void
   /** A pointer gesture starts: remember the scene to record (or restore) when it ends. */
   beginGesture: () => void
@@ -461,6 +476,58 @@ export const useAppStore = create<AppState>((set) => ({
         state,
         placeWithoutOverlap(state.scene, { ...selected, positionX, positionZ })
       )
+    }),
+
+  placeSelected: (positionX, positionZ) =>
+    set((state) => {
+      const selected = selectedOf(state)
+      if (selected === undefined || isEditing(state.editor)) {
+        return {}
+      }
+      return sceneChange(
+        state,
+        placeWithoutOverlap(state.scene, { ...selected, positionX, positionZ })
+      )
+    }),
+
+  nudgeSelected: (deltaX, deltaZ) =>
+    set((state) => {
+      const selected = selectedOf(state)
+      if (selected === undefined || isEditing(state.editor)) {
+        return {}
+      }
+      return sceneChange(
+        state,
+        placeWithoutOverlap(state.scene, {
+          ...selected,
+          positionX: selected.positionX + deltaX,
+          positionZ: selected.positionZ + deltaZ
+        }),
+        scoped(selected.id, 'nudge')
+      )
+    }),
+
+  moveSelectedVertically: (mountingHeightMm) =>
+    set((state) => {
+      const selected = selectedOf(state)
+      if (selected === undefined || isEditing(state.editor)) {
+        return {}
+      }
+      const hung = designWithMountingHeightMm(selected.design, mountingHeightMm)
+      if (hung === null) {
+        return {}
+      }
+      const next: PlacedCabinet = { ...selected, design: clampDesign(hung) }
+      const others = state.scene.cabinets.filter((cabinet) => cabinet.id !== selected.id)
+      if (cabinetOverlapsOthers(next, others)) {
+        return {} // blocked at the last legal height; the drop resolves
+      }
+      return sceneChange(state, {
+        ...state.scene,
+        cabinets: state.scene.cabinets.map((cabinet) =>
+          cabinet.id === selected.id ? next : cabinet
+        )
+      })
     }),
 
   rotateSelected: () =>

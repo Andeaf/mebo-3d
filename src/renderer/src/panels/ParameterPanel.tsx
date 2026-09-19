@@ -15,11 +15,14 @@ import type { DesignOfKind } from '@core/catalog/registry'
 import { TALL_CABINET_LIMITS, type TallCabinetParams } from '@core/catalog/tallCabinet'
 import type { CustomPieceSpec } from '@core/customPiece'
 import { WALL_CABINET_LIMITS, type WallCabinetParams } from '@core/catalog/wallCabinet'
+import { roomInteriorRect } from '@core/room'
+import type { PlacedCabinet } from '@core/scene'
 import { useSelectedCabinet } from '@state/selectors'
 import { useAppStore } from '@state/store'
 import { useT, type TranslationKey } from '../i18n'
 import { DimensionField } from './DimensionField'
 import { MaterialSelect } from './MaterialSelect'
+import { NumberInput } from './NumberInput'
 
 /** Whole-number picker (shelves, drawers): slider plus the current value. */
 function CountField({
@@ -396,6 +399,53 @@ function CustomPieceSummary({ spec }: { readonly spec: CustomPieceSpec }): React
   )
 }
 
+/**
+ * Where the selected cabinet stands: its carcass centre in world mm (the
+ * stored value, rotation-independent). A committed value goes through the
+ * placement gate, so what lands is the resolved pose — the field then
+ * shows that, which is how a rejected value snaps back.
+ */
+function PositionFields({ placed }: { readonly placed: PlacedCabinet }): ReactElement {
+  const t = useT()
+  const room = useAppStore((state) => state.scene.room)
+  const placeSelected = useAppStore((state) => state.placeSelected)
+  const interior = roomInteriorRect(room)
+  return (
+    <>
+      <h3 className="panel__subtitle">{t('params.position')}</h3>
+      <div className="field">
+        <div className="field__head">
+          <label className="field__label" htmlFor="position-x">
+            {t('params.positionX')}
+          </label>
+          <NumberInput
+            id="position-x"
+            value={placed.positionX}
+            min={interior.minX}
+            max={interior.maxX}
+            onCommit={(x) => placeSelected(x, placed.positionZ)}
+          />
+        </div>
+      </div>
+      <div className="field">
+        <div className="field__head">
+          <label className="field__label" htmlFor="position-z">
+            {t('params.positionZ')}
+          </label>
+          <NumberInput
+            id="position-z"
+            value={placed.positionZ}
+            min={interior.minZ}
+            max={interior.maxZ}
+            onCommit={(z) => placeSelected(placed.positionX, z)}
+          />
+        </div>
+      </div>
+      <p className="field__hint">{t('params.nudgeHint')}</p>
+    </>
+  )
+}
+
 /** Kind → field group. Adding a catalog kind adds one case here. */
 function KindFields({ design }: { readonly design: CabinetDesign }): ReactElement {
   switch (design.kind) {
@@ -430,6 +480,7 @@ export function ParameterPanel(): ReactElement {
       <h2 className="panel__title">{t('params.title')}</h2>
       <h3 className="panel__kind">{t(`kind.${selected.design.kind}`)}</h3>
       <KindFields design={selected.design} />
+      <PositionFields placed={selected} />
     </section>
   )
 }

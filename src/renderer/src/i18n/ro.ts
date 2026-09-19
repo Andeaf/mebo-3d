@@ -111,6 +111,11 @@ export const ro: Record<TranslationKey, string> = {
   'params.doors': 'Uși',
   'params.material': 'Material corp',
   'params.singleDoorLimit': 'Peste 600 mm lățime corpul primește întotdeauna două uși.',
+  'params.position': 'Poziție (centrul corpului)',
+  'params.positionX': 'X',
+  'params.positionZ': 'Z',
+  'params.nudgeHint':
+    'Tastele săgeți mută corpul cu 1 mm (Shift = 10 mm); la un corp suspendat PgUp/PgDn reglează înălțimea. Aproape de un perete sau de un vecin se lipește la loc.',
 
   'viewport.selected': 'Selecție',
   'viewport.mountedAt': 'Montat la',

@@ -11,7 +11,8 @@ import {
   type CustomPanelSpec,
   type CustomPieceSpec
 } from '@core/customPiece'
-import type { PlacedCabinet } from '@core/scene'
+import { isCustomPieceDesign } from '@core/catalog/registry'
+import { findPlacedCabinet, type PlacedCabinet } from '@core/scene'
 import type { Vec3 } from '@core/units'
 import { useAppStore } from '@state/store'
 
@@ -177,6 +178,16 @@ export function PanelGizmo({ placed, spec, panel, onHandle }: PanelGizmoProps): 
       z: snap(drag.startOrigin.z + delta.z)
     }
     updateSelectedDesign({ kind: CUSTOM_PIECE_KIND, spec: movePanel(current, target.id, origin) })
+    // Re-glue from the store now: when the clamp left the panel where it was
+    // (pushing against a face) nothing re-renders, and the proxy would
+    // otherwise drift on with the pointer.
+    const placedNow = findPlacedCabinet(useAppStore.getState().scene, piece.id)
+    if (placedNow !== undefined && isCustomPieceDesign(placedNow.design)) {
+      const panelNow = placedNow.design.spec.panels.find((candidate) => candidate.id === target.id)
+      if (panelNow !== undefined) {
+        proxy.position.copy(worldCenter(placedNow, placedNow.design.spec, panelNow))
+      }
+    }
   }
 
   const onMouseUp = (): void => {

@@ -410,3 +410,87 @@ describe('dirty follows the saved reference', () => {
     expect(state().scene).toBe(document.scene)
   })
 })
+
+describe('scene-level movement through the gate', () => {
+  it('placeSelected lands where the gate resolves; a nudge in open floor moves by its delta', () => {
+    // cab-1 starts against the back wall; put it in open floor first.
+    state().placeSelected(0, 0)
+    expect(selected().positionX).toBe(0)
+    expect(selected().positionZ).toBe(0)
+    at(0)
+    state().nudgeSelected(1, 0)
+    expect(selected().positionX).toBe(1)
+    at(100)
+    state().nudgeSelected(0, -10)
+    expect(selected().positionZ).toBe(-10)
+    expect(pastLength()).toBe(2) // the placement, then one entry for the key burst
+    state().undo()
+    expect(selected().positionX).toBe(0)
+    expect(selected().positionZ).toBe(0)
+  })
+
+  it('a nudge beside a flush neighbour snaps back (the snap-first rule), and records nothing', () => {
+    state().addCabinet('base-cabinet') // cab-2, flush right of cab-1
+    const x = selected().positionX
+    state().nudgeSelected(1, 0)
+    expect(selected().positionX).toBe(x)
+    expect(pastLength()).toBe(1)
+  })
+
+  it('placeSelected outside the room is pulled inside', () => {
+    state().placeSelected(10000, 0)
+    // Room 4000 wide, cabinet 600 wide: the centre stops 300 short of the wall.
+    expect(selected().positionX).toBe(1700)
+  })
+
+  it('moveSelectedVertically: ignores a floor kind, applies a free height, skips a colliding one', () => {
+    const mountingOf = (): number => {
+      const design = selected().design
+      if (design.kind !== 'wall-cabinet') {
+        throw new Error('expected a wall cabinet')
+      }
+      return design.params.mountingHeightMm
+    }
+    state().moveSelectedVertically(1200) // cab-1 is a base cabinet
+    expect(pastLength()).toBe(0)
+    // A 1000 mm tall base cabinet reaches above the wall kind's 900 minimum.
+    setHeight(1000)
+
+    state().addCabinet('wall-cabinet') // cab-2
+    const base = findPlacedCabinet(state().scene, 'cab-1')
+    if (base === undefined) {
+      throw new Error('cab-1 missing')
+    }
+    // Hang it right above cab-1: disjoint heights, so the same floor spot is legal.
+    state().placeSelected(base.positionX, base.positionZ)
+    expect(selected().positionX).toBe(base.positionX)
+    const entries = pastLength()
+
+    state().beginGesture()
+    state().moveSelectedVertically(950) // its interval 950–1670 would meet cab-1's 0–1000
+    expect(mountingOf()).toBe(1450)
+    state().moveSelectedVertically(1000) // flush stacking is not overlap
+    expect(mountingOf()).toBe(1000)
+    state().moveSelectedVertically(800) // clamps to the kind's minimum, 900: colliding, so skipped
+    expect(mountingOf()).toBe(1000)
+    state().moveSelectedVertically(1200)
+    expect(mountingOf()).toBe(1200)
+    expect(pastLength()).toBe(entries) // frames inside the gesture record nothing
+    state().endGesture()
+    expect(pastLength()).toBe(entries + 1)
+    state().undo()
+    expect(mountingOf()).toBe(1450)
+  })
+
+  it('a hanging custom piece moves vertically; a floor-standing one does not', () => {
+    state().addCustomPiece('Kastje')
+    state().exitPieceEditor()
+    const spec = selectedSpec()
+    state().updateSelectedDesign({ kind: CUSTOM_PIECE_KIND, spec: { ...spec, mountingHeightMm: 1200 } })
+    state().moveSelectedVertically(1300)
+    expect(selectedSpec().mountingHeightMm).toBe(1300)
+    state().updateSelectedDesign({ kind: CUSTOM_PIECE_KIND, spec: { ...spec, mountingHeightMm: 0 } })
+    state().moveSelectedVertically(1300)
+    expect(selectedSpec().mountingHeightMm).toBe(0)
+  })
+})

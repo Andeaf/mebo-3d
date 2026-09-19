@@ -7,7 +7,9 @@ import {
   clampDesign,
   createDefaultDesign,
   designFootprintSize,
+  designMountingHeightMm,
   designVerticalExtent,
+  designWithMountingHeightMm,
   designWorktopEligible,
   generateCabinet,
   isCabinetKind,
@@ -82,6 +84,33 @@ describe('catalog registry', () => {
     expect(CABINET_REGISTRY['wall-cabinet'].worktopEligible).toBe(false)
     expect(CABINET_REGISTRY['tall-cabinet'].worktopEligible).toBe(false)
   })
+
+  it('declares mounting per kind (null or an accessor pair), and the helpers read and write it', () => {
+    for (const kind of CABINET_KINDS) {
+      const { mounting } = CABINET_REGISTRY[kind]
+      expect(
+        mounting === null ||
+          (typeof mounting.heightOf === 'function' && typeof mounting.withHeight === 'function')
+      ).toBe(true)
+      const design = createDefaultDesign(kind)
+      expect(designMountingHeightMm(design)).toBe(
+        mounting === null ? null : designVerticalExtent(design).bottomMm
+      )
+      const hung = designWithMountingHeightMm(design, 1000)
+      if (mounting === null) {
+        expect(hung).toBeNull()
+      } else {
+        expect(hung).not.toBeNull()
+        expect(hung !== null && designVerticalExtent(hung).bottomMm).toBe(1000)
+        expect(hung !== null && hung.kind).toBe(kind)
+      }
+    }
+    // The wall cabinet hangs; the three floor kinds do not.
+    expect(CABINET_REGISTRY['wall-cabinet'].mounting).not.toBeNull()
+    expect(CABINET_REGISTRY['base-cabinet'].mounting).toBeNull()
+    expect(CABINET_REGISTRY['tall-cabinet'].mounting).toBeNull()
+    expect(CABINET_REGISTRY['drawer-cabinet'].mounting).toBeNull()
+  })
 })
 
 describe('custom pieces dispatch outside the registry', () => {
@@ -99,6 +128,15 @@ describe('custom pieces dispatch outside the registry', () => {
     expect(isCabinetKind('custom-piece')).toBe(false)
     expect(isCustomPieceDesign(design)).toBe(true)
     expect(isCustomPieceDesign(createDefaultDesign('base-cabinet'))).toBe(false)
+  })
+
+  it('hangs when its mounting height is above zero, stands on the floor at zero', () => {
+    expect(designMountingHeightMm(design)).toBe(300)
+    const hung = designWithMountingHeightMm(design, 500)
+    expect(hung !== null && hung.kind === 'custom-piece' && hung.spec.mountingHeightMm).toBe(500)
+    const standing: CabinetDesign = { kind: 'custom-piece', spec: { ...spec, mountingHeightMm: 0 } }
+    expect(designMountingHeightMm(standing)).toBeNull()
+    expect(designWithMountingHeightMm(standing, 500)).toBeNull()
   })
 
   it('gets no worktop in Phase 7, standing or hanging', () => {
