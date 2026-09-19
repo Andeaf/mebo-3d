@@ -8,6 +8,7 @@
   --accent: #4f8cff;
   --accent-soft: rgba(79, 140, 255, 0.16);
   --error: #ff7a76;
+  --error-soft: rgba(255, 122, 118, 0.16);
   font-size: 14px;
 }
 
@@ -74,9 +75,14 @@ body {
   cursor: default;
 }
 
-.toolbar__button--danger:hover:not(:disabled) {
+.toolbar__button--danger {
   border-color: var(--error);
   color: var(--error);
+}
+
+.toolbar__button--danger:hover:not(:disabled) {
+  background: var(--error-soft);
+  border-color: var(--error);
 }
 
 .toolbar__menu-wrap {
@@ -591,9 +597,14 @@ tbody:first-child .quote__category-row th {
   border-color: var(--accent);
 }
 
-.button--danger:hover:not(:disabled) {
+.button--danger {
   border-color: var(--error);
   color: var(--error);
+}
+
+.button--danger:hover:not(:disabled) {
+  background: var(--error-soft);
+  border-color: var(--error);
 }
 
 .button-row {
