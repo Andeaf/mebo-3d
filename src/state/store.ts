@@ -102,6 +102,13 @@ interface AppState {
   readonly projectError: string | null
   /** The piece editor: which custom piece is open, which panel is selected. */
   readonly editor: PieceEditorState
+  /**
+   * A project flow (New/Open/Save/close) is running, possibly with a native
+   * dialog up. Windows already keeps real input away from the window while
+   * a modal is shown; this makes the renderer refuse undo/redo on its own
+   * as well, whatever path a key event takes.
+   */
+  readonly flowBusy: boolean
   addCabinet: (kind: CabinetKind) => void
   /** Adds an empty custom piece (the name is the renderer's translated default) and opens its editor. */
   addCustomPiece: (name: string) => void
@@ -149,6 +156,8 @@ interface AppState {
   cancelGesture: () => void
   undo: () => void
   redo: () => void
+  /** Set by the project bridge around every flow; undo/redo are refused while true. */
+  setFlowBusy: (busy: boolean) => void
   requestFitView: () => void
   loadMaterials: (repository: MaterialRepository) => Promise<void>
   setLanguage: (language: Language) => void
@@ -307,6 +316,7 @@ export const useAppStore = create<AppState>((set) => ({
   recentProjects: loadRecentProjects(),
   projectError: null,
   editor: NO_EDITOR,
+  flowBusy: false,
 
   addCabinet: (kind) =>
     set((state) => (isEditing(state.editor) ? {} : spawnDesign(state, createDefaultDesign(kind)))),
@@ -442,7 +452,13 @@ export const useAppStore = create<AppState>((set) => ({
         return {}
       }
       const others = state.scene.cabinets.filter((cabinet) => cabinet.id !== selected.id)
-      const candidate: PlacedCabinet = { ...selected, positionX, positionZ }
+      // Whole millimetres, like every other value in the domain: a pointer
+      // position is fractional, a stored pose never is.
+      const candidate: PlacedCabinet = {
+        ...selected,
+        positionX: Math.round(positionX),
+        positionZ: Math.round(positionZ)
+      }
       // The one path that may also turn the cabinet: a wall snap puts its back
       // against the wall it lands on.
       const pose = resolveDragPose(candidate, others, state.scene.room)
@@ -474,7 +490,11 @@ export const useAppStore = create<AppState>((set) => ({
       }
       return sceneChange(
         state,
-        placeWithoutOverlap(state.scene, { ...selected, positionX, positionZ })
+        placeWithoutOverlap(state.scene, {
+          ...selected,
+          positionX: Math.round(positionX),
+          positionZ: Math.round(positionZ)
+        })
       )
     }),
 
@@ -486,7 +506,11 @@ export const useAppStore = create<AppState>((set) => ({
       }
       return sceneChange(
         state,
-        placeWithoutOverlap(state.scene, { ...selected, positionX, positionZ })
+        placeWithoutOverlap(state.scene, {
+          ...selected,
+          positionX: Math.round(positionX),
+          positionZ: Math.round(positionZ)
+        })
       )
     }),
 
@@ -575,7 +599,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   undo: () =>
     set((state) => {
-      if (state.gestureBase !== null) {
+      if (state.gestureBase !== null || state.flowBusy) {
         return {}
       }
       const step = undoHistory(state.history, state.scene)
@@ -587,7 +611,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   redo: () =>
     set((state) => {
-      if (state.gestureBase !== null) {
+      if (state.gestureBase !== null || state.flowBusy) {
         return {}
       }
       const step = redoHistory(state.history, state.scene)
@@ -596,6 +620,8 @@ export const useAppStore = create<AppState>((set) => ({
       }
       return { scene: step.present, history: step.history, ...reconcileWith(state, step.present) }
     }),
+
+  setFlowBusy: (busy) => set((state) => (state.flowBusy === busy ? {} : { flowBusy: busy })),
 
   requestFitView: () => set((state) => ({ fitViewNonce: state.fitViewNonce + 1 })),
 

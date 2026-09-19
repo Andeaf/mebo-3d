@@ -72,8 +72,12 @@ export function ProjectBridge(): null {
         return
       }
       busyRef.current = true
+      // Mirrored into the store: undo/redo are refused while a flow (and
+      // its native dialog) is up, whichever way a key event arrives.
+      useAppStore.getState().setFlowBusy(true)
       void flow().finally(() => {
         busyRef.current = false
+        useAppStore.getState().setFlowBusy(false)
       })
     }
     const offMenu = window.api.onMenuAction((action) => {

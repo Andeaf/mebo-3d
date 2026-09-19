@@ -127,6 +127,22 @@ describe('one entry per discrete mutation', () => {
     expect(cabinetIds()).toEqual(['cab-1', 'cab-3'])
   })
 
+  it('undo and redo are refused while a project flow (a native dialog) is running', () => {
+    state().addCabinet('base-cabinet')
+    state().setFlowBusy(true)
+    state().undo()
+    expect(cabinetIds()).toEqual(['cab-1', 'cab-2'])
+    state().setFlowBusy(false)
+    state().undo()
+    expect(cabinetIds()).toEqual(['cab-1'])
+    state().setFlowBusy(true)
+    state().redo()
+    expect(cabinetIds()).toEqual(['cab-1'])
+    state().setFlowBusy(false)
+    state().redo()
+    expect(cabinetIds()).toEqual(['cab-1', 'cab-2'])
+  })
+
   it('undo and redo with empty stacks change nothing', () => {
     const before = state().scene
     state().undo()
