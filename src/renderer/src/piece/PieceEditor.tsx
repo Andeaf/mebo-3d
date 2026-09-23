@@ -34,8 +34,8 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
   const t = useT()
   const updateSelectedDesign = useAppStore((state) => state.updateSelectedDesign)
   const exitPieceEditor = useAppStore((state) => state.exitPieceEditor)
-  const selectPanel = useAppStore((state) => state.selectPanel)
-  const selectedPanelId = useAppStore((state) => state.editor.selectedPanelId)
+  const selectElement = useAppStore((state) => state.selectElement)
+  const selectedElementId = useAppStore((state) => state.editor.selectedElementId)
   const limits = CUSTOM_PIECE_LIMITS
 
   // The optional key names the field a slider is dragging so the burst is
@@ -47,11 +47,11 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
     const change = addPresetPanel(spec, preset)
     if (change !== null) {
       onSpec(change.spec)
-      selectPanel(change.panelId)
+      selectElement(change.panelId)
     }
   }
 
-  const selectedPanel = spec.panels.find((panel) => panel.id === selectedPanelId)
+  const selectedPanel = spec.panels.find((panel) => panel.id === selectedElementId)
   const onWall = spec.mountingHeightMm > 0
   const atLimit = spec.panels.length >= MAX_PANELS_PER_PIECE
 
@@ -171,11 +171,11 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
                 key={panel.id}
                 type="button"
                 className={
-                  panel.id === selectedPanelId
+                  panel.id === selectedElementId
                     ? 'panel-list__row panel-list__row--active'
                     : 'panel-list__row'
                 }
-                onClick={() => selectPanel(panel.id === selectedPanelId ? null : panel.id)}
+                onClick={() => selectElement(panel.id === selectedElementId ? null : panel.id)}
               >
                 <span className="panel-list__role">{t(`role.${panel.role}`)}</span>
                 <span className="panel-list__dims">

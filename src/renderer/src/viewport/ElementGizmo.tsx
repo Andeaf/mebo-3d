@@ -69,7 +69,7 @@ interface DragState {
   cancelled: boolean
 }
 
-interface PanelGizmoProps {
+interface ElementGizmoProps {
   /** The open piece and its spec; `panel` is the selected panel of that spec. */
   readonly placed: PlacedCabinet
   readonly spec: CustomPieceSpec
@@ -93,7 +93,7 @@ interface PanelGizmoProps {
  * `updateSelectedDesign`, mouse-up ends it. Escape (via the handle) puts
  * the panel back and ignores the rest of the pointer gesture.
  */
-export function PanelGizmo({ placed, spec, panel, onHandle }: PanelGizmoProps): ReactElement {
+export function ElementGizmo({ placed, spec, panel, onHandle }: ElementGizmoProps): ReactElement {
   const updateSelectedDesign = useAppStore((state) => state.updateSelectedDesign)
   const beginGesture = useAppStore((state) => state.beginGesture)
   const endGesture = useAppStore((state) => state.endGesture)

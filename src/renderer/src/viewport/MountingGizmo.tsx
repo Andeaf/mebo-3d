@@ -6,7 +6,7 @@ import { designMountingHeightMm } from '@core/catalog/registry'
 import { snapToStep, PANEL_MOVE_STEP_MM } from '@core/customPiece'
 import { findPlacedCabinet, type PlacedCabinet } from '@core/scene'
 import { useAppStore } from '@state/store'
-import type { GizmoHandle } from './PanelGizmo'
+import type { GizmoHandle } from './ElementGizmo'
 
 /** The vertical drag snaps to the same 10 mm grid as a panel drag. */
 const MOUNTING_STEP_MM = PANEL_MOVE_STEP_MM

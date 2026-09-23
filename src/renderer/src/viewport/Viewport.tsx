@@ -18,7 +18,7 @@ import { useAppStore } from '@state/store'
 import { isTypingTarget, keyCommand, nudgeDistanceMm } from './keymap'
 import { MeasureLine } from './MeasureLine'
 import { MountingGizmo } from './MountingGizmo'
-import { PanelGizmo, type GizmoHandle } from './PanelGizmo'
+import { ElementGizmo, type GizmoHandle } from './ElementGizmo'
 import { PlacedCabinetMesh } from './PlacedCabinetMesh'
 import { RoomView } from './RoomView'
 import { WorktopView } from './WorktopView'
@@ -80,9 +80,9 @@ function SceneContents(): ReactElement {
   const scene = useAppStore((state) => state.scene)
   const selectedCabinetId = useAppStore((state) => state.selectedCabinetId)
   const editingPieceId = useAppStore((state) => state.editor.editingPieceId)
-  const selectedPanelId = useAppStore((state) => state.editor.selectedPanelId)
+  const selectedElementId = useAppStore((state) => state.editor.selectedElementId)
   const selectCabinet = useAppStore((state) => state.selectCabinet)
-  const selectPanel = useAppStore((state) => state.selectPanel)
+  const selectElement = useAppStore((state) => state.selectElement)
   const enterPieceEditor = useAppStore((state) => state.enterPieceEditor)
   const exitPieceEditor = useAppStore((state) => state.exitPieceEditor)
   const moveSelected = useAppStore((state) => state.moveSelected)
@@ -238,9 +238,9 @@ function SceneContents(): ReactElement {
           // Edit mode: the selected panel of the open piece, in the piece's
           // own axes (the gizmo's), through the same clamp; a key burst is
           // one undo entry.
-          if (isCustomPieceDesign(piece.design) && editor.selectedPanelId !== null) {
+          if (isCustomPieceDesign(piece.design) && editor.selectedElementId !== null) {
             event.preventDefault()
-            const panelId = editor.selectedPanelId
+            const panelId = editor.selectedElementId
             updateSelectedDesign(
               {
                 kind: CUSTOM_PIECE_KIND,
@@ -380,8 +380,8 @@ function SceneContents(): ReactElement {
             selected={placed.id === selectedCabinetId}
             priceDb={priceDb}
             editing={placed.id === editingPieceId}
-            selectedPanelId={selectedPanelId}
-            onSelectPanel={selectPanel}
+            selectedElementId={selectedElementId}
+            onSelectElement={selectElement}
             pointerBlocked={pointerOnGizmo}
             dimmed={placed.id !== editingPieceId}
           />
@@ -405,12 +405,12 @@ function SceneContents(): ReactElement {
       {/* The translate gizmo on the selected panel of the open piece. */}
       {editedPiece !== undefined &&
         isCustomPieceDesign(editedPiece.design) &&
-        selectedPanelId !== null &&
+        selectedElementId !== null &&
         (() => {
           const spec = editedPiece.design.spec
-          const panel = spec.panels.find((candidate) => candidate.id === selectedPanelId)
+          const panel = spec.panels.find((candidate) => candidate.id === selectedElementId)
           return panel === undefined ? null : (
-            <PanelGizmo placed={editedPiece} spec={spec} panel={panel} onHandle={setGizmoHandle} />
+            <ElementGizmo placed={editedPiece} spec={spec} panel={panel} onHandle={setGizmoHandle} />
           )
         })()}
 
@@ -440,7 +440,7 @@ function SceneContents(): ReactElement {
             return // the press is the gizmo's; clearing the selection would unmount it mid-drag
           }
           if (editing) {
-            selectPanel(null)
+            selectElement(null)
           } else if (!dragging) {
             selectCabinet(null)
           }

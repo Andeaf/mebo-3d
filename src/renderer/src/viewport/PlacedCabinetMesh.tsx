@@ -26,8 +26,8 @@ interface PlacedCabinetMeshProps {
   readonly onDoubleClick?: (event: ThreeEvent<MouseEvent>) => void
   /** Edit mode, the open piece: its panels are pick targets and its envelope is drawn. */
   readonly editing?: boolean
-  readonly selectedPanelId?: string | null
-  readonly onSelectPanel?: (panelId: string) => void
+  readonly selectedElementId?: string | null
+  readonly onSelectElement?: (elementId: string) => void
   /**
    * True while a gizmo handle is under the pointer: the press belongs to the
    * gizmo, so a panel behind the handle must not be (re)selected.
@@ -50,8 +50,8 @@ export function PlacedCabinetMesh({
   onPointerDown,
   onDoubleClick,
   editing = false,
-  selectedPanelId = null,
-  onSelectPanel,
+  selectedElementId = null,
+  onSelectElement,
   pointerBlocked,
   dimmed = false
 }: PlacedCabinetMeshProps): ReactElement {
@@ -82,20 +82,20 @@ export function PlacedCabinetMesh({
         <group position={[-widthMm / 2, 0, -depthMm / 2]}>
           {description.boxes.map((instance) => {
             const color = colorForMaterial(priceDb, instance.materialId, FALLBACK_PANEL_COLOR)
-            const panelSelected = editing && instance.panelId === selectedPanelId
+            const panelSelected = editing && instance.panelId === selectedElementId
             return (
               <mesh
                 key={instance.panelId}
                 position={[instance.box.center.x, instance.box.center.y, instance.box.center.z]}
                 onPointerDown={
-                  editing && onSelectPanel !== undefined
+                  editing && onSelectElement !== undefined
                     ? (event) => {
                         if (pointerBlocked?.() === true) {
                           return // the press is the gizmo's
                         }
                         event.stopPropagation()
                         if (event.button === 0) {
-                          onSelectPanel(instance.panelId)
+                          onSelectElement(instance.panelId)
                         }
                       }
                     : undefined

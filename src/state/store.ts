@@ -39,8 +39,8 @@ import {
   cabinetRemoved,
   enterEditor,
   isEditing,
-  reconcilePanels,
-  selectPanel as selectPanelIn,
+  reconcileElements,
+  selectElement as selectElementIn,
   type PieceEditorState,
   NO_EDITOR
 } from './pieceEditor'
@@ -100,7 +100,7 @@ interface AppState {
   readonly recentProjects: readonly RecentProject[]
   /** The last failed open/save, shown until dismissed; never silent. */
   readonly projectError: string | null
-  /** The piece editor: which custom piece is open, which panel is selected. */
+  /** The piece editor: which custom piece is open, which of its elements is selected. */
   readonly editor: PieceEditorState
   /**
    * A project flow (New/Open/Save/close) is running, possibly with a native
@@ -115,7 +115,7 @@ interface AppState {
   /** Opens the editor on the selected cabinet; ignored unless it is a custom piece. */
   enterPieceEditor: () => void
   exitPieceEditor: () => void
-  selectPanel: (panelId: string | null) => void
+  selectElement: (elementId: string | null) => void
   duplicateSelected: () => void
   deleteSelected: () => void
   selectCabinet: (id: string | null) => void
@@ -259,7 +259,7 @@ function reconcileWith(
     editor =
       piece === undefined || !isCustomPieceDesign(piece.design)
         ? NO_EDITOR
-        : reconcilePanels(
+        : reconcileElements(
             editor,
             piece.design.spec.panels.map((panel) => panel.id)
           )
@@ -348,7 +348,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   exitPieceEditor: () => set({ editor: NO_EDITOR }),
 
-  selectPanel: (panelId) => set((state) => ({ editor: selectPanelIn(state.editor, panelId) })),
+  selectElement: (elementId) => set((state) => ({ editor: selectElementIn(state.editor, elementId) })),
 
   duplicateSelected: () =>
     set((state) => {
@@ -412,7 +412,7 @@ export const useAppStore = create<AppState>((set) => ({
       // A panel selection must not outlive its panel.
       return {
         ...change,
-        editor: reconcilePanels(
+        editor: reconcileElements(
           state.editor,
           clamped.spec.panels.map((panel) => panel.id)
         )

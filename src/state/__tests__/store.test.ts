@@ -339,14 +339,14 @@ describe('the piece editor', () => {
       throw new Error('preset refused')
     }
     state().updateSelectedDesign({ kind: CUSTOM_PIECE_KIND, spec: added.spec })
-    state().selectPanel(added.panelId)
+    state().selectElement(added.panelId)
     expect(pastLength()).toBe(2)
-    expect(state().editor.selectedPanelId).toBe('panel-1')
+    expect(state().editor.selectedElementId).toBe('panel-1')
 
     state().undo()
     expect(selectedSpec().panels).toHaveLength(0)
     expect(state().editor.editingPieceId).toBe('cab-2') // the piece is still there
-    expect(state().editor.selectedPanelId).toBeNull()
+    expect(state().editor.selectedElementId).toBeNull()
 
     state().undo()
     expect(cabinetIds()).toEqual(['cab-1'])
@@ -367,10 +367,10 @@ describe('the piece editor', () => {
       throw new Error('preset refused')
     }
     state().updateSelectedDesign({ kind: CUSTOM_PIECE_KIND, spec: added.spec })
-    state().selectPanel(added.panelId)
+    state().selectElement(added.panelId)
     state().cancelGesture()
     expect(selectedSpec().panels).toHaveLength(0)
-    expect(state().editor.selectedPanelId).toBeNull()
+    expect(state().editor.selectedElementId).toBeNull()
     expect(state().editor.editingPieceId).toBe('cab-2')
   })
 })

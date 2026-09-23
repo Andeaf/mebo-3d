@@ -31,7 +31,7 @@ interface PanelFieldsProps {
 export function PanelFields({ spec, panel, onSpec }: PanelFieldsProps): ReactElement {
   const t = useT()
   const priceDb = useAppStore((state) => state.priceDb)
-  const selectPanel = useAppStore((state) => state.selectPanel)
+  const selectElement = useAppStore((state) => state.selectElement)
   const ranges = panelRanges(spec, panel)
   const sizeMin = CUSTOM_PIECE_LIMITS.panelSizeMm.min
 
@@ -211,7 +211,7 @@ export function PanelFields({ spec, panel, onSpec }: PanelFieldsProps): ReactEle
             const change = duplicatePanel(spec, panel.id)
             if (change !== null) {
               onSpec(change.spec)
-              selectPanel(change.panelId)
+              selectElement(change.panelId)
             }
           }}
         >
