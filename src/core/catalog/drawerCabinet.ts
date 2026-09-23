@@ -1,45 +1,29 @@
 import { clampToLimit, limitViolations } from '../cabinet'
 import type { HardwareItem, Panel } from '../panel'
+import { buildDrawer, drawerSlideLengthMm, type DrawerMaterials } from './drawer'
 import {
   backPanel,
-  bandOf,
   bottomPanel,
   boundingSizeWithFronts,
   innerWidthMm,
+  mergeHardware,
   sidePanels,
   stretcherPanels,
-  BACK_THICKNESS_MM,
-  CARCASS_THICKNESS_MM,
-  DOOR_THICKNESS_MM,
   FRONT_GAP_MM,
   FRONT_REVEAL_MM,
-  HANDLE_MATERIAL_ID,
   type CabinetBuild,
   type CarcassSpec
 } from './parts'
 
 /**
  * Ladekast — a base carcass (stretcher top, no shelves, no doors) filled with
- * a stack of equal-height drawers. Every drawer is a front plus a four-sided
- * box with a grooved-in HDF bottom, running on one pair of slides.
+ * a stack of equal-height drawers. Every drawer is the shared one from
+ * `drawer.ts`: a front plus a four-sided box with a grooved-in HDF bottom,
+ * running on one pair of slides. This file only decides the stack.
  */
 
-// Provisional until the company's real list arrives.
-export const DRAWER_SLIDE_MATERIAL_ID = 'drawer-slide-pair'
-/** Air per side between the drawer box and the carcass, for the slide. */
-const DRAWER_SLIDE_CLEARANCE_MM = 13
-/** Space kept free behind the box; the slide length is what fits in front of it. */
-const DRAWER_SLIDE_REAR_CLEARANCE_MM = 20
-/** Slides come in 50 mm nominal lengths. */
-const DRAWER_SLIDE_LENGTH_STEP_MM = 50
-/** A drawer side is this much lower than its front, within the stocked range. */
-const DRAWER_SIDE_HEIGHT_DROP_MM = 50
-const DRAWER_SIDE_HEIGHT_MIN_MM = 60
-const DRAWER_SIDE_HEIGHT_MAX_MM = 180
-/** The box bottom rides this high above its front's bottom edge. */
-const DRAWER_BOX_LIFT_MM = 20
-/** The bottom is grooved this deep into all four box parts. */
-const DRAWER_BOTTOM_GROOVE_MM = 6
+// Re-exported so the ladekast keeps one import site for its drawer facts.
+export { DRAWER_SLIDE_MATERIAL_ID, drawerBoxSideHeightMm } from './drawer'
 
 export interface DrawerCabinetParams {
   readonly widthMm: number
@@ -102,121 +86,9 @@ export function drawerFrontHeightMm(spec: CarcassSpec, drawerCount: number): num
   )
 }
 
-/** Nominal slide length: what fits in front of the rear clearance, rounded down to a stocked size. */
+/** Nominal slide length for this carcass: the drawer module's rule. */
 export function drawerBoxDepthMm(spec: CarcassSpec): number {
-  return (
-    Math.floor((spec.depthMm - DRAWER_SLIDE_REAR_CLEARANCE_MM) / DRAWER_SLIDE_LENGTH_STEP_MM) *
-    DRAWER_SLIDE_LENGTH_STEP_MM
-  )
-}
-
-export function drawerBoxSideHeightMm(frontHeightMm: number): number {
-  return Math.min(
-    DRAWER_SIDE_HEIGHT_MAX_MM,
-    Math.max(DRAWER_SIDE_HEIGHT_MIN_MM, frontHeightMm - DRAWER_SIDE_HEIGHT_DROP_MM)
-  )
-}
-
-/** One drawer: the overlay front plus its box (2 sides, front, back, grooved bottom). */
-function drawerPanels(spec: CarcassSpec, index: number, drawerCount: number): Panel[] {
-  const t = CARCASS_THICKNESS_MM
-  const frontHeight = drawerFrontHeightMm(spec, drawerCount)
-  const frontBottomY = FRONT_REVEAL_MM + index * (frontHeight + FRONT_GAP_MM)
-  const frontWidth = spec.widthMm - 2 * FRONT_REVEAL_MM
-  const number = index + 1
-
-  const boxDepth = drawerBoxDepthMm(spec)
-  const boxOuterWidth = innerWidthMm(spec) - 2 * DRAWER_SLIDE_CLEARANCE_MM
-  const boxInnerWidth = boxOuterWidth - 2 * t
-  const sideHeight = drawerBoxSideHeightMm(frontHeight)
-  const boxBottomY = frontBottomY + DRAWER_BOX_LIFT_MM
-  const boxCenterY = boxBottomY + sideHeight / 2
-  // The box runs forward from the rear clearance to the carcass front face.
-  const boxFrontZ = spec.depthMm
-  const boxRearZ = boxFrontZ - boxDepth
-
-  const panels: Panel[] = [
-    {
-      id: `drawer-front-${number}`,
-      role: 'drawer-front',
-      materialId: spec.carcassMaterialId,
-      lengthMm: frontHeight,
-      widthMm: frontWidth,
-      thicknessMm: DOOR_THICKNESS_MM,
-      edgeBanding: bandOf(spec, ['length-1', 'length-2', 'width-1', 'width-2']),
-      box: {
-        center: {
-          x: spec.widthMm / 2,
-          y: frontBottomY + frontHeight / 2,
-          z: spec.depthMm + DOOR_THICKNESS_MM / 2
-        },
-        size: { x: frontWidth, y: frontHeight, z: DOOR_THICKNESS_MM }
-      }
-    }
-  ]
-
-  // Box sides run the full box depth; top edge banded.
-  for (const [side, centerX] of [
-    ['left', spec.widthMm / 2 - (boxOuterWidth - t) / 2],
-    ['right', spec.widthMm / 2 + (boxOuterWidth - t) / 2]
-  ] as const) {
-    panels.push({
-      id: `drawer-${number}-box-${side}`,
-      role: 'drawer-box-side',
-      materialId: spec.carcassMaterialId,
-      lengthMm: boxDepth,
-      widthMm: sideHeight,
-      thicknessMm: t,
-      edgeBanding: bandOf(spec, ['length-1']),
-      box: {
-        center: { x: centerX, y: boxCenterY, z: boxRearZ + boxDepth / 2 },
-        size: { x: t, y: sideHeight, z: boxDepth }
-      }
-    })
-  }
-
-  // Box front and back fitted between the sides; top edge banded.
-  for (const [role, centerZ] of [
-    ['drawer-box-front', boxFrontZ - t / 2],
-    ['drawer-box-back', boxRearZ + t / 2]
-  ] as const) {
-    panels.push({
-      id: `drawer-${number}-${role.replace('drawer-', '')}`,
-      role,
-      materialId: spec.carcassMaterialId,
-      lengthMm: boxInnerWidth,
-      widthMm: sideHeight,
-      thicknessMm: t,
-      edgeBanding: bandOf(spec, ['length-1']),
-      box: {
-        center: { x: spec.widthMm / 2, y: boxCenterY, z: centerZ },
-        size: { x: boxInnerWidth, y: sideHeight, z: t }
-      }
-    })
-  }
-
-  // HDF bottom, grooved into all four box parts (hence the extra 6 mm per side).
-  const bottomWidth = boxInnerWidth + 2 * DRAWER_BOTTOM_GROOVE_MM
-  const bottomDepth = boxDepth - 2 * t + 2 * DRAWER_BOTTOM_GROOVE_MM
-  panels.push({
-    id: `drawer-${number}-box-bottom`,
-    role: 'drawer-box-bottom',
-    materialId: spec.backMaterialId,
-    lengthMm: bottomWidth,
-    widthMm: bottomDepth,
-    thicknessMm: BACK_THICKNESS_MM,
-    edgeBanding: null,
-    box: {
-      center: {
-        x: spec.widthMm / 2,
-        y: boxBottomY + BACK_THICKNESS_MM / 2,
-        z: boxRearZ + boxDepth / 2
-      },
-      size: { x: bottomWidth, y: BACK_THICKNESS_MM, z: bottomDepth }
-    }
-  })
-
-  return panels
+  return drawerSlideLengthMm(spec.depthMm)
 }
 
 export function generateDrawerCabinet(params: DrawerCabinetParams): CabinetBuild {
@@ -231,18 +103,39 @@ export function generateDrawerCabinet(params: DrawerCabinetParams): CabinetBuild
     ...stretcherPanels(params),
     backPanel(params)
   ]
-  for (let i = 0; i < params.drawerCount; i += 1) {
-    panels.push(...drawerPanels(params, i, params.drawerCount))
+  // Fronts and boxes are carcass board, the bottoms back board, as always.
+  const materials: DrawerMaterials = {
+    frontMaterialId: params.carcassMaterialId,
+    boxMaterialId: params.carcassMaterialId,
+    bottomMaterialId: params.backMaterialId,
+    edgeBandMaterialId: params.edgeBandMaterialId
   }
-
-  const hardware: HardwareItem[] = [
-    { materialId: DRAWER_SLIDE_MATERIAL_ID, quantity: params.drawerCount },
-    { materialId: HANDLE_MATERIAL_ID, quantity: params.drawerCount }
-  ]
+  const frontHeight = drawerFrontHeightMm(params, params.drawerCount)
+  const hardware: HardwareItem[] = []
+  for (let i = 0; i < params.drawerCount; i += 1) {
+    // Full overlay over the carcass face; the box runs between the sides.
+    const drawer = buildDrawer(
+      {
+        number: i + 1,
+        front: {
+          centerXMm: params.widthMm / 2,
+          bottomMm: FRONT_REVEAL_MM + i * (frontHeight + FRONT_GAP_MM),
+          widthMm: params.widthMm - 2 * FRONT_REVEAL_MM,
+          heightMm: frontHeight
+        },
+        bayWidthMm: innerWidthMm(params),
+        bayCenterXMm: params.widthMm / 2,
+        carcassDepthMm: params.depthMm
+      },
+      materials
+    )
+    panels.push(...drawer.panels)
+    hardware.push(...drawer.hardware)
+  }
 
   return {
     panels,
-    hardware,
+    hardware: mergeHardware(hardware),
     boundingSizeMm: boundingSizeWithFronts(params, true)
   }
 }

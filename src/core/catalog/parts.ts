@@ -246,6 +246,15 @@ export function doorHardware(doorCount: number, hingesPerDoor: number): Hardware
   ]
 }
 
+/** One line per hardware material, quantities summed, in the order the materials first appear. */
+export function mergeHardware(items: readonly HardwareItem[]): HardwareItem[] {
+  const totals = new Map<string, number>()
+  for (const item of items) {
+    totals.set(item.materialId, (totals.get(item.materialId) ?? 0) + item.quantity)
+  }
+  return [...totals].map(([materialId, quantity]) => ({ materialId, quantity }))
+}
+
 /** Carcass envelope, grown by the overlay front thickness when fronts are present. */
 export function boundingSizeWithFronts(spec: CarcassSpec, hasFronts: boolean): Size3 {
   return {
