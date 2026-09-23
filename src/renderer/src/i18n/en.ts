@@ -31,6 +31,23 @@ export const en: Record<TranslationKey, string> = {
   'piece.noPanels': 'No panels yet. Add a side, a bottom or a shelf.',
   'piece.panelLimit': 'Maximum number of panels reached.',
 
+  'piece.drawers': 'Drawers',
+  'piece.drawerCount': 'Drawers',
+  'piece.addDrawer': 'Add drawer',
+  'piece.drawerLimit': 'Maximum number of drawers reached.',
+  'piece.drawerNeedsRoom': 'A drawer needs a piece of at least (width × depth)',
+
+  'drawer.name': 'Drawer',
+  'drawer.title': 'Selected drawer',
+  'drawer.frontWidth': 'Front width',
+  'drawer.frontHeight': 'Front height',
+  'drawer.frontMaterial': 'Front material',
+  'drawer.boxMaterial': 'Box material',
+  'drawer.box': 'Drawer box (depth × height)',
+  'drawer.moveHint':
+    'Move the drawer with the arrows in the 3D view (10 mm steps) or with ←/→ and PgUp/PgDn: 1 mm, Shift = 10 mm. A drawer always stays on the front.',
+  'drawer.hardwareHint': 'Every drawer comes with 1 pair of slides and 1 handle.',
+
   'preset.side': 'Side',
   'preset.top': 'Top',
   'preset.bottom': 'Bottom',
@@ -49,7 +66,7 @@ export const en: Record<TranslationKey, string> = {
   'role.front': 'Front',
 
   'panel.title': 'Selected panel',
-  'panel.noSelection': 'Click a panel in the 3D view or in the list.',
+  'panel.noSelection': 'Click a panel or a drawer in the 3D view or in a list.',
   'panel.moveHint':
     'Move the panel with the arrows in the 3D view (10 mm steps) or with the arrow keys: 1 mm, Shift = 10 mm, PgUp/PgDn = height.',
   'panel.role': 'Role',

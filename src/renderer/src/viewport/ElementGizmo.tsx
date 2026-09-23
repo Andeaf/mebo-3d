@@ -3,13 +3,13 @@ import { TransformControls } from '@react-three/drei'
 import type { TransformControls as TransformControlsImpl } from 'three-stdlib'
 import { Object3D, Vector3 } from 'three'
 import {
-  movePanel,
-  panelBox,
+  elementAnchor,
+  moveElement,
   snapToStep,
   CUSTOM_PIECE_KIND,
   PANEL_MOVE_STEP_MM,
-  type CustomPanelSpec,
-  type CustomPieceSpec
+  type CustomPieceSpec,
+  type ElementAnchor
 } from '@core/customPiece'
 import { isCustomPieceDesign } from '@core/catalog/registry'
 import { findPlacedCabinet, type PlacedCabinet } from '@core/scene'
@@ -45,9 +45,9 @@ function yawOf(placed: PlacedCabinet): number {
   return (placed.rotationDeg * Math.PI) / 180
 }
 
-/** The panel's box centre in world metres: piece space → the placed, turned, lifted group. */
-function worldCenter(placed: PlacedCabinet, spec: CustomPieceSpec, panel: CustomPanelSpec): Vector3 {
-  const centre = panelBox(panel).center
+/** The anchor's box centre in world metres: piece space → the placed, turned, lifted group. */
+function worldCenter(placed: PlacedCabinet, spec: CustomPieceSpec, anchor: ElementAnchor): Vector3 {
+  const centre = anchor.box.center
   return new Vector3(
     (centre.x - spec.widthMm / 2) / 1000,
     centre.y / 1000,
@@ -70,30 +70,32 @@ interface DragState {
 }
 
 interface ElementGizmoProps {
-  /** The open piece and its spec; `panel` is the selected panel of that spec. */
+  /** The open piece and its spec; `elementId` is the selected element of that spec. */
   readonly placed: PlacedCabinet
   readonly spec: CustomPieceSpec
-  readonly panel: CustomPanelSpec
+  readonly elementId: string
   readonly onHandle: (handle: GizmoHandle | null) => void
 }
 
 /**
- * The translate gizmo of the piece editor: the stock red/green/blue arrows
- * and plane handles, attached to a PROXY object at the scene root rather
- * than to the panel mesh. The mesh stays a pure derivation of the store
- * (one source of truth); the proxy is unscaled, carries the piece's yaw
- * (`space="local"` then points the arrows along the piece's own axes) and
- * is glued back to the panel's real, clamped centre after every store
- * change. Snapping is ours (absolute 10 mm grid on the origin, the same
- * step the origin sliders use) — the control's own `translationSnap` adds
- * the parent's world position before rounding, which is meaningless here.
+ * The translate gizmo of the piece editor, on the selected ELEMENT — a panel,
+ * or a drawer (on its front): the stock red/green/blue arrows and plane
+ * handles, attached to a PROXY object at the scene root rather than to a
+ * mesh. The meshes stay a pure derivation of the store (one source of
+ * truth); the proxy is unscaled, carries the piece's yaw (`space="local"`
+ * then points the arrows along the piece's own axes) and is glued back to
+ * the element's real, clamped anchor after every store change. A drawer
+ * front always stands on the face, so its gizmo has no depth handles.
+ * Snapping is ours (absolute 10 mm grid on the origin, the same step the
+ * origin sliders use) — the control's own `translationSnap` adds the
+ * parent's world position before rounding, which is meaningless here.
  *
  * One drag = one undo gesture: mouse-down begins it, every move goes
- * through `movePanel` (clamped into the envelope) and the ordinary
- * `updateSelectedDesign`, mouse-up ends it. Escape (via the handle) puts
- * the panel back and ignores the rest of the pointer gesture.
+ * through `moveElement` (clamped into the envelope or onto the face) and the
+ * ordinary `updateSelectedDesign`, mouse-up ends it. Escape (via the handle)
+ * puts the element back and ignores the rest of the pointer gesture.
  */
-export function ElementGizmo({ placed, spec, panel, onHandle }: ElementGizmoProps): ReactElement {
+export function ElementGizmo({ placed, spec, elementId, onHandle }: ElementGizmoProps): ReactElement {
   const updateSelectedDesign = useAppStore((state) => state.updateSelectedDesign)
   const beginGesture = useAppStore((state) => state.beginGesture)
   const endGesture = useAppStore((state) => state.endGesture)
@@ -104,16 +106,20 @@ export function ElementGizmo({ placed, spec, panel, onHandle }: ElementGizmoProp
   const dragRef = useRef<DragState | null>(null)
   // The handlers read the latest props through refs: drei keeps the first
   // callback identity it is given per event.
-  const latest = useRef({ placed, spec, panel })
-  latest.current = { placed, spec, panel }
+  const latest = useRef({ placed, spec, elementId })
+  latest.current = { placed, spec, elementId }
+  const movesInDepth = elementAnchor(spec, elementId)?.axes.includes('z') ?? true
 
-  // Glue the proxy to the panel. Runs on every store change of the panel or
-  // the piece (a slider, an undo, a clamped drag frame, a gate relocation),
-  // so the gizmo always sits on the panel's real centre.
+  // Glue the proxy to the element. Runs on every store change of the element
+  // or the piece (a slider, an undo, a clamped drag frame, a gate relocation),
+  // so the gizmo always sits on the element's real anchor.
   useLayoutEffect(() => {
-    proxy.position.copy(worldCenter(placed, spec, panel))
-    proxy.quaternion.setFromAxisAngle(UP, yawOf(placed))
-  }, [proxy, placed, spec, panel])
+    const anchor = elementAnchor(spec, elementId)
+    if (anchor !== null) {
+      proxy.position.copy(worldCenter(placed, spec, anchor))
+      proxy.quaternion.setFromAxisAngle(UP, yawOf(placed))
+    }
+  }, [proxy, placed, spec, elementId])
 
   const handle = useMemo<GizmoHandle>(
     () => ({
@@ -145,8 +151,12 @@ export function ElementGizmo({ placed, spec, panel, onHandle }: ElementGizmoProp
   }, [handle, onHandle])
 
   const onMouseDown = (): void => {
+    const anchor = elementAnchor(latest.current.spec, latest.current.elementId)
+    if (anchor === null) {
+      return
+    }
     dragRef.current = {
-      startOrigin: latest.current.panel.originMm,
+      startOrigin: anchor.originMm,
       startProxy: proxy.position.clone(),
       cancelled: false
     }
@@ -158,15 +168,19 @@ export function ElementGizmo({ placed, spec, panel, onHandle }: ElementGizmoProp
     if (drag === null) {
       return
     }
-    const { placed: piece, spec: current, panel: target } = latest.current
+    const { placed: piece, spec: current, elementId: target } = latest.current
+    const anchor = elementAnchor(current, target)
+    if (anchor === null) {
+      return
+    }
     if (drag.cancelled) {
       // The control keeps moving the proxy until the button is released;
-      // keep the gizmo on the panel, which already went back.
-      proxy.position.copy(worldCenter(piece, current, target))
+      // keep the gizmo on the element, which already went back.
+      proxy.position.copy(worldCenter(piece, current, anchor))
       return
     }
     // The control sets proxy = start + pointer offset (world metres); into
-    // the piece's axes, in mm, snapped, and through the envelope clamp.
+    // the piece's axes, in mm, snapped, and through the clamp.
     const delta = proxy.position
       .clone()
       .sub(drag.startProxy)
@@ -177,15 +191,15 @@ export function ElementGizmo({ placed, spec, panel, onHandle }: ElementGizmoProp
       y: snap(drag.startOrigin.y + delta.y),
       z: snap(drag.startOrigin.z + delta.z)
     }
-    updateSelectedDesign({ kind: CUSTOM_PIECE_KIND, spec: movePanel(current, target.id, origin) })
-    // Re-glue from the store now: when the clamp left the panel where it was
-    // (pushing against a face) nothing re-renders, and the proxy would
+    updateSelectedDesign({ kind: CUSTOM_PIECE_KIND, spec: moveElement(current, target, origin) })
+    // Re-glue from the store now: when the clamp left the element where it
+    // was (pushing against a face) nothing re-renders, and the proxy would
     // otherwise drift on with the pointer.
     const placedNow = findPlacedCabinet(useAppStore.getState().scene, piece.id)
     if (placedNow !== undefined && isCustomPieceDesign(placedNow.design)) {
-      const panelNow = placedNow.design.spec.panels.find((candidate) => candidate.id === target.id)
-      if (panelNow !== undefined) {
-        proxy.position.copy(worldCenter(placedNow, placedNow.design.spec, panelNow))
+      const anchorNow = elementAnchor(placedNow.design.spec, target)
+      if (anchorNow !== null) {
+        proxy.position.copy(worldCenter(placedNow, placedNow.design.spec, anchorNow))
       }
     }
   }
@@ -207,6 +221,7 @@ export function ElementGizmo({ placed, spec, panel, onHandle }: ElementGizmoProp
         mode="translate"
         space="local"
         size={0.8}
+        showZ={movesInDepth}
         onMouseDown={onMouseDown}
         onMouseUp={onMouseUp}
         onObjectChange={onObjectChange}

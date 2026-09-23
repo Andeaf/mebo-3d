@@ -8,7 +8,7 @@ import {
   sameDesign,
   type CabinetKind
 } from '@core/catalog/registry'
-import { createDefaultCustomPieceSpec, CUSTOM_PIECE_KIND } from '@core/customPiece'
+import { createDefaultCustomPieceSpec, pieceElementIds, CUSTOM_PIECE_KIND } from '@core/customPiece'
 import { cabinetOverlapsOthers, placedCabinetRect } from '@core/footprint'
 import type { PriceDatabase } from '@core/materials'
 import type { ProjectDocument } from '@core/project'
@@ -247,8 +247,8 @@ function scoped(prefix: string, key: string | undefined): string | null {
 /**
  * After a scene arrives from history (undo, redo, a cancelled gesture): the
  * transient state is reconciled, never restored. A selection whose cabinet
- * is gone is dropped; the editor closes if its piece is gone and forgets a
- * panel that is gone.
+ * is gone is dropped; the editor closes if its piece is gone and forgets an
+ * element (a panel or a drawer) that is gone.
  */
 function reconcileWith(
   state: Pick<AppState, 'selectedCabinetId' | 'editor'>,
@@ -264,10 +264,7 @@ function reconcileWith(
     editor =
       piece === undefined || !isCustomPieceDesign(piece.design)
         ? NO_EDITOR
-        : reconcileElements(
-            editor,
-            piece.design.spec.panels.map((panel) => panel.id)
-          )
+        : reconcileElements(editor, pieceElementIds(piece.design.spec))
   }
   return { selectedCabinetId, editor }
 }
@@ -414,14 +411,8 @@ export const useAppStore = create<AppState>((set) => ({
       if (change.scene === undefined || !isCustomPieceDesign(clamped)) {
         return change
       }
-      // A panel selection must not outlive its panel.
-      return {
-        ...change,
-        editor: reconcileElements(
-          state.editor,
-          clamped.spec.panels.map((panel) => panel.id)
-        )
-      }
+      // An element selection must not outlive its panel or drawer.
+      return { ...change, editor: reconcileElements(state.editor, pieceElementIds(clamped.spec)) }
     }),
 
   updateRoom: (room, coalesceKey) =>

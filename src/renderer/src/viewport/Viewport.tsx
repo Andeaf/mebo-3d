@@ -9,7 +9,7 @@ import {
   designWithMountingHeightMm,
   isCustomPieceDesign
 } from '@core/catalog/registry'
-import { nudgePanel, CUSTOM_PIECE_KIND } from '@core/customPiece'
+import { elementAnchor, nudgeElement, CUSTOM_PIECE_KIND } from '@core/customPiece'
 import { placedCabinetRect, placedVerticalInterval } from '@core/footprint'
 import { roomInteriorRect } from '@core/room'
 import { findPlacedCabinet, type PlacedCabinet } from '@core/scene'
@@ -235,19 +235,26 @@ function SceneContents(): ReactElement {
         const distance = nudgeDistanceMm(command)
         const piece = editor.editingPieceId === null ? undefined : findPlacedCabinet(current, editor.editingPieceId)
         if (piece !== undefined) {
-          // Edit mode: the selected panel of the open piece, in the piece's
+          // Edit mode: the selected element of the open piece, in the piece's
           // own axes (the gizmo's), through the same clamp; a key burst is
-          // one undo entry.
-          if (isCustomPieceDesign(piece.design) && editor.selectedElementId !== null) {
+          // one undo entry. A drawer front stands on the face: depth keys do
+          // nothing for it (and record nothing).
+          const elementId = editor.selectedElementId
+          if (isCustomPieceDesign(piece.design) && elementId !== null) {
+            const anchor = elementAnchor(piece.design.spec, elementId)
+            if (anchor === null) {
+              return
+            }
             event.preventDefault()
-            const panelId = editor.selectedElementId
-            updateSelectedDesign(
-              {
-                kind: CUSTOM_PIECE_KIND,
-                spec: nudgePanel(piece.design.spec, panelId, { [command.axis]: distance })
-              },
-              `nudge:${panelId}`
-            )
+            if (anchor.axes.includes(command.axis)) {
+              updateSelectedDesign(
+                {
+                  kind: CUSTOM_PIECE_KIND,
+                  spec: nudgeElement(piece.design.spec, elementId, { [command.axis]: distance })
+                },
+                `nudge:${elementId}`
+              )
+            }
           }
           return
         }
@@ -402,17 +409,19 @@ function SceneContents(): ReactElement {
         )
       )}
 
-      {/* The translate gizmo on the selected panel of the open piece. */}
+      {/* The translate gizmo on the selected element (a panel or a drawer) of the open piece. */}
       {editedPiece !== undefined &&
         isCustomPieceDesign(editedPiece.design) &&
         selectedElementId !== null &&
-        (() => {
-          const spec = editedPiece.design.spec
-          const panel = spec.panels.find((candidate) => candidate.id === selectedElementId)
-          return panel === undefined ? null : (
-            <ElementGizmo placed={editedPiece} spec={spec} panel={panel} onHandle={setGizmoHandle} />
-          )
-        })()}
+        elementAnchor(editedPiece.design.spec, selectedElementId) !== null && (
+          <ElementGizmo
+            key={selectedElementId}
+            placed={editedPiece}
+            spec={editedPiece.design.spec}
+            elementId={selectedElementId}
+            onHandle={setGizmoHandle}
+          />
+        )}
 
       {/* The vertical arrow on a hanging item: drags its mounting height. */}
       {showMountingGizmo && selectedCabinet !== undefined && (

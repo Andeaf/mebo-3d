@@ -3,6 +3,7 @@ import { Edges } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
 import { BoxGeometry } from 'three'
 import { designFootprintSize, designVerticalExtent } from '@core/catalog/registry'
+import { elementIdOfPart } from '@core/customPiece'
 import { GeneratedGeometry } from '@core/geometry/GeometrySource'
 import type { PriceDatabase } from '@core/materials'
 import type { PlacedCabinet } from '@core/scene'
@@ -24,7 +25,11 @@ interface PlacedCabinetMeshProps {
   /** Scene mode: starts a drag (and selects). Absent while a piece is open. */
   readonly onPointerDown?: (event: ThreeEvent<PointerEvent>) => void
   readonly onDoubleClick?: (event: ThreeEvent<MouseEvent>) => void
-  /** Edit mode, the open piece: its panels are pick targets and its envelope is drawn. */
+  /**
+   * Edit mode, the open piece: its parts are pick targets and its envelope is
+   * drawn. A part picks and lights up as the element it belongs to: a panel
+   * as itself, any of a drawer's six parts as the drawer.
+   */
   readonly editing?: boolean
   readonly selectedElementId?: string | null
   readonly onSelectElement?: (elementId: string) => void
@@ -82,7 +87,8 @@ export function PlacedCabinetMesh({
         <group position={[-widthMm / 2, 0, -depthMm / 2]}>
           {description.boxes.map((instance) => {
             const color = colorForMaterial(priceDb, instance.materialId, FALLBACK_PANEL_COLOR)
-            const panelSelected = editing && instance.panelId === selectedElementId
+            const elementId = elementIdOfPart(instance.panelId)
+            const panelSelected = editing && elementId === selectedElementId
             return (
               <mesh
                 key={instance.panelId}
@@ -95,7 +101,7 @@ export function PlacedCabinetMesh({
                         }
                         event.stopPropagation()
                         if (event.button === 0) {
-                          onSelectElement(instance.panelId)
+                          onSelectElement(elementId)
                         }
                       }
                     : undefined

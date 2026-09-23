@@ -1,11 +1,18 @@
 import type { ReactElement } from 'react'
+import { DRAWER_MIN_CARCASS_DEPTH_MM } from '@core/catalog/drawer'
 import {
+  addDrawer,
   addPresetPanel,
+  canAddDrawer,
+  customPieceEnvelopeLimits,
+  drawerNumberOf,
   panelBoxSize,
   resizeEnvelope,
+  CUSTOM_DRAWER_LIMITS,
   CUSTOM_PIECE_KIND,
   CUSTOM_PIECE_LIMITS,
   DEFAULT_WALL_MOUNTING_HEIGHT_MM,
+  MAX_DRAWERS_PER_PIECE,
   MAX_PANELS_PER_PIECE,
   MAX_PIECE_NAME_LENGTH,
   PANEL_PRESETS,
@@ -16,6 +23,7 @@ import { useAppStore } from '@state/store'
 import { useT } from '../i18n'
 import { DimensionField } from '../panels/DimensionField'
 import { TextField } from '../panels/TextField'
+import { DrawerFields } from './DrawerFields'
 import { HardwareFields } from './HardwareFields'
 import { PanelFields } from './PanelFields'
 
@@ -26,9 +34,10 @@ interface PieceEditorProps {
 
 /**
  * The sidebar while a custom piece is open: the piece itself (name, envelope,
- * placement, hardware), the preset buttons, the panel list and the selected
- * panel's fields. Every change becomes a new spec handed to the store, which
- * clamps it and re-places the piece like any other design edit.
+ * placement, hardware), the panel presets and "add drawer", the panel and
+ * drawer lists, and the selected element's fields. Every change becomes a
+ * new spec handed to the store, which clamps it and re-places the piece like
+ * any other design edit.
  */
 export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
   const t = useT()
@@ -37,6 +46,8 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
   const selectElement = useAppStore((state) => state.selectElement)
   const selectedElementId = useAppStore((state) => state.editor.selectedElementId)
   const limits = CUSTOM_PIECE_LIMITS
+  // While the piece holds drawers the envelope keeps room for them (the sliders stop).
+  const envelope = customPieceEnvelopeLimits(spec)
 
   // The optional key names the field a slider is dragging so the burst is
   // one undo entry; discrete actions (a preset, a toggle) pass none.
@@ -51,9 +62,21 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
     }
   }
 
+  const addOneDrawer = (): void => {
+    const change = addDrawer(spec)
+    if (change !== null) {
+      onSpec(change.spec)
+      selectElement(change.drawerId)
+    }
+  }
+
   const selectedPanel = spec.panels.find((panel) => panel.id === selectedElementId)
+  const selectedDrawer = spec.drawers.find((drawer) => drawer.id === selectedElementId)
   const onWall = spec.mountingHeightMm > 0
   const atLimit = spec.panels.length >= MAX_PANELS_PER_PIECE
+  const drawersAtLimit = spec.drawers.length >= MAX_DRAWERS_PER_PIECE
+  const rowClass = (id: string): string =>
+    id === selectedElementId ? 'panel-list__row panel-list__row--active' : 'panel-list__row'
 
   return (
     <section className="panel">
@@ -78,22 +101,22 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
       <DimensionField
         labelKey="params.width"
         value={spec.widthMm}
-        min={limits.widthMm.min}
-        max={limits.widthMm.max}
+        min={envelope.widthMm.min}
+        max={envelope.widthMm.max}
         onChange={(widthMm) => onSpec(resizeEnvelope(spec, { widthMm }), 'widthMm')}
       />
       <DimensionField
         labelKey="params.height"
         value={spec.heightMm}
-        min={limits.heightMm.min}
-        max={limits.heightMm.max}
+        min={envelope.heightMm.min}
+        max={envelope.heightMm.max}
         onChange={(heightMm) => onSpec(resizeEnvelope(spec, { heightMm }), 'heightMm')}
       />
       <DimensionField
         labelKey="params.depth"
         value={spec.depthMm}
-        min={limits.depthMm.min}
-        max={limits.depthMm.max}
+        min={envelope.depthMm.min}
+        max={envelope.depthMm.max}
         onChange={(depthMm) => onSpec(resizeEnvelope(spec, { depthMm }), 'depthMm')}
       />
 
@@ -157,6 +180,27 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
         {atLimit && <p className="field__hint">{t('piece.panelLimit')}</p>}
       </div>
 
+      <div className="field">
+        <div className="field__head">
+          <span className="field__label">{t('piece.addDrawer')}</span>
+        </div>
+        <div className="button-row">
+          <button type="button" className="button" disabled={!canAddDrawer(spec)} onClick={addOneDrawer}>
+            + {t('drawer.name')}
+          </button>
+        </div>
+        {drawersAtLimit ? (
+          <p className="field__hint">{t('piece.drawerLimit')}</p>
+        ) : (
+          !canAddDrawer(spec) && (
+            <p className="field__hint">
+              {t('piece.drawerNeedsRoom')} {CUSTOM_DRAWER_LIMITS.widthMm.min} × {DRAWER_MIN_CARCASS_DEPTH_MM}{' '}
+              {t('unit.mm')}
+            </p>
+          )
+        )}
+      </div>
+
       <h3 className="panel__subtitle">
         {t('piece.panels')} ({spec.panels.length})
       </h3>
@@ -170,11 +214,7 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
               <button
                 key={panel.id}
                 type="button"
-                className={
-                  panel.id === selectedElementId
-                    ? 'panel-list__row panel-list__row--active'
-                    : 'panel-list__row'
-                }
+                className={rowClass(panel.id)}
                 onClick={() => selectElement(panel.id === selectedElementId ? null : panel.id)}
               >
                 <span className="panel-list__role">{t(`role.${panel.role}`)}</span>
@@ -187,13 +227,46 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
         </div>
       )}
 
-      {selectedPanel === undefined ? (
-        spec.panels.length > 0 && <p className="field__hint">{t('panel.noSelection')}</p>
-      ) : (
+      {spec.drawers.length > 0 && (
+        <>
+          <h3 className="panel__subtitle">
+            {t('piece.drawers')} ({spec.drawers.length})
+          </h3>
+          <div className="panel-list">
+            {spec.drawers.map((drawer) => (
+              <button
+                key={drawer.id}
+                type="button"
+                className={rowClass(drawer.id)}
+                onClick={() => selectElement(drawer.id === selectedElementId ? null : drawer.id)}
+              >
+                <span className="panel-list__role">
+                  {t('drawer.name')} {drawerNumberOf(drawer.id)}
+                </span>
+                <span className="panel-list__dims">
+                  {drawer.widthMm} × {drawer.heightMm}
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="field__hint">{t('drawer.hardwareHint')}</p>
+        </>
+      )}
+
+      {selectedPanel !== undefined ? (
         <>
           <p className="field__hint">{t('panel.moveHint')}</p>
           <PanelFields spec={spec} panel={selectedPanel} onSpec={onSpec} />
         </>
+      ) : selectedDrawer !== undefined ? (
+        <>
+          <p className="field__hint">{t('drawer.moveHint')}</p>
+          <DrawerFields spec={spec} drawer={selectedDrawer} onSpec={onSpec} />
+        </>
+      ) : (
+        spec.panels.length + spec.drawers.length > 0 && (
+          <p className="field__hint">{t('panel.noSelection')}</p>
+        )
       )}
     </section>
   )

@@ -33,6 +33,23 @@ export const nl = {
   'piece.noPanels': 'Nog geen panelen. Voeg een zijkant, bodem of legplank toe.',
   'piece.panelLimit': 'Maximum aantal panelen bereikt.',
 
+  'piece.drawers': 'Lades',
+  'piece.drawerCount': 'Lades',
+  'piece.addDrawer': 'Lade toevoegen',
+  'piece.drawerLimit': 'Maximum aantal lades bereikt.',
+  'piece.drawerNeedsRoom': 'Een lade vraagt een stuk van minstens (breedte × diepte)',
+
+  'drawer.name': 'Lade',
+  'drawer.title': 'Geselecteerde lade',
+  'drawer.frontWidth': 'Frontbreedte',
+  'drawer.frontHeight': 'Fronthoogte',
+  'drawer.frontMaterial': 'Frontmateriaal',
+  'drawer.boxMaterial': 'Materiaal ladebak',
+  'drawer.box': 'Ladebak (diepte × hoogte)',
+  'drawer.moveHint':
+    'Verplaats de lade met de pijlen in het 3D-beeld (stappen van 10 mm) of met ←/→ en PgUp/PgDn: 1 mm, Shift = 10 mm. Een lade blijft altijd aan de voorkant.',
+  'drawer.hardwareHint': 'Elke lade brengt 1 paar ladegeleiders en 1 greep mee.',
+
   'preset.side': 'Zijkant',
   'preset.top': 'Bovenblad',
   'preset.bottom': 'Bodem',
@@ -51,7 +68,7 @@ export const nl = {
   'role.front': 'Front',
 
   'panel.title': 'Geselecteerd paneel',
-  'panel.noSelection': 'Klik op een paneel in het 3D-beeld of in de lijst.',
+  'panel.noSelection': 'Klik op een paneel of een lade in het 3D-beeld of in een lijst.',
   'panel.moveHint':
     'Verplaats het paneel met de pijlen in het 3D-beeld (stappen van 10 mm) of met de pijltjestoetsen: 1 mm, Shift = 10 mm, PgUp/PgDn = hoogte.',
   'panel.role': 'Functie',

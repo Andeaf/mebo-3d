@@ -524,6 +524,7 @@ function CustomPieceSummary({ spec }: { readonly spec: CustomPieceSpec }): React
           : t('piece.mounting.floor')
       )}
       {row(t('piece.panelCount'), String(spec.panels.length))}
+      {spec.drawers.length > 0 && row(t('piece.drawerCount'), String(spec.drawers.length))}
       <div className="field__actions">
         <button type="button" className="button button--primary" onClick={enterPieceEditor}>
           {t('piece.edit')}

@@ -31,6 +31,23 @@ export const ro: Record<TranslationKey, string> = {
   'piece.noPanels': 'Niciun panou încă. Adaugă o laterală, o bază sau un raft.',
   'piece.panelLimit': 'S-a atins numărul maxim de panouri.',
 
+  'piece.drawers': 'Sertare',
+  'piece.drawerCount': 'Sertare',
+  'piece.addDrawer': 'Adaugă sertar',
+  'piece.drawerLimit': 'S-a atins numărul maxim de sertare.',
+  'piece.drawerNeedsRoom': 'Un sertar are nevoie de o piesă de cel puțin (lățime × adâncime)',
+
+  'drawer.name': 'Sertar',
+  'drawer.title': 'Sertar selectat',
+  'drawer.frontWidth': 'Lățime front',
+  'drawer.frontHeight': 'Înălțime front',
+  'drawer.frontMaterial': 'Material front',
+  'drawer.boxMaterial': 'Material cutie',
+  'drawer.box': 'Cutia sertarului (adâncime × înălțime)',
+  'drawer.moveHint':
+    'Mută sertarul cu săgețile din vederea 3D (pași de 10 mm) sau cu ←/→ și PgUp/PgDn: 1 mm, Shift = 10 mm. Un sertar rămâne mereu pe față.',
+  'drawer.hardwareHint': 'Fiecare sertar vine cu o pereche de glisiere și un mâner.',
+
   'preset.side': 'Laterală',
   'preset.top': 'Blat superior',
   'preset.bottom': 'Bază',
@@ -49,7 +66,7 @@ export const ro: Record<TranslationKey, string> = {
   'role.front': 'Front',
 
   'panel.title': 'Panou selectat',
-  'panel.noSelection': 'Dă clic pe un panou în vederea 3D sau în listă.',
+  'panel.noSelection': 'Dă clic pe un panou sau pe un sertar în vederea 3D sau într-o listă.',
   'panel.moveHint':
     'Mută panoul cu săgețile din vederea 3D (pași de 10 mm) sau cu tastele săgeți: 1 mm, Shift = 10 mm, PgUp/PgDn = înălțime.',
   'panel.role': 'Rol',
