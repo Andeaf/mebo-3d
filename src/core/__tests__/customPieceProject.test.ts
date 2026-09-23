@@ -133,7 +133,7 @@ describe('custom pieces round-trip through the project file', () => {
     const document = parseProject(text)
     expect(document.scene).toEqual(scene)
     expect(serializeProject(document.scene, document.metadata)).toBe(text)
-    expect(text).toContain('\n  "schemaVersion": 3,\n')
+    expect(text).toContain('\n  "schemaVersion": 4,\n')
   })
 
   it('writes the spec, its panels and their nested objects in a fixed key order', () => {
@@ -147,6 +147,7 @@ describe('custom pieces round-trip through the project file', () => {
       'depthMm',
       'mountingHeightMm',
       'panels',
+      'drawers',
       'hardware'
     ])
     expect(Object.keys(panel(root, 0))).toEqual([
@@ -184,8 +185,8 @@ describe('custom pieces round-trip through the project file', () => {
   })
 })
 
-describe('schema 1 → 2 → 3', () => {
-  it('opens a Phase 5 file through the stamping migrations and re-saves it as v3', () => {
+describe('schema 1 → 2 → 3 → 4', () => {
+  it('opens a Phase 5 file through the stamping migrations and re-saves it as v4', () => {
     // A Phase 5 writer knew neither custom pieces nor worktop settings; the
     // migrated file gets the default settings, which the fixture also carries.
     const catalogOnly: SceneDesign = { room, worktop: createDefaultWorktopSettings(), cabinets: [cabinets[0]] }
@@ -197,10 +198,10 @@ describe('schema 1 → 2 → 3', () => {
     const document = parseProject(v1)
     expect(document.schemaVersion).toBe(PROJECT_SCHEMA_VERSION)
     expect(document.scene).toEqual(catalogOnly)
-    expect(serializeProject(document.scene, document.metadata)).toContain('"schemaVersion": 3')
+    expect(serializeProject(document.scene, document.metadata)).toContain('"schemaVersion": 4')
   })
 
-  it('still refuses schema 0 (no migration) and schema 4 (newer)', () => {
+  it('still refuses schema 0 (no migration) and schema 5 (newer)', () => {
     expectRefusal(
       edited((document) => {
         document.schemaVersion = 0
@@ -209,7 +210,7 @@ describe('schema 1 → 2 → 3', () => {
     )
     expectRefusal(
       edited((document) => {
-        document.schemaVersion = 4
+        document.schemaVersion = 5
       }),
       /newer version/
     )

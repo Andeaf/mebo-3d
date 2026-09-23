@@ -10,6 +10,7 @@ import {
   CUSTOM_PANEL_ROLES,
   CUSTOM_PIECE_KIND,
   PANEL_ORIENTATIONS,
+  type CustomDrawerSpec,
   type CustomPanelSpec,
   type CustomPieceSpec
 } from './customPiece'
@@ -23,7 +24,7 @@ import {
   type PlacedCabinet,
   type SceneDesign
 } from './scene'
-import type { Vec3 } from './units'
+import type { Vec2, Vec3 } from './units'
 import { createDefaultWorktopSettings, validateWorktopSettings, type WorktopSettings } from './worktop'
 
 /**
@@ -51,10 +52,12 @@ import { createDefaultWorktopSettings, validateWorktopSettings, type WorktopSett
  *
  * History: 1 = Phase 5 (catalog cabinets only); 2 = Phase 6 adds the custom
  * piece design shape `{ kind: 'custom-piece', spec }`; 3 = Phase 7 adds
- * `scene.worktop` (the worktop settings — the slabs are derived, not stored).
+ * `scene.worktop` (the worktop settings — the slabs are derived, not stored);
+ * 4 = Phase 10 adds the ladekast's shallow-drawer params and the custom
+ * piece's `drawers` list (the new drawer-door kind needs no format change).
  */
 
-export const PROJECT_SCHEMA_VERSION = 3
+export const PROJECT_SCHEMA_VERSION = 4
 export const PROJECT_FILE_EXTENSION = 'mebo'
 
 export interface ProjectMetadata {
@@ -106,8 +109,58 @@ const MIGRATIONS: ReadonlyArray<Migration | undefined> = [
       schemaVersion: 3,
       scene: { ...scene, worktop: createDefaultWorktopSettings() }
     }
+  },
+  // 3 → 4: drawers (Phase 10). A v3 ladekast gets its layout and a v3 custom
+  // piece an empty drawer list; see `migrateCabinetTo4`.
+  (document) => {
+    const record = requireRecord(document, 'project file')
+    const scene = requireRecord(record.scene, 'scene')
+    const cabinets = Array.isArray(scene.cabinets)
+      ? scene.cabinets.map((entry: unknown, index) => migrateCabinetTo4(entry, index))
+      : scene.cabinets
+    return { ...record, schemaVersion: 4, scene: { ...scene, cabinets } }
   }
 ]
+
+/**
+ * A v3 ladekast had equal fronts, so it gets no shallow drawers and a dormant
+ * shallow height. FROZEN here on purpose, never read from today's defaults:
+ * "schema 3" means equal fronts, whatever the defaults become later.
+ */
+const V3_LADEKAST_LAYOUT = { shallowDrawerCount: 0, shallowFrontHeightMm: 150 } as const
+
+/**
+ * One cabinet of a v3 document, brought to v4 without judging it: a key a v3
+ * writer never wrote is refused rather than overwritten (the 2 → 3 rule), and
+ * anything malformed passes through untouched for the strict decoder to name.
+ * A migration is the one place that may know a kind by name: it describes
+ * what one historic writer wrote.
+ */
+function migrateCabinetTo4(entry: unknown, index: number): unknown {
+  if (!isRecord(entry) || !isRecord(entry.design)) {
+    return entry
+  }
+  const design = entry.design
+  const label = typeof entry.id === 'string' ? `cabinet ${entry.id}: ` : ''
+  const refuse = (field: string): never =>
+    fail(`${label}scene.cabinets[${index}].design.${field} is not a known field in schema 3`)
+  if (design.kind === 'drawer-cabinet' && isRecord(design.params)) {
+    const params = design.params
+    for (const key of Object.keys(V3_LADEKAST_LAYOUT)) {
+      if (params[key] !== undefined) {
+        refuse(`params.${key}`)
+      }
+    }
+    return { ...entry, design: { ...design, params: { ...params, ...V3_LADEKAST_LAYOUT } } }
+  }
+  if (design.kind === CUSTOM_PIECE_KIND && isRecord(design.spec)) {
+    if (design.spec.drawers !== undefined) {
+      refuse('spec.drawers')
+    }
+    return { ...entry, design: { ...design, spec: { ...design.spec, drawers: [] } } }
+  }
+  return entry
+}
 
 function migrateToCurrent(document: unknown, from: number): unknown {
   let current = document
@@ -155,6 +208,16 @@ function serializeDesign(design: CabinetDesign): CabinetDesign {
             : { materialId: panel.edgeBanding.materialId, edges: [...panel.edgeBanding.edges] },
         orientation: panel.orientation,
         originMm: { x: panel.originMm.x, y: panel.originMm.y, z: panel.originMm.z }
+      })),
+      drawers: spec.drawers.map((drawer) => ({
+        id: drawer.id,
+        originMm: { x: drawer.originMm.x, y: drawer.originMm.y },
+        widthMm: drawer.widthMm,
+        heightMm: drawer.heightMm,
+        frontMaterialId: drawer.frontMaterialId,
+        boxMaterialId: drawer.boxMaterialId,
+        bottomMaterialId: drawer.bottomMaterialId,
+        edgeBandMaterialId: drawer.edgeBandMaterialId
       })),
       hardware: spec.hardware.map((item) => ({ materialId: item.materialId, quantity: item.quantity }))
     }
@@ -214,6 +277,7 @@ const SPEC_KEYS = [
   'depthMm',
   'mountingHeightMm',
   'panels',
+  'drawers',
   'hardware'
 ] as const
 const PANEL_KEYS = [
@@ -227,7 +291,18 @@ const PANEL_KEYS = [
   'orientation',
   'originMm'
 ] as const
+const DRAWER_KEYS = [
+  'id',
+  'originMm',
+  'widthMm',
+  'heightMm',
+  'frontMaterialId',
+  'boxMaterialId',
+  'bottomMaterialId',
+  'edgeBandMaterialId'
+] as const
 const VEC3_KEYS = ['x', 'y', 'z'] as const
+const VEC2_KEYS = ['x', 'y'] as const
 const BANDING_KEYS = ['materialId', 'edges'] as const
 const HARDWARE_KEYS = ['materialId', 'quantity'] as const
 
@@ -392,6 +467,15 @@ function decodeVec3(raw: unknown, path: string): Vec3 {
   }
 }
 
+function decodeVec2(raw: unknown, path: string): Vec2 {
+  const record = requireRecord(raw, path)
+  rejectUnknownKeys(record, path, VEC2_KEYS)
+  return {
+    x: requireFiniteNumber(record.x, `${path}.x`),
+    y: requireFiniteNumber(record.y, `${path}.y`)
+  }
+}
+
 function decodeEdgeBanding(raw: unknown, path: string): EdgeBanding | null {
   if (raw === undefined) {
     fail(`${path} is missing`)
@@ -425,6 +509,23 @@ function decodeCustomPanel(raw: unknown, path: string): CustomPanelSpec {
   }
 }
 
+/** A drawer entry: where its front sits on the face and what it is made of; the rest is derived. */
+function decodeCustomDrawer(raw: unknown, path: string): CustomDrawerSpec {
+  const record = requireRecord(raw, path)
+  rejectUnknownKeys(record, path, DRAWER_KEYS)
+  return {
+    id: requireString(record.id, `${path}.id`),
+    originMm: decodeVec2(record.originMm, `${path}.originMm`),
+    widthMm: requireFiniteNumber(record.widthMm, `${path}.widthMm`),
+    heightMm: requireFiniteNumber(record.heightMm, `${path}.heightMm`),
+    // Material ids are never checked against the database: prices are not in the file.
+    frontMaterialId: requireString(record.frontMaterialId, `${path}.frontMaterialId`),
+    boxMaterialId: requireString(record.boxMaterialId, `${path}.boxMaterialId`),
+    bottomMaterialId: requireString(record.bottomMaterialId, `${path}.bottomMaterialId`),
+    edgeBandMaterialId: requireString(record.edgeBandMaterialId, `${path}.edgeBandMaterialId`)
+  }
+}
+
 function decodeHardwareItem(raw: unknown, path: string): HardwareItem {
   const record = requireRecord(raw, path)
   rejectUnknownKeys(record, path, HARDWARE_KEYS)
@@ -449,6 +550,9 @@ function decodeCustomPieceSpec(raw: unknown, path: string): CustomPieceSpec {
     mountingHeightMm: requireFiniteNumber(record.mountingHeightMm, `${path}.mountingHeightMm`),
     panels: requireArray(record.panels, `${path}.panels`).map((entry, index) =>
       decodeCustomPanel(entry, `${path}.panels[${index}]`)
+    ),
+    drawers: requireArray(record.drawers, `${path}.drawers`).map((entry, index) =>
+      decodeCustomDrawer(entry, `${path}.drawers[${index}]`)
     ),
     hardware: requireArray(record.hardware, `${path}.hardware`).map((entry, index) =>
       decodeHardwareItem(entry, `${path}.hardware[${index}]`)

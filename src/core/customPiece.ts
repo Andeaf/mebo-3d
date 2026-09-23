@@ -1,5 +1,13 @@
-import { clampToLimit, limitViolations } from './cabinet'
+import { clampToLimit, limitViolations, type NumericLimit } from './cabinet'
 import {
+  buildDrawer,
+  DRAWER_FRONT_MIN_HEIGHT_MM,
+  DRAWER_FRONT_OVERLAY_MM,
+  DRAWER_MIN_CARCASS_DEPTH_MM,
+  type DrawerOpening
+} from './catalog/drawer'
+import {
+  mergeHardware,
   BACK_REBATE_OVERLAP_MM,
   BACK_RECESS_MM,
   BACK_THICKNESS_MM,
@@ -23,7 +31,7 @@ import {
   type Panel,
   type PanelRole
 } from './panel'
-import type { Box3, Size3, Vec3 } from './units'
+import type { Box3, Size3, Vec2, Vec3 } from './units'
 
 /**
  * Maatwerk — a custom piece of furniture that exists in no catalog: an
@@ -45,6 +53,12 @@ import type { Box3, Size3, Vec3 } from './units'
  * of it in the overlay zone `z ∈ [D, D + FRONT_OVERLAY_ZONE_MM]`, which the
  * footprint excludes so that a custom piece in a run aligns carcass fronts
  * with its neighbours and its doors end up flush with theirs.
+ *
+ * Beside its panels a piece holds drawers (Phase 10), each ONE element: the
+ * spec stores where its overlay front sits on the carcass face and how big
+ * it is; the box, its slides and its handle are derived at build time by the
+ * shared drawer construction (`catalog/drawer.ts`), exactly as in the
+ * ladekast. Panels and drawers are the piece's two element families.
  */
 
 export const CUSTOM_PIECE_KIND = 'custom-piece' as const
@@ -90,6 +104,28 @@ export interface CustomPanelSpec {
   readonly originMm: Vec3
 }
 
+/**
+ * A drawer of a custom piece: its overlay front on the carcass face. Where
+ * the front stands and how big it is are all the spec says; the box behind
+ * it (full-overlay relation: the bay is the front less 16 mm per side), its
+ * depth (the slide that fits the envelope), one pair of slides and one
+ * handle are derived — so a drawer moves, resizes and disappears as a whole.
+ */
+export interface CustomDrawerSpec {
+  /** `drawer-<n>`, unique among the piece's drawers. */
+  readonly id: string
+  /** The front's left/bottom corner on the carcass face (piece space); it stands in the overlay zone. */
+  readonly originMm: Vec2
+  /** The front's width and height. */
+  readonly widthMm: number
+  readonly heightMm: number
+  readonly frontMaterialId: string
+  /** Box sides, box front and box back. */
+  readonly boxMaterialId: string
+  readonly bottomMaterialId: string
+  readonly edgeBandMaterialId: string
+}
+
 export interface CustomPieceSpec {
   /** Shown in the scene list and the readout; may be empty (the UI shows the kind label then). */
   readonly name: string
@@ -99,6 +135,7 @@ export interface CustomPieceSpec {
   /** Height of the piece's bottom above the floor; 0 = it stands on the floor. */
   readonly mountingHeightMm: number
   readonly panels: readonly CustomPanelSpec[]
+  readonly drawers: readonly CustomDrawerSpec[]
   readonly hardware: readonly HardwareItem[]
 }
 
@@ -119,6 +156,12 @@ export const CUSTOM_PIECE_LIMITS = {
 } as const
 export const MAX_PANELS_PER_PIECE = 60
 export const MAX_PIECE_NAME_LENGTH = 60
+/** A drawer's front: from the narrowest useful box to the widest slide load, and a sane height. */
+export const CUSTOM_DRAWER_LIMITS = {
+  widthMm: { min: 150, max: 1200 },
+  heightMm: { min: DRAWER_FRONT_MIN_HEIGHT_MM, max: 600 }
+} as const
+export const MAX_DRAWERS_PER_PIECE = 12
 /** How far a front may stand in front of the envelope: one overlay front. */
 export const FRONT_OVERLAY_ZONE_MM = DOOR_THICKNESS_MM
 
@@ -138,6 +181,7 @@ export function createDefaultCustomPieceSpec(name = ''): CustomPieceSpec {
     depthMm: 400,
     mountingHeightMm: 0,
     panels: [],
+    drawers: [],
     hardware: []
   }
 }
@@ -158,6 +202,26 @@ export function nextPanelNumberFor(spec: CustomPieceSpec): number {
   let highest = 0
   for (const panel of spec.panels) {
     const number = panelNumberOf(panel.id)
+    if (number !== null && number > highest) {
+      highest = number
+    }
+  }
+  return highest + 1
+}
+
+const DRAWER_ID_PATTERN = /^drawer-([1-9][0-9]*)$/
+
+/** The `<n>` of a `drawer-<n>` id, or null when the id has another shape. */
+export function drawerNumberOf(id: string): number | null {
+  const match = DRAWER_ID_PATTERN.exec(id)
+  return match === null ? null : Number(match[1])
+}
+
+/** One above the highest `drawer-<n>` in the piece (1 without drawers). Its own sequence beside the panels'. */
+export function nextDrawerNumberFor(spec: CustomPieceSpec): number {
+  let highest = 0
+  for (const drawer of spec.drawers) {
+    const number = drawerNumberOf(drawer.id)
     if (number !== null && number > highest) {
       highest = number
     }
@@ -267,11 +331,102 @@ export function panelRanges(
   }
 }
 
+export interface EnvelopeLimits {
+  readonly widthMm: NumericLimit
+  readonly heightMm: NumericLimit
+  readonly depthMm: NumericLimit
+}
+
+/**
+ * The envelope's ranges for this spec. While the piece holds drawers it stays
+ * wide enough for the narrowest drawer front and deep enough for the shortest
+ * slide, so no envelope edit can leave a drawer without room (the sliders stop).
+ */
+export function customPieceEnvelopeLimits(spec: Pick<CustomPieceSpec, 'drawers'>): EnvelopeLimits {
+  const limits = CUSTOM_PIECE_LIMITS
+  if (spec.drawers.length === 0) {
+    return { widthMm: limits.widthMm, heightMm: limits.heightMm, depthMm: limits.depthMm }
+  }
+  return {
+    widthMm: {
+      min: Math.max(limits.widthMm.min, CUSTOM_DRAWER_LIMITS.widthMm.min),
+      max: limits.widthMm.max
+    },
+    heightMm: {
+      min: Math.max(limits.heightMm.min, CUSTOM_DRAWER_LIMITS.heightMm.min),
+      max: limits.heightMm.max
+    },
+    depthMm: {
+      min: Math.max(limits.depthMm.min, DRAWER_MIN_CARCASS_DEPTH_MM),
+      max: limits.depthMm.max
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Validation (used by the file decoder; the editor clamps instead)
 
 function isFiniteVec3(vector: Vec3): boolean {
   return AXES.every((axis) => Number.isFinite(vector[axis]))
+}
+
+const DRAWER_MATERIAL_FIELDS = [
+  'frontMaterialId',
+  'boxMaterialId',
+  'bottomMaterialId',
+  'edgeBandMaterialId'
+] as const
+
+function validateDrawer(
+  drawer: CustomDrawerSpec,
+  index: number,
+  face: Pick<CustomPieceSpec, 'widthMm' | 'heightMm'>,
+  seenIds: Map<string, number>
+): string[] {
+  const path = `drawers[${index}]`
+  const limits = CUSTOM_DRAWER_LIMITS
+  const errors: string[] = []
+
+  if (drawerNumberOf(drawer.id) === null) {
+    errors.push(`${path}.id must look like drawer-<n> (got ${JSON.stringify(drawer.id)})`)
+  }
+  const first = seenIds.get(drawer.id)
+  if (first !== undefined) {
+    errors.push(`${path}.id is a duplicate of drawers[${first}].id (${drawer.id})`)
+  } else {
+    seenIds.set(drawer.id, index)
+  }
+  for (const field of DRAWER_MATERIAL_FIELDS) {
+    if (drawer[field].length === 0) {
+      errors.push(`${path}.${field} must not be empty`)
+    }
+  }
+  const sizeErrors = limitViolations([
+    [`${path}.widthMm`, drawer.widthMm, limits.widthMm],
+    [`${path}.heightMm`, drawer.heightMm, limits.heightMm]
+  ])
+  errors.push(...sizeErrors)
+  const originFinite = Number.isFinite(drawer.originMm.x) && Number.isFinite(drawer.originMm.y)
+  if (!originFinite) {
+    errors.push(`${path}.originMm must hold finite numbers`)
+  }
+  // The front on the face. The box then fits by construction: it is narrower
+  // than the front, its top stays at least 16 mm below the front's top edge
+  // (30 mm from a 110 mm front up), and it is at most the envelope depth − 20
+  // deep.
+  if (sizeErrors.length === 0 && originFinite) {
+    for (const [axis, size, extent] of [
+      ['x', drawer.widthMm, face.widthMm],
+      ['y', drawer.heightMm, face.heightMm]
+    ] as const) {
+      const from = drawer.originMm[axis]
+      const to = from + size
+      if (from < 0 || to > extent) {
+        errors.push(`${path} lies outside the front face on ${axis} (${from}–${to} vs 0–${extent})`)
+      }
+    }
+  }
+  return errors
 }
 
 function validatePanel(
@@ -370,6 +525,20 @@ export function validateCustomPieceSpec(spec: CustomPieceSpec): string[] {
   spec.panels.forEach((panel, index) => {
     errors.push(...validatePanel(panel, index, space, seenIds))
   })
+  if (spec.drawers.length > MAX_DRAWERS_PER_PIECE) {
+    errors.push(
+      `drawers must hold at most ${MAX_DRAWERS_PER_PIECE} drawers (got ${spec.drawers.length})`
+    )
+  }
+  if (spec.drawers.length > 0 && spec.depthMm < DRAWER_MIN_CARCASS_DEPTH_MM) {
+    errors.push(
+      `depthMm must be at least ${DRAWER_MIN_CARCASS_DEPTH_MM} while the piece has drawers (got ${spec.depthMm})`
+    )
+  }
+  const seenDrawerIds = new Map<string, number>()
+  spec.drawers.forEach((drawer, index) => {
+    errors.push(...validateDrawer(drawer, index, spec, seenDrawerIds))
+  })
   const seenHardware = new Set<string>()
   spec.hardware.forEach((item, index) => {
     const path = `hardware[${index}]`
@@ -420,13 +589,42 @@ function clampPanelInto(space: Size3, panel: CustomPanelSpec): CustomPanelSpec {
   return { ...panel, lengthMm, widthMm, thicknessMm, originMm }
 }
 
-/** Forces every numeric field into range and every panel into the envelope. */
+/**
+ * Forces a drawer's front onto the face: its size by the face (and the drawer
+ * limits), then its origin by what is left. Whole millimetres.
+ */
+function clampDrawerInto(
+  face: Pick<CustomPieceSpec, 'widthMm' | 'heightMm'>,
+  drawer: CustomDrawerSpec
+): CustomDrawerSpec {
+  const limits = CUSTOM_DRAWER_LIMITS
+  const widthMm = clampToLimit(drawer.widthMm, {
+    min: limits.widthMm.min,
+    max: Math.min(limits.widthMm.max, face.widthMm)
+  })
+  const heightMm = clampToLimit(drawer.heightMm, {
+    min: limits.heightMm.min,
+    max: Math.min(limits.heightMm.max, face.heightMm)
+  })
+  return {
+    ...drawer,
+    widthMm,
+    heightMm,
+    originMm: {
+      x: clampToLimit(drawer.originMm.x, { min: 0, max: face.widthMm - widthMm }),
+      y: clampToLimit(drawer.originMm.y, { min: 0, max: face.heightMm - heightMm })
+    }
+  }
+}
+
+/** Forces every numeric field into range, every panel into the envelope and every drawer onto its face. */
 export function clampCustomPieceSpec(spec: CustomPieceSpec): CustomPieceSpec {
   const limits = CUSTOM_PIECE_LIMITS
+  const envelopeLimits = customPieceEnvelopeLimits(spec)
   const envelope = {
-    widthMm: clampToLimit(spec.widthMm, limits.widthMm),
-    heightMm: clampToLimit(spec.heightMm, limits.heightMm),
-    depthMm: clampToLimit(spec.depthMm, limits.depthMm)
+    widthMm: clampToLimit(spec.widthMm, envelopeLimits.widthMm),
+    heightMm: clampToLimit(spec.heightMm, envelopeLimits.heightMm),
+    depthMm: clampToLimit(spec.depthMm, envelopeLimits.depthMm)
   }
   const space = panelSpace(envelope)
   return {
@@ -435,6 +633,7 @@ export function clampCustomPieceSpec(spec: CustomPieceSpec): CustomPieceSpec {
     ...envelope,
     mountingHeightMm: clampToLimit(spec.mountingHeightMm, limits.mountingHeightMm),
     panels: spec.panels.map((panel) => clampPanelInto(space, panel)),
+    drawers: spec.drawers.map((drawer) => clampDrawerInto(envelope, drawer)),
     hardware: spec.hardware.map((item) => ({
       materialId: item.materialId,
       quantity: clampToLimit(item.quantity, limits.hardwareQuantity)
@@ -499,7 +698,7 @@ function followFace(panel: CustomPanelSpec, axis: Axis, faceBefore: number, delt
  * clamped into the new envelope like any other edit.
  */
 export function resizeEnvelope(spec: CustomPieceSpec, patch: EnvelopePatch): CustomPieceSpec {
-  const limits = CUSTOM_PIECE_LIMITS
+  const limits = customPieceEnvelopeLimits(spec)
   const envelope = {
     widthMm: clampToLimit(patch.widthMm ?? spec.widthMm, limits.widthMm),
     heightMm: clampToLimit(patch.heightMm ?? spec.heightMm, limits.heightMm),
@@ -520,7 +719,28 @@ export function resizeEnvelope(spec: CustomPieceSpec, patch: EnvelopePatch): Cus
 // ---------------------------------------------------------------------------
 // The design contract (dispatched by the registry)
 
-/** spec → panels + hardware. The panels are the spec's own, with their boxes derived. */
+/**
+ * A custom drawer as the shared construction sees it: a full-overlay front on
+ * the face, its box centred in the bay behind it (the front less the overlay
+ * on each side — the relation every catalog front has with its carcass), as
+ * deep as the slide that fits the envelope.
+ */
+function drawerOpening(spec: CustomPieceSpec, drawer: CustomDrawerSpec, number: number): DrawerOpening {
+  const centerXMm = drawer.originMm.x + drawer.widthMm / 2
+  return {
+    number,
+    front: { centerXMm, bottomMm: drawer.originMm.y, widthMm: drawer.widthMm, heightMm: drawer.heightMm },
+    bayWidthMm: drawer.widthMm - 2 * DRAWER_FRONT_OVERLAY_MM,
+    bayCenterXMm: centerXMm,
+    carcassDepthMm: spec.depthMm
+  }
+}
+
+/**
+ * spec → panels + hardware. The panels are the spec's own, with their boxes
+ * derived; then every drawer's front and box parts. The hardware is the
+ * spec's list verbatim, then the drawers' slide pairs and handles.
+ */
 export function generateCustomPiece(spec: CustomPieceSpec): CabinetBuild {
   const errors = validateCustomPieceSpec(spec)
   if (errors.length > 0) {
@@ -536,13 +756,24 @@ export function generateCustomPiece(spec: CustomPieceSpec): CabinetBuild {
     edgeBanding: panel.edgeBanding,
     box: panelBox(panel)
   }))
+  const drawerHardware: HardwareItem[] = []
+  for (const drawer of spec.drawers) {
+    // Validated above, so the id always carries its number.
+    const number = drawerNumberOf(drawer.id) ?? 0
+    const built = buildDrawer(drawerOpening(spec, drawer, number), drawer)
+    panels.push(...built.panels)
+    drawerHardware.push(...built.hardware)
+  }
   const frontMostZ = spec.panels.reduce(
     (deepest, panel) => Math.max(deepest, panelExtent(panel).max.z),
-    spec.depthMm
+    spec.drawers.length > 0 ? spec.depthMm + DOOR_THICKNESS_MM : spec.depthMm
   )
   return {
     panels,
-    hardware: spec.hardware.map((item) => ({ materialId: item.materialId, quantity: item.quantity })),
+    hardware: [
+      ...spec.hardware.map((item) => ({ materialId: item.materialId, quantity: item.quantity })),
+      ...mergeHardware(drawerHardware)
+    ],
     boundingSizeMm: { x: spec.widthMm, y: spec.heightMm, z: frontMostZ }
   }
 }

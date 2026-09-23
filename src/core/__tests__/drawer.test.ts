@@ -4,6 +4,9 @@ import {
   drawerBoxSideHeightMm,
   drawerNumberOfPart,
   drawerSlideLengthMm,
+  DRAWER_FRONT_MIN_HEIGHT_MM,
+  DRAWER_FRONT_OVERLAY_MM,
+  DRAWER_MIN_CARCASS_DEPTH_MM,
   type DrawerMaterials,
   type DrawerOpening
 } from '@core/catalog/drawer'
@@ -116,6 +119,33 @@ describe('drawer rules', () => {
     expect(drawerSlideLengthMm(300)).toBe(250)
     expect(drawerSlideLengthMm(560)).toBe(500)
     expect(drawerSlideLengthMm(700)).toBe(650)
+  })
+
+  it('never goes past the longest stocked slide, and needs 270 mm for the shortest', () => {
+    expect(drawerSlideLengthMm(1000)).toBe(650)
+    expect(DRAWER_MIN_CARCASS_DEPTH_MM).toBe(270)
+    expect(drawerSlideLengthMm(DRAWER_MIN_CARCASS_DEPTH_MM)).toBe(250)
+    expect(drawerSlideLengthMm(DRAWER_MIN_CARCASS_DEPTH_MM - 1)).toBeLessThan(250)
+  })
+
+  it('96 mm is the lowest front whose box clears an 18 mm top member as the top drawer', () => {
+    expect(DRAWER_FRONT_MIN_HEIGHT_MM).toBe(96)
+    expect(DRAWER_FRONT_OVERLAY_MM).toBe(16)
+    // The top drawer of a 720 mm carcass: its front ends 2 mm under the top,
+    // the stretchers' underside is at 720 − 18 = 702.
+    const boxTop = (frontHeightMm: number): number => {
+      const drawer = buildDrawer(
+        { ...opening, front: { ...opening.front, bottomMm: 720 - 2 - frontHeightMm, heightMm: frontHeightMm } },
+        materials
+      )
+      return Math.max(
+        ...drawer.panels
+          .filter((panel) => panel.role !== 'drawer-front')
+          .map((panel) => panel.box.center.y + panel.box.size.y / 2)
+      )
+    }
+    expect(boxTop(96)).toBe(702)
+    expect(boxTop(95)).toBeGreaterThan(702)
   })
 
   it('lowers the box side 50 below the front, within the stocked 60–180', () => {

@@ -3,6 +3,7 @@ import {
   BACK_THICKNESS_MM,
   CARCASS_THICKNESS_MM,
   DOOR_THICKNESS_MM,
+  FRONT_REVEAL_MM,
   HANDLE_MATERIAL_ID
 } from './parts'
 
@@ -25,8 +26,10 @@ export const DRAWER_SLIDE_MATERIAL_ID = 'drawer-slide-pair'
 const DRAWER_SLIDE_CLEARANCE_MM = 13
 /** Space kept free behind the box; the slide length is what fits in front of it. */
 const DRAWER_SLIDE_REAR_CLEARANCE_MM = 20
-/** Slides come in 50 mm nominal lengths. */
+/** Slides come in 50 mm nominal lengths, from the shortest to the longest stocked one. */
 const DRAWER_SLIDE_LENGTH_STEP_MM = 50
+const DRAWER_SLIDE_LENGTH_MIN_MM = 250
+const DRAWER_SLIDE_LENGTH_MAX_MM = 650
 /** A drawer side is this much lower than its front, within the stocked range. */
 const DRAWER_SIDE_HEIGHT_DROP_MM = 50
 const DRAWER_SIDE_HEIGHT_MIN_MM = 60
@@ -35,6 +38,26 @@ const DRAWER_SIDE_HEIGHT_MAX_MM = 180
 const DRAWER_BOX_LIFT_MM = 20
 /** The bottom is grooved this deep into all four box parts. */
 const DRAWER_BOTTOM_GROOVE_MM = 6
+
+/**
+ * The lowest front whose box still clears an 18 mm top member when it is the
+ * top drawer under the 2 mm reveal: lift + the lowest stocked side + the
+ * member − the reveal = 96 mm. Every legal ladekast's equal front (at least
+ * 96.75: 400 mm high, 4 drawers) lies above it.
+ */
+export const DRAWER_FRONT_MIN_HEIGHT_MM =
+  DRAWER_BOX_LIFT_MM + DRAWER_SIDE_HEIGHT_MIN_MM + CARCASS_THICKNESS_MM - FRONT_REVEAL_MM
+
+/** The shallowest carcass a drawer runs in: the shortest slide plus the rear clearance (270 mm). */
+export const DRAWER_MIN_CARCASS_DEPTH_MM =
+  DRAWER_SLIDE_LENGTH_MIN_MM + DRAWER_SLIDE_REAR_CLEARANCE_MM
+
+/**
+ * How far a full-overlay front reaches past the bay on each side: over an
+ * 18 mm member, less the 2 mm reveal. Every catalog front stands so on its
+ * carcass; a custom-piece drawer derives its bay from its front with it.
+ */
+export const DRAWER_FRONT_OVERLAY_MM = CARCASS_THICKNESS_MM - FRONT_REVEAL_MM
 
 /** The overlay front of one drawer on the carcass face (mm). */
 export interface DrawerFront {
@@ -72,11 +95,17 @@ export interface DrawerBuild {
   readonly hardware: readonly HardwareItem[]
 }
 
-/** Nominal slide length: what fits in front of the rear clearance, rounded down to a stocked size. */
+/**
+ * Nominal slide length: what fits in front of the rear clearance, rounded
+ * down to a stocked size, and never longer than the longest one. Callers
+ * keep the carcass at least DRAWER_MIN_CARCASS_DEPTH_MM deep (every catalog
+ * kind does: 300 mm gives the shortest slide, 700 mm the longest).
+ */
 export function drawerSlideLengthMm(carcassDepthMm: number): number {
-  return (
+  return Math.min(
+    DRAWER_SLIDE_LENGTH_MAX_MM,
     Math.floor((carcassDepthMm - DRAWER_SLIDE_REAR_CLEARANCE_MM) / DRAWER_SLIDE_LENGTH_STEP_MM) *
-    DRAWER_SLIDE_LENGTH_STEP_MM
+      DRAWER_SLIDE_LENGTH_STEP_MM
   )
 }
 

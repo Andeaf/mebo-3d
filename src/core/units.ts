@@ -10,6 +10,12 @@ export interface Vec3 {
   readonly z: Millimeters
 }
 
+/** A point on a plane, e.g. on a cabinet's front face (x across, y up). */
+export interface Vec2 {
+  readonly x: Millimeters
+  readonly y: Millimeters
+}
+
 export interface Size3 {
   readonly x: Millimeters
   readonly y: Millimeters

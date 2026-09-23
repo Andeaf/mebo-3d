@@ -98,25 +98,35 @@ describe('worktop settings in the project file', () => {
 })
 
 describe('schema 2 → 3', () => {
-  /** The reference file as an older writer would have produced it: no `scene.worktop`. */
+  /**
+   * The reference file as an older writer would have produced it: no
+   * `scene.worktop`, and no Phase 10 shallow-drawer fields on the ladekast.
+   */
   function olderFile(schemaVersion: number): string {
     return edited((document) => {
       document.schemaVersion = schemaVersion
       delete node(document, 'scene').worktop
+      const cabinets = node(document, 'scene').cabinets
+      if (!Array.isArray(cabinets)) {
+        throw new Error('the reference file has no cabinet list')
+      }
+      const drawerParams = node(cabinets[1], 'design', 'params')
+      delete drawerParams.shallowDrawerCount
+      delete drawerParams.shallowFrontHeightMm
     })
   }
 
-  it('fills the default settings for a v2 file and re-saves it as v3', () => {
+  it('fills the default settings for a v2 file and re-saves it as v4', () => {
     const document = parseProject(olderFile(2))
     expect(document.schemaVersion).toBe(PROJECT_SCHEMA_VERSION)
     expect(document.scene.worktop).toEqual(createDefaultWorktopSettings())
     expect(document.scene.cabinets).toEqual(scene.cabinets)
-    expect(serializeProject(document.scene, document.metadata)).toContain('\n  "schemaVersion": 3,\n')
+    expect(serializeProject(document.scene, document.metadata)).toContain('\n  "schemaVersion": 4,\n')
   })
 
-  it('walks a v1 file through both migrations', () => {
+  it('walks a v1 file through every migration', () => {
     const document = parseProject(olderFile(1))
-    expect(document.schemaVersion).toBe(3)
+    expect(document.schemaVersion).toBe(PROJECT_SCHEMA_VERSION)
     expect(document.scene.worktop).toEqual(createDefaultWorktopSettings())
   })
 
@@ -129,13 +139,13 @@ describe('schema 2 → 3', () => {
     )
   })
 
-  it('refuses schema 4 as made with a newer version', () => {
+  it('refuses schema 5 as made with a newer version', () => {
     expectRefusal(
       edited((document) => {
-        document.schemaVersion = 4
+        document.schemaVersion = 5
       }),
       /newer version/,
-      /schema 4/
+      /schema 5/
     )
   })
 })

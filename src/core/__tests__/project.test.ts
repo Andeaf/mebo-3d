@@ -96,7 +96,7 @@ describe('project round trip', () => {
 
   it('writes pretty-printed JSON with a fixed key order', () => {
     const text = serializeProject(scene, metadata)
-    expect(text).toContain('\n  "schemaVersion": 3,\n')
+    expect(text).toContain('\n  "schemaVersion": 4,\n')
     const document: unknown = JSON.parse(text)
     expect(Object.keys(node(document))).toEqual(['schemaVersion', 'metadata', 'scene'])
     expect(Object.keys(node(document, 'metadata'))).toEqual([
@@ -132,10 +132,10 @@ describe('schema version', () => {
   it('refuses a file from a newer app', () => {
     expectRefusal(
       edited((document) => {
-        document.schemaVersion = 4
+        document.schemaVersion = 5
       }),
       /newer version/,
-      /schema 4/
+      /schema 5/
     )
   })
 
