@@ -25,8 +25,8 @@ projecten en je taalkeuze blijven bewaard; je eigen prijslijst niet — zie
 
 - **Taal**: rechtsboven kies je NL / EN / RO. De keuze wordt onthouden.
 - **Kast toevoegen**: knop **+ Kast toevoegen** linksboven; kies onderkast,
-  bovenkast, kolomkast of ladekast. De kast verschijnt tegen de achterwand,
-  naast de vorige.
+  bovenkast, kolomkast, ladekast of onderkast met lade. De kast verschijnt
+  tegen de achterwand, naast de vorige.
 - **Verplaatsen en draaien**: sleep een kast met de muis. Kasten klikken
   vanzelf tegen elkaar en tegen de wanden en kunnen nooit overlappen.
   **Draaien (R)** draait de geselecteerde kast een kwartslag; sleep je hem
@@ -35,11 +35,18 @@ projecten en je taalkeuze blijven bewaard; je eigen prijslijst niet — zie
 - **Maten en opties**: klik een kast aan; in de zijbalk pas je breedte,
   hoogte, diepte, legplanken, deuren en materiaal aan. **Dupliceren** zet
   een kopie ernaast, **Verwijderen** haalt de kast weg.
+- **Lades**: bij een ladekast kies je onder **Ondiepe lades bovenaan** hoeveel
+  lage lades (bijvoorbeeld voor bestek) bovenaan komen en hoe hoog hun front
+  is; de diepe lades eronder delen de rest. De onderkast met lade heeft één
+  lade boven de deuren, met een instelbare fronthoogte. In een maatwerkstuk
+  zet **+ Lade** een complete lade op de voorkant — front, ladebak,
+  geleiders en greep — die je als één geheel verschuift, dupliceert of
+  verwijdert.
 - **Ruimte**: onder **Ruimte** in de zijbalk stel je de binnenmaten van de
   ruimte in. **Alles in beeld** zet de camera terug.
 - **Werkblad**: onder **Werkblad** zet je het werkblad aan of uit en kies je
   materiaal, dikte en overstek. Het werkblad volgt vanzelf de rijen
-  onderkasten en ladekasten; je hoeft het niet te tekenen.
+  onderkasten (ook met lade) en ladekasten; je hoeft het niet te tekenen.
 - **Maatwerk**: **+ Kast toevoegen → Maatwerk…** maakt een leeg stuk. In de
   zijbalk geef je de buitenmaten op en voeg je paneel voor paneel toe
   (zijkant, bovenblad, bodem, achterwand, legplank, tussenschot, front),
@@ -71,7 +78,8 @@ projecten en je taalkeuze blijven bewaard; je eigen prijslijst niet — zie
 - **In de maatwerk-editor** verplaats je het gekozen paneel met de rode,
   groene en blauwe pijlen in het 3D-beeld (stappen van 10 mm) of met de
   pijltjestoetsen (1 mm, Shift = 10 mm, PgUp/PgDn = hoogte). Een paneel
-  kan de buitenmaten van het stuk nooit verlaten.
+  kan de buitenmaten van het stuk nooit verlaten. Een lade verschuift
+  alleen over de voorkant: links/rechts en PgUp/PgDn.
 - **Esc** breekt een sleep af (de kast of het paneel springt terug) en
   sluit daarna de maatwerk-editor. **R** draait de geselecteerde kast.
 
