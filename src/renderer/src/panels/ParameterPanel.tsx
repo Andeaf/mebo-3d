@@ -11,6 +11,11 @@ import {
   DRAWER_CABINET_LIMITS,
   type DrawerCabinetParams
 } from '@core/catalog/drawerCabinet'
+import {
+  drawerFrontHeightMaxMm,
+  DRAWER_DOOR_CABINET_LIMITS,
+  type DrawerDoorCabinetParams
+} from '@core/catalog/drawerDoorCabinet'
 import type { DesignOfKind } from '@core/catalog/registry'
 import { TALL_CABINET_LIMITS, type TallCabinetParams } from '@core/catalog/tallCabinet'
 import type { CustomPieceSpec } from '@core/customPiece'
@@ -364,6 +369,74 @@ function DrawerCabinetFields({
   )
 }
 
+function DrawerDoorCabinetFields({
+  design
+}: {
+  readonly design: DesignOfKind<'drawer-door-cabinet'>
+}): ReactElement {
+  const updateSelectedDesign = useAppStore((state) => state.updateSelectedDesign)
+  const params = design.params
+  const limits = DRAWER_DOOR_CABINET_LIMITS
+  const patch = (next: Partial<DrawerDoorCabinetParams>): void =>
+    updateSelectedDesign({ kind: 'drawer-door-cabinet', params: { ...params, ...next } })
+  const burst = (next: Partial<DrawerDoorCabinetParams>): void =>
+    updateSelectedDesign(
+      { kind: 'drawer-door-cabinet', params: { ...params, ...next } },
+      burstKey(next)
+    )
+
+  return (
+    <>
+      <DimensionField
+        labelKey="params.width"
+        value={params.widthMm}
+        min={limits.widthMm.min}
+        max={limits.widthMm.max}
+        onChange={(widthMm) => burst({ widthMm })}
+      />
+      <DimensionField
+        labelKey="params.height"
+        value={params.heightMm}
+        min={limits.heightMm.min}
+        max={limits.heightMm.max}
+        onChange={(heightMm) => burst({ heightMm })}
+      />
+      <DimensionField
+        labelKey="params.depth"
+        value={params.depthMm}
+        min={limits.depthMm.min}
+        max={limits.depthMm.max}
+        onChange={(depthMm) => burst({ depthMm })}
+      />
+      {/* Its maximum follows the height: the doors below keep their minimum. */}
+      <DimensionField
+        labelKey="params.drawerFrontHeight"
+        value={params.drawerFrontHeightMm}
+        min={limits.drawerFrontHeightMm.min}
+        max={drawerFrontHeightMaxMm(params)}
+        step={1}
+        onChange={(drawerFrontHeightMm) => burst({ drawerFrontHeightMm })}
+      />
+      <CountField
+        labelKey="params.shelves"
+        value={params.shelfCount}
+        min={limits.shelfCount.min}
+        max={limits.shelfCount.max}
+        onChange={(shelfCount) => burst({ shelfCount })}
+      />
+      <DoorCountField
+        widthMm={params.widthMm}
+        doorCount={params.doorCount}
+        onChange={(doorCount) => patch({ doorCount })}
+      />
+      <MaterialField
+        value={params.carcassMaterialId}
+        onChange={(carcassMaterialId) => patch({ carcassMaterialId })}
+      />
+    </>
+  )
+}
+
 /**
  * A custom piece outside its editor: what it is, at a glance. Its panels are
  * edited in the piece editor, never here.
@@ -457,6 +530,8 @@ function KindFields({ design }: { readonly design: CabinetDesign }): ReactElemen
       return <TallCabinetFields design={design} />
     case 'drawer-cabinet':
       return <DrawerCabinetFields design={design} />
+    case 'drawer-door-cabinet':
+      return <DrawerDoorCabinetFields design={design} />
     case 'custom-piece':
       return <CustomPieceSummary spec={design.spec} />
   }

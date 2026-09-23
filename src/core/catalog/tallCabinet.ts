@@ -11,6 +11,7 @@ import {
   bottomPanel,
   boundingSizeWithFronts,
   doorHardware,
+  hingesPerDoor,
   overlayDoorPanels,
   shelfPanels,
   sidePanels,
@@ -26,24 +27,12 @@ import {
  * the leaf gets.
  */
 
-// Provisional until the company's real list arrives.
-/** Hinges per leaf, by door height; the first row the height fits into wins. */
-export const TALL_HINGE_COUNT_BY_DOOR_HEIGHT: readonly {
-  readonly maxDoorHeightMm: number
-  readonly hinges: number
-}[] = [
-  { maxDoorHeightMm: 900, hinges: 2 },
-  { maxDoorHeightMm: 1600, hinges: 3 },
-  { maxDoorHeightMm: 2000, hinges: 4 }
-]
-const HINGES_ABOVE_TABLE = 5
-
-export function tallHingesPerDoor(doorHeightMm: number): number {
-  const row = TALL_HINGE_COUNT_BY_DOOR_HEIGHT.find(
-    (entry) => doorHeightMm <= entry.maxDoorHeightMm
-  )
-  return row === undefined ? HINGES_ABOVE_TABLE : row.hinges
-}
+// The door-height hinge table started here and is shared since Phase 10
+// (`parts.ts`); its old names stay for the callers that know them.
+export {
+  HINGE_COUNT_BY_DOOR_HEIGHT as TALL_HINGE_COUNT_BY_DOOR_HEIGHT,
+  hingesPerDoor as tallHingesPerDoor
+} from './parts'
 
 export interface TallCabinetParams {
   readonly widthMm: number
@@ -128,7 +117,7 @@ export function generateTallCabinet(params: TallCabinetParams): CabinetBuild {
   const doorHeightMm = params.heightMm - 2 * FRONT_REVEAL_MM
   return {
     panels,
-    hardware: doorHardware(params.doorCount, tallHingesPerDoor(doorHeightMm)),
+    hardware: doorHardware(params.doorCount, hingesPerDoor(doorHeightMm)),
     boundingSizeMm: boundingSizeWithFronts(params, params.doorCount > 0)
   }
 }

@@ -6,6 +6,7 @@ import {
   drawerFrontLayout,
   generateDrawerCabinet
 } from '@core/catalog/drawerCabinet'
+import { createDefaultDrawerDoorCabinetParams } from '@core/catalog/drawerDoorCabinet'
 import { createDefaultDesign, generateCabinet } from '@core/catalog/registry'
 import { createDefaultCustomPieceSpec, type CustomPieceSpec } from '@core/customPiece'
 import type { PriceDatabase } from '@core/materials'
@@ -46,7 +47,18 @@ const room = { widthMm: 5000, lengthMm: 4000, wallHeightMm: 2400 }
 const cabinets: readonly PlacedCabinet[] = [
   { id: 'cab-1', design: ladekast, positionX: -1500, positionZ: -1720, rotationDeg: 0 },
   { id: 'cab-2', design: { kind: 'custom-piece', spec: drawerBlock }, positionX: -900, positionZ: -1720, rotationDeg: 0 },
-  { id: 'cab-3', design: { kind: 'custom-piece', spec: floatingTvUnit() }, positionX: 800, positionZ: -1800, rotationDeg: 0 }
+  { id: 'cab-3', design: { kind: 'custom-piece', spec: floatingTvUnit() }, positionX: 800, positionZ: -1800, rotationDeg: 0 },
+  // Kind #5: needs nothing in the file format but its own template.
+  {
+    id: 'cab-4',
+    design: {
+      kind: 'drawer-door-cabinet',
+      params: { ...createDefaultDrawerDoorCabinetParams(), drawerFrontHeightMm: 180, shelfCount: 2 }
+    },
+    positionX: 2200,
+    positionZ: -1720,
+    rotationDeg: 0
+  }
 ]
 
 const scene: SceneDesign = { room, worktop: createDefaultWorktopSettings(), cabinets }
@@ -161,6 +173,17 @@ describe('drawers round-trip through the project file', () => {
       'edgeBandMaterialId'
     ])
     expect(Object.keys(node(drawerEntry(root, 0), 'originMm'))).toEqual(['x', 'y'])
+    expect(Object.keys(params(root, 3))).toEqual([
+      'widthMm',
+      'heightMm',
+      'depthMm',
+      'drawerFrontHeightMm',
+      'shelfCount',
+      'doorCount',
+      'carcassMaterialId',
+      'backMaterialId',
+      'edgeBandMaterialId'
+    ])
   })
 
   it('saves and reopens the floating TV unit: hanging, its drawer intact, priced the same', () => {
@@ -263,6 +286,48 @@ describe('schema 3 → 4', () => {
 })
 
 describe('corrupt drawer data is refused, naming the culprit', () => {
+  it('the onderkast met lade with out-of-range params', () => {
+    expectRefusal(
+      edited((document) => {
+        params(document, 3).widthMm = 1500
+      }),
+      /cabinet cab-4/,
+      /scene\.cabinets\[3\]\.design\.params\.widthMm must be between 300 and 1200 \(got 1500\)/
+    )
+    expectRefusal(
+      edited((document) => {
+        params(document, 3).drawerFrontHeightMm = 50
+      }),
+      /params\.drawerFrontHeightMm must be between 96 and 300 \(got 50\)/
+    )
+    expectRefusal(
+      edited((document) => {
+        params(document, 3).heightMm = 400
+        params(document, 3).drawerFrontHeightMm = 250
+      }),
+      /params\.drawerFrontHeightMm must be at most 193 in a 400 mm carcass, so the doors keep 200 mm \(got 250\)/
+    )
+    expectRefusal(
+      edited((document) => {
+        params(document, 3).widthMm = 900
+        params(document, 3).doorCount = 1
+      }),
+      /params\.doorCount 1 needs a width of at most 600 mm \(got 900\)/
+    )
+    expectRefusal(
+      edited((document) => {
+        params(document, 3).shelfCount = 2.5
+      }),
+      /params\.shelfCount must be an integer \(got 2\.5\)/
+    )
+    expectRefusal(
+      edited((document) => {
+        params(document, 3).drawerCount = 2
+      }),
+      /params\.drawerCount is not a field of drawer-door-cabinet/
+    )
+  })
+
   it('invalid ladekast layouts', () => {
     expectRefusal(
       edited((document) => {

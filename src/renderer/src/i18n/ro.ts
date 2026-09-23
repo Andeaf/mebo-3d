@@ -12,6 +12,7 @@ export const ro: Record<TranslationKey, string> = {
   'kind.wall-cabinet': 'Corp suspendat',
   'kind.tall-cabinet': 'Corp coloană',
   'kind.drawer-cabinet': 'Corp cu sertare',
+  'kind.drawer-door-cabinet': 'Corp inferior cu sertar',
   'kind.custom-piece': 'Piesă la comandă',
 
   'piece.name': 'Nume',
@@ -107,6 +108,7 @@ export const ro: Record<TranslationKey, string> = {
   'params.depth': 'Adâncime',
   'params.shelves': 'Polițe',
   'params.drawers': 'Sertare',
+  'params.drawerFrontHeight': 'Înălțimea frontului de sertar',
   'params.mountingHeight': 'Înălțime de montaj',
   'params.doors': 'Uși',
   'params.material': 'Material corp',

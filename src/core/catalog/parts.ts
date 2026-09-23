@@ -176,13 +176,37 @@ export function backPanel(spec: CarcassSpec): Panel {
   }
 }
 
-/** Adjustable shelves, evenly distributed over the interior height; front edge banded. */
-export function shelfPanels(spec: CarcassSpec, shelfCount: number): Panel[] {
+/**
+ * A fixed horizontal member between the sides ("tussenbodem"), centred at
+ * `centerYMm`: from the back panel's face to the carcass front, front edge
+ * banded. It stops in front of the back, which runs on past it.
+ */
+export function fixedShelfPanel(spec: CarcassSpec, centerYMm: number): Panel {
+  const t = CARCASS_THICKNESS_MM
+  const inner = innerWidthMm(spec)
+  const rearZ = interiorRearZMm()
+  const depth = spec.depthMm - rearZ
+  return {
+    id: 'fixed-shelf',
+    role: 'fixed-shelf',
+    materialId: spec.carcassMaterialId,
+    lengthMm: inner,
+    widthMm: depth,
+    thicknessMm: t,
+    edgeBanding: bandOf(spec, ['length-1']),
+    box: {
+      center: { x: spec.widthMm / 2, y: centerYMm, z: rearZ + depth / 2 },
+      size: { x: inner, y: t, z: depth }
+    }
+  }
+}
+
+/** Adjustable shelves spread evenly over `spanMm` of clear height from `bottomMm` up. */
+function shelvesOver(spec: CarcassSpec, shelfCount: number, bottomMm: number, spanMm: number): Panel[] {
   const t = CARCASS_THICKNESS_MM
   const length = innerWidthMm(spec) - 2 * SHELF_SIDE_CLEARANCE_MM
   const depth = spec.depthMm - interiorRearZMm() - SHELF_REAR_CLEARANCE_MM - SHELF_FRONT_SETBACK_MM
   const rearZ = interiorRearZMm() + SHELF_REAR_CLEARANCE_MM
-  const interior = interiorHeightMm(spec)
   const panels: Panel[] = []
   for (let i = 0; i < shelfCount; i += 1) {
     panels.push({
@@ -196,7 +220,7 @@ export function shelfPanels(spec: CarcassSpec, shelfCount: number): Panel[] {
       box: {
         center: {
           x: spec.widthMm / 2,
-          y: t + (interior * (i + 1)) / (shelfCount + 1),
+          y: bottomMm + (spanMm * (i + 1)) / (shelfCount + 1),
           z: rearZ + depth / 2
         },
         size: { x: length, y: t, z: depth }
@@ -206,9 +230,23 @@ export function shelfPanels(spec: CarcassSpec, shelfCount: number): Panel[] {
   return panels
 }
 
-/** Full-height overlay doors covering the carcass front, all four edges banded. */
-export function overlayDoorPanels(spec: CarcassSpec, doorCount: number): Panel[] {
-  const doorHeight = spec.heightMm - 2 * FRONT_REVEAL_MM
+/** Adjustable shelves, evenly distributed over the interior height; front edge banded. */
+export function shelfPanels(spec: CarcassSpec, shelfCount: number): Panel[] {
+  return shelvesOver(spec, shelfCount, CARCASS_THICKNESS_MM, interiorHeightMm(spec))
+}
+
+/** Adjustable shelves, evenly distributed over the clear height between `bottomMm` and `topMm`. */
+export function shelfPanelsBetween(
+  spec: CarcassSpec,
+  shelfCount: number,
+  bottomMm: number,
+  topMm: number
+): Panel[] {
+  return shelvesOver(spec, shelfCount, bottomMm, topMm - bottomMm)
+}
+
+/** A row of overlay doors over the carcass width, `doorHeight` tall and centred at `centerYMm`. */
+function doorRow(spec: CarcassSpec, doorCount: number, centerYMm: number, doorHeight: number): Panel[] {
   const availableWidth = spec.widthMm - 2 * FRONT_REVEAL_MM
   const doorWidth = doorCount === 2 ? (availableWidth - FRONT_GAP_MM) / 2 : availableWidth
   const panels: Panel[] = []
@@ -225,7 +263,7 @@ export function overlayDoorPanels(spec: CarcassSpec, doorCount: number): Panel[]
       box: {
         center: {
           x: leftX + doorWidth / 2,
-          y: spec.heightMm / 2,
+          y: centerYMm,
           z: spec.depthMm + DOOR_THICKNESS_MM / 2
         },
         size: { x: doorWidth, y: doorHeight, z: DOOR_THICKNESS_MM }
@@ -233,6 +271,39 @@ export function overlayDoorPanels(spec: CarcassSpec, doorCount: number): Panel[]
     })
   }
   return panels
+}
+
+/** Full-height overlay doors covering the carcass front, all four edges banded. */
+export function overlayDoorPanels(spec: CarcassSpec, doorCount: number): Panel[] {
+  return doorRow(spec, doorCount, spec.heightMm / 2, spec.heightMm - 2 * FRONT_REVEAL_MM)
+}
+
+/** Overlay doors covering the carcass face from `bottomMm` up, `heightMm` tall (below a drawer). */
+export function overlayDoorRow(
+  spec: CarcassSpec,
+  doorCount: number,
+  bottomMm: number,
+  heightMm: number
+): Panel[] {
+  return doorRow(spec, doorCount, bottomMm + heightMm / 2, heightMm)
+}
+
+// Provisional until the company's real list arrives.
+/** Hinges per leaf, by door height; the first row the height fits into wins. */
+export const HINGE_COUNT_BY_DOOR_HEIGHT: readonly {
+  readonly maxDoorHeightMm: number
+  readonly hinges: number
+}[] = [
+  { maxDoorHeightMm: 900, hinges: 2 },
+  { maxDoorHeightMm: 1600, hinges: 3 },
+  { maxDoorHeightMm: 2000, hinges: 4 }
+]
+const HINGES_ABOVE_TABLE = 5
+
+/** Hinges one door leaf of this height hangs on (the kolomkast's table, shared since Phase 10). */
+export function hingesPerDoor(doorHeightMm: number): number {
+  const row = HINGE_COUNT_BY_DOOR_HEIGHT.find((entry) => doorHeightMm <= entry.maxDoorHeightMm)
+  return row === undefined ? HINGES_ABOVE_TABLE : row.hinges
 }
 
 /** Hinges + handles for a row of doors (empty for an open cabinet). */

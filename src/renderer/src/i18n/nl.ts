@@ -14,6 +14,7 @@ export const nl = {
   'kind.wall-cabinet': 'Bovenkast',
   'kind.tall-cabinet': 'Kolomkast',
   'kind.drawer-cabinet': 'Ladekast',
+  'kind.drawer-door-cabinet': 'Onderkast met lade',
   'kind.custom-piece': 'Maatwerk',
 
   'piece.name': 'Naam',
@@ -109,6 +110,7 @@ export const nl = {
   'params.depth': 'Diepte',
   'params.shelves': 'Legplanken',
   'params.drawers': 'Lades',
+  'params.drawerFrontHeight': 'Fronthoogte lade',
   'params.mountingHeight': 'Ophanghoogte',
   'params.doors': 'Deuren',
   'params.material': 'Korpusmateriaal',

@@ -9,6 +9,7 @@ export type PanelRole =
   | 'stretcher-back'
   | 'back'
   | 'shelf'
+  | 'fixed-shelf'
   | 'divider'
   | 'door'
   | 'front'

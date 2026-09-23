@@ -24,6 +24,13 @@ import {
   validateDrawerCabinetParams,
   type DrawerCabinetParams
 } from './drawerCabinet'
+import {
+  clampDrawerDoorCabinetParams,
+  createDefaultDrawerDoorCabinetParams,
+  generateDrawerDoorCabinet,
+  validateDrawerDoorCabinetParams,
+  type DrawerDoorCabinetParams
+} from './drawerDoorCabinet'
 import type { CabinetBuild } from './parts'
 import {
   clampTallCabinetParams,
@@ -61,6 +68,7 @@ export interface CabinetParamsByKind {
   'wall-cabinet': WallCabinetParams
   'tall-cabinet': TallCabinetParams
   'drawer-cabinet': DrawerCabinetParams
+  'drawer-door-cabinet': DrawerDoorCabinetParams
 }
 
 export type CabinetKind = keyof CabinetParamsByKind
@@ -187,6 +195,22 @@ export const CABINET_REGISTRY: { readonly [K in CabinetKind]: CabinetKindDefinit
     verticalExtent: (params) => ({ bottomMm: 0, topMm: params.heightMm }),
     worktopEligible: true,
     mounting: null
+  },
+  'drawer-door-cabinet': {
+    kind: 'drawer-door-cabinet',
+    createDefaultDesign: () => ({
+      kind: 'drawer-door-cabinet',
+      params: createDefaultDrawerDoorCabinetParams()
+    }),
+    designOf: (params) => ({ kind: 'drawer-door-cabinet', params }),
+    clampParams: clampDrawerDoorCabinetParams,
+    validateParams: validateDrawerDoorCabinetParams,
+    generate: generateDrawerDoorCabinet,
+    footprintSize: (params) => ({ widthMm: params.widthMm, depthMm: params.depthMm }),
+    verticalExtent: (params) => ({ bottomMm: 0, topMm: params.heightMm }),
+    // A kitchen base unit like the onderkast: the worktop runs over it.
+    worktopEligible: true,
+    mounting: null
   }
 }
 
@@ -195,7 +219,8 @@ export const CABINET_KINDS: readonly CabinetKind[] = [
   'base-cabinet',
   'wall-cabinet',
   'tall-cabinet',
-  'drawer-cabinet'
+  'drawer-cabinet',
+  'drawer-door-cabinet'
 ]
 
 export function isCabinetKind(value: string): value is CabinetKind {
@@ -291,6 +316,8 @@ function visitDesign<R>(design: CatalogDesign, visit: DesignVisitor<R>): R {
     case 'tall-cabinet':
       return visit(CABINET_REGISTRY[design.kind], design.params)
     case 'drawer-cabinet':
+      return visit(CABINET_REGISTRY[design.kind], design.params)
+    case 'drawer-door-cabinet':
       return visit(CABINET_REGISTRY[design.kind], design.params)
   }
 }

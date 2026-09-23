@@ -12,6 +12,7 @@ export const en: Record<TranslationKey, string> = {
   'kind.wall-cabinet': 'Wall cabinet',
   'kind.tall-cabinet': 'Tall cabinet',
   'kind.drawer-cabinet': 'Drawer cabinet',
+  'kind.drawer-door-cabinet': 'Base cabinet with drawer',
   'kind.custom-piece': 'Custom piece',
 
   'piece.name': 'Name',
@@ -107,6 +108,7 @@ export const en: Record<TranslationKey, string> = {
   'params.depth': 'Depth',
   'params.shelves': 'Shelves',
   'params.drawers': 'Drawers',
+  'params.drawerFrontHeight': 'Drawer front height',
   'params.mountingHeight': 'Mounting height',
   'params.doors': 'Doors',
   'params.material': 'Carcass material',
