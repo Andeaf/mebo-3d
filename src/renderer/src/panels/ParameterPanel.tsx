@@ -8,6 +8,7 @@ import {
 } from '@core/cabinet'
 import { CARCASS_THICKNESS_MM } from '@core/catalog/baseCabinet'
 import {
+  shallowFrontHeightMaxMm,
   DRAWER_CABINET_LIMITS,
   type DrawerCabinetParams
 } from '@core/catalog/drawerCabinet'
@@ -128,6 +129,44 @@ function DoorCountField({
         ))}
       </div>
       {singleDoorBlocked && <p className="field__hint">{t('params.singleDoorLimit')}</p>}
+    </div>
+  )
+}
+
+/**
+ * How many of a ladekast's top drawers are shallow: 0 … drawerCount − 1 (at
+ * least one deep drawer takes the rest), as one segmented pick.
+ */
+function ShallowDrawerField({
+  drawerCount,
+  value,
+  onChange
+}: {
+  readonly drawerCount: number
+  readonly value: number
+  readonly onChange: (shallowDrawerCount: number) => void
+}): ReactElement {
+  const t = useT()
+  const options = Array.from({ length: drawerCount }, (_, index) => index)
+  return (
+    <div className="field">
+      <div className="field__head">
+        <span className="field__label">{t('params.shallowDrawers')}</span>
+      </div>
+      <div className="segmented" role="group" aria-label={t('params.shallowDrawers')}>
+        {options.map((count) => (
+          <button
+            key={count}
+            type="button"
+            className={
+              value === count ? 'segmented__option segmented__option--active' : 'segmented__option'
+            }
+            onClick={() => onChange(count)}
+          >
+            {count}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
@@ -323,6 +362,7 @@ function DrawerCabinetFields({
 }: {
   readonly design: DesignOfKind<'drawer-cabinet'>
 }): ReactElement {
+  const t = useT()
   const updateSelectedDesign = useAppStore((state) => state.updateSelectedDesign)
   const params = design.params
   const limits = DRAWER_CABINET_LIMITS
@@ -361,6 +401,27 @@ function DrawerCabinetFields({
         max={limits.drawerCount.max}
         onChange={(drawerCount) => burst({ drawerCount })}
       />
+      {params.drawerCount > 1 && (
+        <ShallowDrawerField
+          drawerCount={params.drawerCount}
+          value={params.shallowDrawerCount}
+          onChange={(shallowDrawerCount) => patch({ shallowDrawerCount })}
+        />
+      )}
+      {params.shallowDrawerCount > 0 && (
+        <>
+          {/* Its maximum is the equal share: a shallow front never outgrows a deep one. */}
+          <DimensionField
+            labelKey="params.shallowFrontHeight"
+            value={params.shallowFrontHeightMm}
+            min={limits.shallowFrontHeightMm.min}
+            max={shallowFrontHeightMaxMm(params)}
+            step={1}
+            onChange={(shallowFrontHeightMm) => burst({ shallowFrontHeightMm })}
+          />
+          <p className="field__hint">{t('params.shallowHint')}</p>
+        </>
+      )}
       <MaterialField
         value={params.carcassMaterialId}
         onChange={(carcassMaterialId) => patch({ carcassMaterialId })}
