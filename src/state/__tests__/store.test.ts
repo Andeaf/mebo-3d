@@ -510,3 +510,34 @@ describe('scene-level movement through the gate', () => {
     expect(selectedSpec().mountingHeightMm).toBe(0)
   })
 })
+
+describe('a value-identical edit is no change', () => {
+  it('the active door count clicked again: same scene, no entry, not dirty', () => {
+    state().markProjectSaved('C:\\k\\Keuken.mebo', '2026-09-23T10:00:00.000Z')
+    const before = state().scene
+    const params = baseParams()
+    // What the door buttons do: the whole params, with the count that is already active.
+    state().updateSelectedDesign({ kind: 'base-cabinet', params: { ...params, doorCount: params.doorCount } })
+    expect(state().scene).toBe(before)
+    expect(pastLength()).toBe(0)
+    expect(isProjectDirty(state())).toBe(false)
+
+    // A real pick still counts.
+    state().updateSelectedDesign({ kind: 'base-cabinet', params: { ...params, doorCount: 0 } })
+    expect(pastLength()).toBe(1)
+    expect(isProjectDirty(state())).toBe(true)
+  })
+
+  it('"Op de vloer" on a floor-standing piece: same scene, no entry, not dirty', () => {
+    state().addCustomPiece('Kastje')
+    expect(selectedSpec().mountingHeightMm).toBe(0)
+    state().markProjectSaved('C:\\k\\Kastje.mebo', '2026-09-23T10:00:00.000Z')
+    const before = state().scene
+    const entries = pastLength()
+    // What the floor button does: the spec with a mounting height of 0.
+    state().updateSelectedDesign({ kind: CUSTOM_PIECE_KIND, spec: { ...selectedSpec(), mountingHeightMm: 0 } })
+    expect(state().scene).toBe(before)
+    expect(pastLength()).toBe(entries)
+    expect(isProjectDirty(state())).toBe(false)
+  })
+})

@@ -311,6 +311,41 @@ export function generateCabinet(design: CabinetDesign): CabinetBuild {
   return visitDesign(design, (definition, params) => definition.generate(params))
 }
 
+/** Plain-data equality: primitives by value, arrays element by element, records by key set and value. */
+function sameData(a: unknown, b: unknown): boolean {
+  if (a === b) {
+    return true
+  }
+  if (Array.isArray(a)) {
+    return (
+      Array.isArray(b) && a.length === b.length && a.every((item, index) => sameData(item, b[index]))
+    )
+  }
+  if (isRecord(a)) {
+    if (!isRecord(b)) {
+      return false
+    }
+    const keys = Object.keys(a)
+    return (
+      keys.length === Object.keys(b).length &&
+      keys.every((key) => Object.hasOwn(b, key) && sameData(a[key], b[key]))
+    )
+  }
+  return false
+}
+
+/**
+ * Two designs are the same design when their VALUES are equal, whatever
+ * their references. Every edit builds a new design object (the clamp alone
+ * does), so identity cannot tell an edit that changed nothing — the active
+ * door count clicked again, "on the floor" for a piece already standing —
+ * from a real one; this can. Generic over both families: a design is plain
+ * data (scalar params, or a spec of records and arrays).
+ */
+export function sameDesign(a: CabinetDesign, b: CabinetDesign): boolean {
+  return sameData(a, b)
+}
+
 /** Forces the design's values into their allowed ranges (used on every edit). */
 export function clampDesign(design: CatalogDesign): CatalogDesign
 export function clampDesign(design: CustomPieceDesign): CustomPieceDesign

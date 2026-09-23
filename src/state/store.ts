@@ -5,6 +5,7 @@ import {
   createDefaultDesign,
   designWithMountingHeightMm,
   isCustomPieceDesign,
+  sameDesign,
   type CabinetKind
 } from '@core/catalog/registry'
 import { createDefaultCustomPieceSpec, CUSTOM_PIECE_KIND } from '@core/customPiece'
@@ -182,13 +183,15 @@ function selectedOf(state: Pick<AppState, 'scene' | 'selectedCabinetId'>): Place
 }
 
 function samePlacement(a: PlacedCabinet, b: PlacedCabinet): boolean {
-  // Designs are immutable values: a different reference is a different design.
+  // Designs are compared by value: every edit builds a new design object, so
+  // a reference test would call "the active door count clicked again" a
+  // change. The reference check stays in front as the fast path.
   return (
     a.id === b.id &&
-    a.design === b.design &&
     a.positionX === b.positionX &&
     a.positionZ === b.positionZ &&
-    a.rotationDeg === b.rotationDeg
+    a.rotationDeg === b.rotationDeg &&
+    (a.design === b.design || sameDesign(a.design, b.design))
   )
 }
 
@@ -201,7 +204,7 @@ function sameWorktop(a: WorktopSettings, b: WorktopSettings): boolean {
   )
 }
 
-/** Same room, same worktop settings and the same cabinets in the same poses (design identity counts). */
+/** Same room, same worktop settings and the same cabinets in the same poses with the same design values. */
 function sameScene(a: SceneDesign, b: SceneDesign): boolean {
   return (
     a.room.widthMm === b.room.widthMm &&
@@ -217,9 +220,11 @@ type SceneState = Pick<AppState, 'scene' | 'history' | 'gestureBase'>
 
 /**
  * The one way a mutation lands, and the one place history is written. A
- * rejected placement (the gate handed the scene back unchanged) and a
+ * rejected placement (the gate handed the scene back unchanged), a
  * placement that resolved to where the cabinet already stood (a click
- * without a drag) are both no-ops: no new scene, no entry, no re-render.
+ * without a drag) and an edit that lands on the same design values (a pick
+ * that is already active) are all no-ops: the scene reference stays, no
+ * entry, not dirty, no re-render.
  * Inside a gesture the scene moves without an entry — the gesture records
  * its base once, at the end. Dirty needs no bookkeeping: it is
  * `scene !== savedScene`.
