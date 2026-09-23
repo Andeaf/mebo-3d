@@ -1,6 +1,7 @@
 import { clampToLimit, limitViolations, type NumericLimit } from './cabinet'
 import {
   buildDrawer,
+  drawerNumberOfPart,
   DRAWER_FRONT_MIN_HEIGHT_MM,
   DRAWER_FRONT_OVERLAY_MM,
   DRAWER_MIN_CARCASS_DEPTH_MM,
@@ -234,6 +235,8 @@ export function nextDrawerNumberFor(spec: CustomPieceSpec): number {
 
 type Axis = 'x' | 'y' | 'z'
 const AXES: readonly Axis[] = ['x', 'y', 'z']
+/** An axis of piece space (the gizmo and the arrow keys move elements along these). */
+export type PieceAxis = Axis
 
 interface AxisMap {
   readonly length: Axis
@@ -707,13 +710,47 @@ export function resizeEnvelope(spec: CustomPieceSpec, patch: EnvelopePatch): Cus
   const before: Size3 = { x: spec.widthMm, y: spec.heightMm, z: spec.depthMm }
   const after: Size3 = { x: envelope.widthMm, y: envelope.heightMm, z: envelope.depthMm }
   let panels = spec.panels
+  let drawers = spec.drawers
   for (const axis of AXES) {
     const delta = after[axis] - before[axis]
     if (delta !== 0) {
       panels = panels.map((panel) => followFace(panel, axis, before[axis], delta))
+      // A drawer has no depth of its own: its box follows the envelope by derivation.
+      if (axis !== 'z') {
+        drawers = drawers.map((drawer) => followFaceWithDrawer(drawer, axis, before[axis], delta))
+      }
     }
   }
-  return clampCustomPieceSpec({ ...spec, ...envelope, panels })
+  return clampCustomPieceSpec({ ...spec, ...envelope, panels, drawers })
+}
+
+/**
+ * A drawer follows a moved face the way a front panel does: its front grows
+ * or shrinks along that axis when its far edge was attached to the face, or
+ * moves with it when the new size would leave the drawer limits.
+ */
+function followFaceWithDrawer(
+  drawer: CustomDrawerSpec,
+  axis: 'x' | 'y',
+  faceBefore: number,
+  delta: number
+): CustomDrawerSpec {
+  const size = axis === 'x' ? drawer.widthMm : drawer.heightMm
+  if (faceBefore - (drawer.originMm[axis] + size) > ATTACHED_MARGIN_MM) {
+    return drawer
+  }
+  const limit = axis === 'x' ? CUSTOM_DRAWER_LIMITS.widthMm : CUSTOM_DRAWER_LIMITS.heightMm
+  const resized = size + delta
+  if (resized >= limit.min && resized <= limit.max) {
+    return axis === 'x' ? { ...drawer, widthMm: resized } : { ...drawer, heightMm: resized }
+  }
+  return {
+    ...drawer,
+    originMm:
+      axis === 'x'
+        ? { x: drawer.originMm.x + delta, y: drawer.originMm.y }
+        : { x: drawer.originMm.x, y: drawer.originMm.y + delta }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1056,4 +1093,243 @@ export function nudgePanel(spec: CustomPieceSpec, panelId: string, delta: Partia
     y: panel.originMm.y + (delta.y ?? 0),
     z: panel.originMm.z + (delta.z ?? 0)
   })
+}
+
+// ---------------------------------------------------------------------------
+// Drawers in the editor (Phase 10): add, duplicate, remove, move
+
+/** A new drawer's front height: a cutlery drawer, like the onderkast met lade's default. */
+export const DEFAULT_DRAWER_FRONT_HEIGHT_MM = 150
+
+export interface DrawerChange {
+  readonly spec: CustomPieceSpec
+  /** The drawer that was added, so the editor can select it. */
+  readonly drawerId: string
+}
+
+/** Room for another drawer: under the limit, and an envelope wide and deep enough for one. */
+export function canAddDrawer(spec: CustomPieceSpec): boolean {
+  return (
+    spec.drawers.length < MAX_DRAWERS_PER_PIECE &&
+    spec.widthMm >= CUSTOM_DRAWER_LIMITS.widthMm.min &&
+    spec.depthMm >= DRAWER_MIN_CARCASS_DEPTH_MM
+  )
+}
+
+/** The heights of the face the fronts already cover: front panels in the overlay zone, and drawers. */
+function frontSpansY(spec: CustomPieceSpec, exceptDrawerId: string | null = null): Span[] {
+  return [
+    ...occupiedAlong(spec.panels, 'y', (panel) => isFront(panel, spec)),
+    ...spec.drawers
+      .filter((drawer) => drawer.id !== exceptDrawerId)
+      .map((drawer) => ({ from: drawer.originMm.y, to: drawer.originMm.y + drawer.heightMm }))
+  ]
+}
+
+/** Nothing on the face covers any of [from, to] (touching is fine), and it lies on the face. */
+function freeOnFace(spec: CustomPieceSpec, from: number, to: number): boolean {
+  return (
+    from >= 0 &&
+    to <= spec.heightMm &&
+    frontSpansY(spec).every((span) => span.to <= from || span.from >= to)
+  )
+}
+
+function appendDrawer(spec: CustomPieceSpec, drawer: CustomDrawerSpec): DrawerChange {
+  const fitted = clampDrawerInto(spec, drawer)
+  return { spec: { ...spec, drawers: [...spec.drawers, fitted] }, drawerId: fitted.id }
+}
+
+/**
+ * The fast path: a 150 mm front across the face (between the reveals, at
+ * most the widest drawer), at the top of the tallest stretch of the face no
+ * front covers yet, 3 mm under the front above it — so repeated clicks stack
+ * drawers downward, and a last stretch between 96 and 150 mm is filled. With
+ * no such stretch it goes to the top, like the front preset's fallback; the
+ * view shows the clash. Null when the piece cannot take a drawer.
+ */
+export function addDrawer(spec: CustomPieceSpec): DrawerChange | null {
+  if (!canAddDrawer(spec)) {
+    return null
+  }
+  const reveal = FRONT_REVEAL_MM
+  const faceTop = spec.heightMm - reveal
+  const gap = widestFreeSpan(frontSpansY(spec), reveal, faceTop)
+  const top = gap.to - (gap.to < faceTop ? FRONT_GAP_MM : 0)
+  const bottom = gap.from + (gap.from > reveal ? FRONT_GAP_MM : 0)
+  const fits = top - bottom >= CUSTOM_DRAWER_LIMITS.heightMm.min
+  const heightMm = fits ? Math.min(DEFAULT_DRAWER_FRONT_HEIGHT_MM, top - bottom) : DEFAULT_DRAWER_FRONT_HEIGHT_MM
+  return appendDrawer(spec, {
+    id: `drawer-${nextDrawerNumberFor(spec)}`,
+    originMm: { x: reveal, y: (fits ? top : faceTop) - heightMm },
+    widthMm: Math.min(spec.widthMm - 2 * reveal, CUSTOM_DRAWER_LIMITS.widthMm.max),
+    heightMm,
+    frontMaterialId: CUSTOM_PIECE_DEFAULT_MATERIALS.board,
+    boxMaterialId: CUSTOM_PIECE_DEFAULT_MATERIALS.board,
+    bottomMaterialId: CUSTOM_PIECE_DEFAULT_MATERIALS.back,
+    edgeBandMaterialId: CUSTOM_PIECE_DEFAULT_MATERIALS.edgeBand
+  })
+}
+
+/**
+ * Copies a drawer one gap below the original when the face is free there,
+ * else one gap above, else in place. Null at the drawer limit or for an
+ * unknown id.
+ */
+export function duplicateDrawer(spec: CustomPieceSpec, drawerId: string): DrawerChange | null {
+  const source = spec.drawers.find((drawer) => drawer.id === drawerId)
+  if (source === undefined || spec.drawers.length >= MAX_DRAWERS_PER_PIECE) {
+    return null
+  }
+  const height = source.heightMm
+  const below = source.originMm.y - FRONT_GAP_MM - height
+  const above = source.originMm.y + height + FRONT_GAP_MM
+  const y = freeOnFace(spec, below, below + height)
+    ? below
+    : freeOnFace(spec, above, above + height)
+      ? above
+      : source.originMm.y
+  return appendDrawer(spec, {
+    ...source,
+    id: `drawer-${nextDrawerNumberFor(spec)}`,
+    originMm: { x: source.originMm.x, y }
+  })
+}
+
+export function removeDrawer(spec: CustomPieceSpec, drawerId: string): CustomPieceSpec {
+  return { ...spec, drawers: spec.drawers.filter((drawer) => drawer.id !== drawerId) }
+}
+
+/**
+ * Moves a drawer's front to `originMm` on the face, then clamps it onto the
+ * face like any other edit — a drag past an edge lands flush against it. A
+ * drawer has no depth to move along. The spec comes back unchanged for an
+ * unknown id.
+ */
+export function moveDrawer(spec: CustomPieceSpec, drawerId: string, originMm: Vec2): CustomPieceSpec {
+  let found = false
+  const drawers = spec.drawers.map((drawer) => {
+    if (drawer.id !== drawerId) {
+      return drawer
+    }
+    found = true
+    return clampDrawerInto(spec, { ...drawer, originMm: { x: originMm.x, y: originMm.y } })
+  })
+  return found ? { ...spec, drawers } : spec
+}
+
+/** `moveDrawer` by a delta (an arrow-key nudge); missing axes are 0. */
+export function nudgeDrawer(spec: CustomPieceSpec, drawerId: string, delta: Partial<Vec2>): CustomPieceSpec {
+  const drawer = spec.drawers.find((candidate) => candidate.id === drawerId)
+  if (drawer === undefined) {
+    return spec
+  }
+  return moveDrawer(spec, drawerId, {
+    x: drawer.originMm.x + (delta.x ?? 0),
+    y: drawer.originMm.y + (delta.y ?? 0)
+  })
+}
+
+/** The most a drawer's fields may be, given the face and its own size (for the editor's sliders). */
+export interface DrawerRanges {
+  readonly widthMaxMm: number
+  readonly heightMaxMm: number
+  readonly originMaxMm: Vec2
+}
+
+export function drawerRanges(
+  spec: Pick<CustomPieceSpec, 'widthMm' | 'heightMm'>,
+  drawer: CustomDrawerSpec
+): DrawerRanges {
+  return {
+    widthMaxMm: Math.min(CUSTOM_DRAWER_LIMITS.widthMm.max, spec.widthMm),
+    heightMaxMm: Math.min(CUSTOM_DRAWER_LIMITS.heightMm.max, spec.heightMm),
+    originMaxMm: {
+      x: Math.max(0, spec.widthMm - drawer.widthMm),
+      y: Math.max(0, spec.heightMm - drawer.heightMm)
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Elements: what the editor selects, moves, duplicates and deletes, one at a time
+
+/** A piece's two element families: its panels and (Phase 10) its drawers. */
+export type PieceElementKind = 'panel' | 'drawer'
+
+/** Which family an element id names, by its shape; null for anything else. */
+export function pieceElementKind(id: string): PieceElementKind | null {
+  if (panelNumberOf(id) !== null) {
+    return 'panel'
+  }
+  return drawerNumberOf(id) === null ? null : 'drawer'
+}
+
+/** Every element of the piece, panels first: what a selection may name. */
+export function pieceElementIds(spec: CustomPieceSpec): string[] {
+  return [...spec.panels.map((panel) => panel.id), ...spec.drawers.map((drawer) => drawer.id)]
+}
+
+/** The element a generated part belongs to: a panel is its own element; a drawer's six parts are the drawer. */
+export function elementIdOfPart(partId: string): string {
+  const number = drawerNumberOfPart(partId)
+  return number === null ? partId : `drawer-${number}`
+}
+
+/** What the gizmo and the arrow keys need of the selected element. */
+export interface ElementAnchor {
+  /** Where the gizmo sits (piece space): the panel's box, or the drawer front's box. */
+  readonly box: Box3
+  /** What a move sets: the panel's origin, or the drawer front's corner (z is the face). */
+  readonly originMm: Vec3
+  /** The axes it moves along: a drawer front always stands on the face. */
+  readonly axes: readonly PieceAxis[]
+}
+
+export function elementAnchor(spec: CustomPieceSpec, id: string): ElementAnchor | null {
+  const panel = spec.panels.find((candidate) => candidate.id === id)
+  if (panel !== undefined) {
+    return { box: panelBox(panel), originMm: panel.originMm, axes: AXES }
+  }
+  const drawer = spec.drawers.find((candidate) => candidate.id === id)
+  if (drawer === undefined) {
+    return null
+  }
+  // The same box the build gives the drawer's front.
+  return {
+    box: {
+      center: {
+        x: drawer.originMm.x + drawer.widthMm / 2,
+        y: drawer.originMm.y + drawer.heightMm / 2,
+        z: spec.depthMm + DOOR_THICKNESS_MM / 2
+      },
+      size: { x: drawer.widthMm, y: drawer.heightMm, z: DOOR_THICKNESS_MM }
+    },
+    originMm: { x: drawer.originMm.x, y: drawer.originMm.y, z: spec.depthMm },
+    axes: ['x', 'y']
+  }
+}
+
+/** `movePanel` or `moveDrawer`, by the element's family; unknown ids change nothing. */
+export function moveElement(spec: CustomPieceSpec, id: string, originMm: Vec3): CustomPieceSpec {
+  switch (pieceElementKind(id)) {
+    case 'panel':
+      return movePanel(spec, id, originMm)
+    case 'drawer':
+      return moveDrawer(spec, id, originMm)
+    case null:
+      return spec
+  }
+}
+
+/** `nudgePanel` or `nudgeDrawer`, by the element's family; a drawer ignores depth. */
+export function nudgeElement(spec: CustomPieceSpec, id: string, delta: Partial<Vec3>): CustomPieceSpec {
+  switch (pieceElementKind(id)) {
+    case 'panel':
+      return nudgePanel(spec, id, delta)
+    case 'drawer':
+      return nudgeDrawer(spec, id, delta)
+    case null:
+      return spec
+  }
 }
