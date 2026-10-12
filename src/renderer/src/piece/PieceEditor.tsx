@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react'
+import { useState, type ReactElement } from 'react'
 import { DRAWER_MIN_CARCASS_DEPTH_MM } from '@core/catalog/drawer'
 import {
   addDrawer,
@@ -35,11 +35,14 @@ interface PieceEditorProps {
 }
 
 /**
- * The sidebar while a custom piece is open: the piece itself (name, envelope,
- * placement, hardware), the panel presets and "add drawer", the panel and
- * drawer lists, and the selected element's fields. Every change becomes a
- * new spec handed to the store, which clamps it and re-places the piece like
- * any other design edit.
+ * The sidebar while a custom piece is open. Order (Phase 12): the selected
+ * element's own section FIRST, titled with its name, so the size a user
+ * reaches for with "Lade 2" selected is the drawer's; then the piece's
+ * outer size and placement under a collapsible "Buitenmaten" heading —
+ * collapsed while an element is selected, open while none is; then the
+ * presets, "+ Lade", the panel and drawer lists and the hardware. Every
+ * change becomes a new spec handed to the store, which clamps it and
+ * re-places the piece like any other design edit.
  */
 export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
   const t = useT()
@@ -80,6 +83,15 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
   const rowClass = (id: string): string =>
     id === selectedElementId ? 'panel-list__row panel-list__row--active' : 'panel-list__row'
 
+  // "Buitenmaten" opens while nothing is selected and folds away while an
+  // element is; a manual toggle holds until the selection state flips.
+  const hasElement = selectedPanel !== undefined || selectedDrawer !== undefined
+  const [envelopeFold, setEnvelopeFold] = useState({ open: !hasElement, forElement: hasElement })
+  if (envelopeFold.forElement !== hasElement) {
+    setEnvelopeFold({ open: !hasElement, forElement: hasElement })
+  }
+  const envelopeOpen = envelopeFold.open
+
   return (
     <section className="panel">
       <div className="panel__head">
@@ -100,67 +112,96 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
         maxLength={MAX_PIECE_NAME_LENGTH}
         onChange={(name) => onSpec({ ...spec, name })}
       />
-      <DimensionField
-        labelKey="params.width"
-        value={spec.widthMm}
-        min={envelope.widthMm.min}
-        max={envelope.widthMm.max}
-        onChange={(widthMm) => onSpec(resizeEnvelope(spec, { widthMm }), 'widthMm')}
-      />
-      <DimensionField
-        labelKey="params.height"
-        value={spec.heightMm}
-        min={envelope.heightMm.min}
-        max={envelope.heightMm.max}
-        onChange={(heightMm) => onSpec(resizeEnvelope(spec, { heightMm }), 'heightMm')}
-      />
-      <DimensionField
-        labelKey="params.depth"
-        value={spec.depthMm}
-        min={envelope.depthMm.min}
-        max={envelope.depthMm.max}
-        onChange={(depthMm) => onSpec(resizeEnvelope(spec, { depthMm }), 'depthMm')}
-      />
 
-      <div className="field">
-        <div className="field__head">
-          <span className="field__label">{t('piece.mounting')}</span>
-        </div>
-        <div className="segmented" role="group" aria-label={t('piece.mounting')}>
-          <button
-            type="button"
-            className={!onWall ? 'segmented__option segmented__option--active' : 'segmented__option'}
-            onClick={() => onSpec({ ...spec, mountingHeightMm: 0 })}
-          >
-            {t('piece.mounting.floor')}
-          </button>
-          <button
-            type="button"
-            className={onWall ? 'segmented__option segmented__option--active' : 'segmented__option'}
-            onClick={() => {
-              if (!onWall) {
-                onSpec({ ...spec, mountingHeightMm: DEFAULT_WALL_MOUNTING_HEIGHT_MM })
-              }
-            }}
-          >
-            {t('piece.mounting.wall')}
-          </button>
-        </div>
-      </div>
-      {onWall && (
-        <DimensionField
-          labelKey="params.mountingHeight"
-          value={spec.mountingHeightMm}
-          min={1}
-          max={limits.mountingHeightMm.max}
-          onChange={(mountingHeightMm) => onSpec({ ...spec, mountingHeightMm }, 'mountingHeightMm')}
-        />
+      {selectedPanel !== undefined ? (
+        <PanelFields spec={spec} panel={selectedPanel} onSpec={onSpec} />
+      ) : selectedDrawer !== undefined ? (
+        <DrawerFields spec={spec} drawer={selectedDrawer} onSpec={onSpec} />
+      ) : (
+        spec.panels.length + spec.drawers.length > 0 && (
+          <p className="field__hint">{t('panel.noSelection')}</p>
+        )
       )}
 
-      <HardwareFields
-        hardware={spec.hardware}
-        onChange={(hardware, coalesceKey) => onSpec({ ...spec, hardware }, coalesceKey)}
-      />
+      <button
+        type="button"
+        className="panel__collapse panel__collapse--sub"
+        aria-expanded={envelopeOpen}
+        onClick={() => setEnvelopeFold({ open: !envelopeOpen, forElement: hasElement })}
+      >
+        <span className="panel__subtitle panel__subtitle--inline">
+          {t('piece.envelope')}
+          {!envelopeOpen && (
+            <span className="panel__collapse-value">
+              {' '}
+              {spec.widthMm} × {spec.heightMm} × {spec.depthMm} {t('unit.mm')}
+            </span>
+          )}
+        </span>
+        <span className="panel__collapse-mark" aria-hidden="true">
+          {envelopeOpen ? '−' : '+'}
+        </span>
+      </button>
+      {envelopeOpen && (
+        <div>
+          <DimensionField
+            labelKey="params.width"
+            value={spec.widthMm}
+            min={envelope.widthMm.min}
+            max={envelope.widthMm.max}
+            onChange={(widthMm) => onSpec(resizeEnvelope(spec, { widthMm }), 'widthMm')}
+          />
+          <DimensionField
+            labelKey="params.height"
+            value={spec.heightMm}
+            min={envelope.heightMm.min}
+            max={envelope.heightMm.max}
+            onChange={(heightMm) => onSpec(resizeEnvelope(spec, { heightMm }), 'heightMm')}
+          />
+          <DimensionField
+            labelKey="params.depth"
+            value={spec.depthMm}
+            min={envelope.depthMm.min}
+            max={envelope.depthMm.max}
+            onChange={(depthMm) => onSpec(resizeEnvelope(spec, { depthMm }), 'depthMm')}
+          />
+
+          <div className="field">
+            <div className="field__head">
+              <span className="field__label">{t('piece.mounting')}</span>
+            </div>
+            <div className="segmented" role="group" aria-label={t('piece.mounting')}>
+              <button
+                type="button"
+                className={!onWall ? 'segmented__option segmented__option--active' : 'segmented__option'}
+                onClick={() => onSpec({ ...spec, mountingHeightMm: 0 })}
+              >
+                {t('piece.mounting.floor')}
+              </button>
+              <button
+                type="button"
+                className={onWall ? 'segmented__option segmented__option--active' : 'segmented__option'}
+                onClick={() => {
+                  if (!onWall) {
+                    onSpec({ ...spec, mountingHeightMm: DEFAULT_WALL_MOUNTING_HEIGHT_MM })
+                  }
+                }}
+              >
+                {t('piece.mounting.wall')}
+              </button>
+            </div>
+          </div>
+          {onWall && (
+            <DimensionField
+              labelKey="params.mountingHeight"
+              value={spec.mountingHeightMm}
+              min={1}
+              max={limits.mountingHeightMm.max}
+              onChange={(mountingHeightMm) => onSpec({ ...spec, mountingHeightMm }, 'mountingHeightMm')}
+            />
+          )}
+        </div>
+      )}
 
       <div className="field">
         <div className="field__head">
@@ -276,21 +317,10 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
         </>
       )}
 
-      {selectedPanel !== undefined ? (
-        <>
-          <p className="field__hint">{t('panel.moveHint')}</p>
-          <PanelFields spec={spec} panel={selectedPanel} onSpec={onSpec} />
-        </>
-      ) : selectedDrawer !== undefined ? (
-        <>
-          <p className="field__hint">{t('drawer.moveHint')}</p>
-          <DrawerFields spec={spec} drawer={selectedDrawer} onSpec={onSpec} />
-        </>
-      ) : (
-        spec.panels.length + spec.drawers.length > 0 && (
-          <p className="field__hint">{t('panel.noSelection')}</p>
-        )
-      )}
+      <HardwareFields
+        hardware={spec.hardware}
+        onChange={(hardware, coalesceKey) => onSpec({ ...spec, hardware }, coalesceKey)}
+      />
     </section>
   )
 }

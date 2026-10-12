@@ -16,7 +16,7 @@ export const ro: Record<TranslationKey, string> = {
   'kind.custom-piece': 'Piesă la comandă',
 
   'piece.name': 'Nume',
-  'piece.envelope': 'Gabarit (L × H × A)',
+  'piece.envelope': 'Dimensiuni exterioare (L × H × A)',
   'piece.panelCount': 'Panouri',
   'piece.mounting': 'Amplasare',
   'piece.mounting.floor': 'Pe podea',
@@ -38,7 +38,6 @@ export const ro: Record<TranslationKey, string> = {
   'piece.drawerNeedsRoom': 'Un sertar are nevoie de o piesă de cel puțin (lățime × adâncime)',
 
   'drawer.name': 'Sertar',
-  'drawer.title': 'Sertar selectat',
   'drawer.frontWidth': 'Lățime front',
   'drawer.frontHeight': 'Înălțime front',
   'drawer.frontMaterial': 'Material front',
@@ -65,7 +64,9 @@ export const ro: Record<TranslationKey, string> = {
   'role.back': 'Panou spate',
   'role.front': 'Front',
 
-  'panel.title': 'Panou selectat',
+  'panel.name': 'Panou',
+  'panel.cutSize': 'Dimensiune de debitare (L × l × G)',
+  'panel.construction': 'Execuție',
   'panel.noSelection': 'Dă clic pe un panou sau pe un sertar în vederea 3D sau într-o listă.',
   'panel.moveHint':
     'Mută panoul cu săgețile din vederea 3D (pași de 10 mm) sau cu tastele săgeți: 1 mm, Shift = 10 mm, PgUp/PgDn = înălțime.',
@@ -99,6 +100,7 @@ export const ro: Record<TranslationKey, string> = {
 
   'piecePrice.title': 'Prețul acestei piese',
   'viewport.editing': 'Editare',
+  'viewport.element': 'Element',
 
   'toolbar.duplicate': 'Duplică',
   'toolbar.delete': 'Șterge',

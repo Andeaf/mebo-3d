@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import { drawerBoxSideHeightMm, drawerSlideLengthMm } from '@core/catalog/drawer'
 import { CARCASS_THICKNESS_MM, DOOR_THICKNESS_MM } from '@core/catalog/parts'
 import {
+  drawerNumberOf,
   drawerRanges,
   duplicateDrawer,
   removeDrawer,
@@ -25,8 +26,9 @@ interface DrawerFieldsProps {
 }
 
 /**
- * Every field of the selected drawer: where its front sits on the face and
- * what it is made of. The box behind it is derived — shown, never edited.
+ * The selected drawer's section, first in the sidebar (Phase 12): its front's
+ * size, where it sits on the face and what it is made of. The box behind it
+ * is derived — shown, never edited.
  */
 export function DrawerFields({ spec, drawer, onSpec }: DrawerFieldsProps): ReactElement {
   const t = useT()
@@ -48,7 +50,10 @@ export function DrawerFields({ spec, drawer, onSpec }: DrawerFieldsProps): React
 
   return (
     <>
-      <h3 className="panel__subtitle">{t('drawer.title')}</h3>
+      <h3 className="panel__subtitle">
+        {t('drawer.name')} {drawerNumberOf(drawer.id)}
+      </h3>
+      <p className="field__hint">{t('drawer.moveHint')}</p>
       <DimensionField
         labelKey="drawer.frontWidth"
         value={drawer.widthMm}

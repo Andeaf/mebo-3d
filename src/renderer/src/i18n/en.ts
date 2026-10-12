@@ -16,7 +16,7 @@ export const en: Record<TranslationKey, string> = {
   'kind.custom-piece': 'Custom piece',
 
   'piece.name': 'Name',
-  'piece.envelope': 'Envelope (W × H × D)',
+  'piece.envelope': 'Outer size (W × H × D)',
   'piece.panelCount': 'Panels',
   'piece.mounting': 'Placement',
   'piece.mounting.floor': 'On the floor',
@@ -38,7 +38,6 @@ export const en: Record<TranslationKey, string> = {
   'piece.drawerNeedsRoom': 'A drawer needs a piece of at least (width × depth)',
 
   'drawer.name': 'Drawer',
-  'drawer.title': 'Selected drawer',
   'drawer.frontWidth': 'Front width',
   'drawer.frontHeight': 'Front height',
   'drawer.frontMaterial': 'Front material',
@@ -65,7 +64,9 @@ export const en: Record<TranslationKey, string> = {
   'role.back': 'Back',
   'role.front': 'Front',
 
-  'panel.title': 'Selected panel',
+  'panel.name': 'Panel',
+  'panel.cutSize': 'Cut size (L × W × T)',
+  'panel.construction': 'Make-up',
   'panel.noSelection': 'Click a panel or a drawer in the 3D view or in a list.',
   'panel.moveHint':
     'Move the panel with the arrows in the 3D view (10 mm steps) or with the arrow keys: 1 mm, Shift = 10 mm, PgUp/PgDn = height.',
@@ -99,6 +100,7 @@ export const en: Record<TranslationKey, string> = {
 
   'piecePrice.title': 'Price of this piece',
   'viewport.editing': 'Editing',
+  'viewport.element': 'Element',
 
   'toolbar.duplicate': 'Duplicate',
   'toolbar.delete': 'Delete',

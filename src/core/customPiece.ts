@@ -238,14 +238,14 @@ const AXES: readonly Axis[] = ['x', 'y', 'z']
 /** An axis of piece space (the gizmo and the arrow keys move elements along these). */
 export type PieceAxis = Axis
 
-interface AxisMap {
+export interface AxisMap {
   readonly length: Axis
   readonly width: Axis
   readonly thickness: Axis
 }
 
 /** Which piece axis each cut dimension runs along (see `PanelOrientation`). */
-function axesOf(orientation: PanelOrientation): AxisMap {
+export function axesOf(orientation: PanelOrientation): AxisMap {
   switch (orientation) {
     case 'yz':
       return { length: 'y', width: 'z', thickness: 'x' }

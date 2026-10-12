@@ -1,6 +1,9 @@
 import type { ReactElement } from 'react'
 import {
+  axesOf,
   duplicatePanel,
+  panelBoxSize,
+  panelNumberOf,
   panelRanges,
   removePanel,
   CUSTOM_PANEL_ROLES,
@@ -8,12 +11,13 @@ import {
   CUSTOM_PIECE_LIMITS,
   PANEL_ORIENTATIONS,
   type CustomPanelSpec,
-  type CustomPieceSpec
+  type CustomPieceSpec,
+  type PieceAxis
 } from '@core/customPiece'
 import { findMaterial } from '@core/materials'
 import { PANEL_EDGE_IDS, type PanelEdgeId } from '@core/panel'
 import { useAppStore } from '@state/store'
-import { useT } from '../i18n'
+import { useT, type TranslationKey } from '../i18n'
 import { DimensionField } from '../panels/DimensionField'
 import { MaterialSelect } from '../panels/MaterialSelect'
 
@@ -27,13 +31,28 @@ interface PanelFieldsProps {
   readonly onSpec: (spec: CustomPieceSpec, coalesceKey?: string) => void
 }
 
-/** Every field of the selected panel; sizes and positions are bounded by the envelope. */
+/** The piece axes in the order the sidebar shows every size: width, height, depth. */
+const SIZE_AXES: readonly { readonly axis: PieceAxis; readonly labelKey: TranslationKey }[] = [
+  { axis: 'x', labelKey: 'params.width' },
+  { axis: 'y', labelKey: 'params.height' },
+  { axis: 'z', labelKey: 'params.depth' }
+]
+
+/**
+ * The selected panel's section, first in the sidebar (Phase 12): its size in
+ * PIECE axes — the same Breedte / Hoogte / Diepte the piece has, so the field
+ * a user reaches for is the panel's — of which the thickness one is a badge
+ * (it follows the material); then its position, then what it is made of.
+ * The cut size stays visible as a badge: that is what the cutting list bills.
+ */
 export function PanelFields({ spec, panel, onSpec }: PanelFieldsProps): ReactElement {
   const t = useT()
   const priceDb = useAppStore((state) => state.priceDb)
   const selectElement = useAppStore((state) => state.selectElement)
   const ranges = panelRanges(spec, panel)
   const sizeMin = CUSTOM_PIECE_LIMITS.panelSizeMm.min
+  const axes = axesOf(panel.orientation)
+  const size = panelBoxSize(panel)
 
   const withPanel = (next: Partial<Omit<CustomPanelSpec, 'id'>>): CustomPieceSpec => ({
     ...spec,
@@ -71,8 +90,78 @@ export function PanelFields({ spec, panel, onSpec }: PanelFieldsProps): ReactEle
 
   return (
     <>
-      <h3 className="panel__subtitle">{t('panel.title')}</h3>
+      <h3 className="panel__subtitle">
+        {t('panel.name')} {panelNumberOf(panel.id)} — {t(`role.${panel.role}`)}
+      </h3>
+      <p className="field__hint">{t('panel.moveHint')}</p>
 
+      {SIZE_AXES.map(({ axis, labelKey }) =>
+        axis === axes.thickness ? (
+          // The thickness runs along this axis: a badge, since it follows the material.
+          <DimensionField
+            key={axis}
+            labelKey={labelKey}
+            id={`element-${axis}`}
+            value={size[axis]}
+            min={size[axis]}
+            max={size[axis]}
+            onChange={() => undefined}
+          />
+        ) : axis === axes.length ? (
+          <DimensionField
+            key={axis}
+            labelKey={labelKey}
+            id={`element-${axis}`}
+            value={panel.lengthMm}
+            min={sizeMin}
+            max={ranges.lengthMaxMm}
+            onChange={(lengthMm) => burst({ lengthMm })}
+          />
+        ) : (
+          <DimensionField
+            key={axis}
+            labelKey={labelKey}
+            id={`element-${axis}`}
+            value={panel.widthMm}
+            min={sizeMin}
+            max={ranges.widthMaxMm}
+            onChange={(widthMm) => burst({ widthMm })}
+          />
+        )
+      )}
+      <div className="field">
+        <div className="field__head">
+          <span className="field__label">{t('panel.cutSize')}</span>
+          <span className="field__value-badge">
+            {panel.lengthMm} × {panel.widthMm} × {panel.thicknessMm} {t('unit.mm')}
+          </span>
+        </div>
+      </div>
+
+      <h3 className="panel__subtitle">{t('panel.position')}</h3>
+      <DimensionField
+        labelKey="panel.originX"
+        value={panel.originMm.x}
+        min={0}
+        max={ranges.originMaxMm.x}
+        onChange={(x) => burst({ originMm: { ...panel.originMm, x } }, 'originMm.x')}
+      />
+      <DimensionField
+        labelKey="panel.originY"
+        value={panel.originMm.y}
+        min={0}
+        max={ranges.originMaxMm.y}
+        onChange={(y) => burst({ originMm: { ...panel.originMm, y } }, 'originMm.y')}
+      />
+      <DimensionField
+        labelKey="panel.originZ"
+        value={panel.originMm.z}
+        min={0}
+        max={ranges.originMaxMm.z}
+        onChange={(z) => burst({ originMm: { ...panel.originMm, z } }, 'originMm.z')}
+      />
+
+      <h3 className="panel__subtitle">{t('panel.construction')}</h3>
       <div className="field">
         <div className="field__head">
           <label className="field__label" htmlFor="panel-role">
@@ -105,29 +194,6 @@ export function PanelFields({ spec, panel, onSpec }: PanelFieldsProps): ReactEle
         value={panel.materialId}
         onChange={chooseMaterial}
       />
-      <div className="field">
-        <div className="field__head">
-          <span className="field__label">{t('panel.thickness')}</span>
-          <span className="field__value-badge">
-            {panel.thicknessMm} {t('unit.mm')}
-          </span>
-        </div>
-      </div>
-
-      <DimensionField
-        labelKey="panel.length"
-        value={panel.lengthMm}
-        min={sizeMin}
-        max={ranges.lengthMaxMm}
-        onChange={(lengthMm) => burst({ lengthMm })}
-      />
-      <DimensionField
-        labelKey="panel.width"
-        value={panel.widthMm}
-        min={sizeMin}
-        max={ranges.widthMaxMm}
-        onChange={(widthMm) => burst({ widthMm })}
-      />
 
       <div className="field">
         <div className="field__head">
@@ -150,29 +216,6 @@ export function PanelFields({ spec, panel, onSpec }: PanelFieldsProps): ReactEle
           ))}
         </div>
       </div>
-
-      <h3 className="panel__subtitle">{t('panel.position')}</h3>
-      <DimensionField
-        labelKey="panel.originX"
-        value={panel.originMm.x}
-        min={0}
-        max={ranges.originMaxMm.x}
-        onChange={(x) => burst({ originMm: { ...panel.originMm, x } }, 'originMm.x')}
-      />
-      <DimensionField
-        labelKey="panel.originY"
-        value={panel.originMm.y}
-        min={0}
-        max={ranges.originMaxMm.y}
-        onChange={(y) => burst({ originMm: { ...panel.originMm, y } }, 'originMm.y')}
-      />
-      <DimensionField
-        labelKey="panel.originZ"
-        value={panel.originMm.z}
-        min={0}
-        max={ranges.originMaxMm.z}
-        onChange={(z) => burst({ originMm: { ...panel.originMm, z } }, 'originMm.z')}
-      />
 
       <div className="field">
         <div className="field__head">

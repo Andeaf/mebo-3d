@@ -132,13 +132,24 @@ body {
   bottom: 12px;
   left: 12px;
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
   padding: 7px 12px;
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: 8px;
   z-index: 10;
+}
+
+.readout__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+/* The selected element of the open piece, above the piece's own line. */
+.readout__row--element {
+  color: var(--accent);
 }
 
 .readout__label {
@@ -290,6 +301,22 @@ body {
 
 .panel__collapse[aria-expanded='true'] + * {
   margin-top: 12px;
+}
+
+/* A collapsible section inside a panel (the piece's "Buitenmaten"). */
+.panel__collapse--sub {
+  margin-top: 14px;
+}
+
+.panel__subtitle--inline {
+  margin: 0;
+}
+
+.panel__collapse-value {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
 }
 
 .panel__error {

@@ -18,7 +18,7 @@ export const nl = {
   'kind.custom-piece': 'Maatwerk',
 
   'piece.name': 'Naam',
-  'piece.envelope': 'Omhulling (B × H × D)',
+  'piece.envelope': 'Buitenmaten (B × H × D)',
   'piece.panelCount': 'Panelen',
   'piece.mounting': 'Plaatsing',
   'piece.mounting.floor': 'Op de vloer',
@@ -40,7 +40,6 @@ export const nl = {
   'piece.drawerNeedsRoom': 'Een lade vraagt een stuk van minstens (breedte × diepte)',
 
   'drawer.name': 'Lade',
-  'drawer.title': 'Geselecteerde lade',
   'drawer.frontWidth': 'Frontbreedte',
   'drawer.frontHeight': 'Fronthoogte',
   'drawer.frontMaterial': 'Frontmateriaal',
@@ -67,7 +66,9 @@ export const nl = {
   'role.back': 'Achterwand',
   'role.front': 'Front',
 
-  'panel.title': 'Geselecteerd paneel',
+  'panel.name': 'Paneel',
+  'panel.cutSize': 'Zaagmaat (L × B × D)',
+  'panel.construction': 'Uitvoering',
   'panel.noSelection': 'Klik op een paneel of een lade in het 3D-beeld of in een lijst.',
   'panel.moveHint':
     'Verplaats het paneel met de pijlen in het 3D-beeld (stappen van 10 mm) of met de pijltjestoetsen: 1 mm, Shift = 10 mm, PgUp/PgDn = hoogte.',
@@ -101,6 +102,7 @@ export const nl = {
 
   'piecePrice.title': 'Prijs van dit stuk',
   'viewport.editing': 'Bewerken',
+  'viewport.element': 'Element',
 
   'toolbar.duplicate': 'Dupliceren',
   'toolbar.delete': 'Verwijderen',

@@ -4,6 +4,8 @@ import { NumberInput } from './NumberInput'
 
 interface DimensionFieldProps {
   readonly labelKey: TranslationKey
+  /** The input's DOM id; defaults to `dim-<labelKey>`. Pass one when the same label appears twice on screen. */
+  readonly id?: string
   readonly value: number
   readonly min: number
   readonly max: number
@@ -22,6 +24,7 @@ interface DimensionFieldProps {
  */
 export function DimensionField({
   labelKey,
+  id = `dim-${labelKey}`,
   value,
   min,
   max,
@@ -46,10 +49,10 @@ export function DimensionField({
   return (
     <div className="field">
       <div className="field__head">
-        <label className="field__label" htmlFor={`dim-${labelKey}`}>
+        <label className="field__label" htmlFor={id}>
           {t(labelKey)}
         </label>
-        <NumberInput id={`dim-${labelKey}`} value={value} min={min} max={max} onCommit={onChange} />
+        <NumberInput id={id} value={value} min={min} max={max} onCommit={onChange} />
       </div>
       <input
         className="field__slider"
