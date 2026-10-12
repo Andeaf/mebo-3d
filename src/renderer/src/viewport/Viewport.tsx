@@ -16,6 +16,7 @@ import { findPlacedCabinet, type PlacedCabinet } from '@core/scene'
 import { useWorktops } from '@state/selectors'
 import { useAppStore } from '@state/store'
 import { isTypingTarget, keyCommand, nudgeDistanceMm } from './keymap'
+import { DimensionChains } from './DimensionChain'
 import { MeasureLine } from './MeasureLine'
 import { MountingGizmo } from './MountingGizmo'
 import { ElementGizmo, type GizmoHandle } from './ElementGizmo'
@@ -99,6 +100,8 @@ function SceneContents(): ReactElement {
   const redo = useAppStore((state) => state.redo)
   const fitViewNonce = useAppStore((state) => state.fitViewNonce)
   const priceDb = useAppStore((state) => state.priceDb)
+  const showDimensions = useAppStore((state) => state.showDimensions)
+  const toggleDimensions = useAppStore((state) => state.toggleDimensions)
   const slabs = useWorktops()
   const editing = editingPieceId !== null
 
@@ -290,6 +293,9 @@ function SceneContents(): ReactElement {
         case 'rotate':
           rotateSelected() // a no-op while a piece is open
           break
+        case 'toggle-dimensions':
+          toggleDimensions()
+          break
         case 'escape':
           // Whatever is being dragged goes back first; only then does
           // Escape mean "leave the editor".
@@ -305,7 +311,7 @@ function SceneContents(): ReactElement {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [undo, redo, rotateSelected, exitPieceEditor, cancelDrag, updateSelectedDesign, nudgeSelected])
+  }, [undo, redo, rotateSelected, toggleDimensions, exitPieceEditor, cancelDrag, updateSelectedDesign, nudgeSelected])
 
   // Runs on mount too (nonce 0), so the room is framed from the first frame:
   // OrbitControls does not apply its target prop before the first render.
@@ -409,18 +415,28 @@ function SceneContents(): ReactElement {
         )
       )}
 
-      {/* The translate gizmo on the selected element (a panel or a drawer) of the open piece. */}
+      {/* The translate gizmo on the selected element (a panel or a drawer) of the open piece, and its dimension chains. */}
       {editedPiece !== undefined &&
         isCustomPieceDesign(editedPiece.design) &&
         selectedElementId !== null &&
         elementAnchor(editedPiece.design.spec, selectedElementId) !== null && (
-          <ElementGizmo
-            key={selectedElementId}
-            placed={editedPiece}
-            spec={editedPiece.design.spec}
-            elementId={selectedElementId}
-            onHandle={setGizmoHandle}
-          />
+          <>
+            <ElementGizmo
+              key={selectedElementId}
+              placed={editedPiece}
+              spec={editedPiece.design.spec}
+              elementId={selectedElementId}
+              onHandle={setGizmoHandle}
+            />
+            {showDimensions && (
+              <DimensionChains
+                placed={editedPiece}
+                spec={editedPiece.design.spec}
+                elementId={selectedElementId}
+                snappedAxis={null}
+              />
+            )}
+          </>
         )}
 
       {/* The vertical arrow on a hanging item: drags its mounting height. */}

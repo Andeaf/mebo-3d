@@ -105,6 +105,7 @@ export const en: Record<TranslationKey, string> = {
   'toolbar.duplicate': 'Duplicate',
   'toolbar.delete': 'Delete',
   'toolbar.rotate': 'Rotate (R)',
+  'toolbar.dimensions': 'Dimensions (M)',
   'toolbar.fitView': 'Fit view',
   'toolbar.undo': 'Undo (Ctrl+Z)',
   'toolbar.redo': 'Redo (Ctrl+Y)',

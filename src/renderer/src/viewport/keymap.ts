@@ -2,9 +2,11 @@
  * The keyboard map, as a pure function over the event so the bindings live
  * in one place and read like a table. Conventions follow the established
  * tools: Ctrl+Z undo, Ctrl+Y and Ctrl+Shift+Z redo, Escape cancels, R
- * rotates (the toolbar label says so), arrow keys nudge by 1 mm and
- * Shift+arrow by 10 mm (the universal 2D convention), PageUp/PageDown
- * nudge up/down.
+ * rotates (the toolbar label says so), M toggles the piece editor's
+ * dimension chains, arrow keys nudge by 1 mm and Shift+arrow by 10 mm
+ * (the universal 2D convention), PageUp/PageDown nudge up/down. Alt is
+ * not a key command: held during a gizmo drag it suppresses snapping
+ * (`ElementGizmo`).
  *
  * Nudge axes are the two floor axes for the arrows (↑ = towards the back,
  * away from the default viewpoint) and Y for PgUp/PgDn. Whether they mean
@@ -20,7 +22,7 @@ export interface NudgeCommand {
   readonly coarse: boolean
 }
 
-export type KeyCommand = 'undo' | 'redo' | 'rotate' | 'escape' | NudgeCommand
+export type KeyCommand = 'undo' | 'redo' | 'rotate' | 'escape' | 'toggle-dimensions' | NudgeCommand
 
 export type KeyInput = Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey'>
 
@@ -47,6 +49,10 @@ export function keyCommand(event: KeyInput): KeyCommand | null {
   }
   if (!mod && !event.altKey && key === 'r') {
     return 'rotate'
+  }
+  // M: the piece editor's dimension chains (maatlijnen) on or off.
+  if (!mod && !event.altKey && key === 'm') {
+    return 'toggle-dimensions'
   }
   if (key === 'escape') {
     return 'escape'

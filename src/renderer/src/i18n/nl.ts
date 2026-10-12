@@ -107,6 +107,7 @@ export const nl = {
   'toolbar.duplicate': 'Dupliceren',
   'toolbar.delete': 'Verwijderen',
   'toolbar.rotate': 'Draaien (R)',
+  'toolbar.dimensions': 'Maatlijnen (M)',
   'toolbar.fitView': 'Alles in beeld',
   'toolbar.undo': 'Ongedaan maken (Ctrl+Z)',
   'toolbar.redo': 'Opnieuw (Ctrl+Y)',

@@ -462,6 +462,23 @@ describe('the piece editor', () => {
     expect(findPlacedCabinet(state().scene, 'cab-2')?.design.kind).toBe(CUSTOM_PIECE_KIND)
   })
 
+  it('the dimension chains toggle is a view preference: on by default, no entry, never dirty', () => {
+    state().markProjectSaved('C:\\k\\a.mebo', '2026-10-12T12:00:00.000Z')
+    state().addCustomPiece('Test')
+    const entries = pastLength()
+    const sceneBefore = state().scene
+    expect(state().showDimensions).toBe(true)
+    state().toggleDimensions()
+    expect(state().showDimensions).toBe(false)
+    state().toggleDimensions()
+    expect(state().showDimensions).toBe(true)
+    expect(pastLength()).toBe(entries)
+    expect(state().scene).toBe(sceneBefore)
+    state().undo() // the add
+    expect(isProjectDirty(state())).toBe(false)
+    expect(state().showDimensions).toBe(true) // not part of the document
+  })
+
   it('a gesture cancelled inside the editor drops a panel selection whose panel is gone', () => {
     state().addCustomPiece('Test')
     state().beginGesture()

@@ -105,6 +105,7 @@ export const ro: Record<TranslationKey, string> = {
   'toolbar.duplicate': 'Duplică',
   'toolbar.delete': 'Șterge',
   'toolbar.rotate': 'Rotește (R)',
+  'toolbar.dimensions': 'Cote (M)',
   'toolbar.fitView': 'Încadrează tot',
   'toolbar.undo': 'Anulează (Ctrl+Z)',
   'toolbar.redo': 'Refă (Ctrl+Y)',

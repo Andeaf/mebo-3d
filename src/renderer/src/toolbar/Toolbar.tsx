@@ -124,13 +124,24 @@ export function Toolbar(): ReactElement {
   const rotateSelected = useAppStore((state) => state.rotateSelected)
   const requestFitView = useAppStore((state) => state.requestFitView)
   const exitPieceEditor = useAppStore((state) => state.exitPieceEditor)
+  const showDimensions = useAppStore((state) => state.showDimensions)
+  const toggleDimensions = useAppStore((state) => state.toggleDimensions)
 
   if (editing) {
     // The scene gestures are off while a piece is open; only the way out
-    // remains — and undo/redo, since piece edits are entries too.
+    // remains — and undo/redo, since piece edits are entries too — plus
+    // the dimension chains toggle (a view preference, not an edit).
     return (
       <div className="toolbar">
         <HistoryButtons />
+        <button
+          type="button"
+          className="toolbar__button"
+          aria-pressed={showDimensions}
+          onClick={toggleDimensions}
+        >
+          {t('toolbar.dimensions')}
+        </button>
         <button type="button" className="toolbar__button" onClick={exitPieceEditor}>
           {t('piece.done')}
         </button>

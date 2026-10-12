@@ -75,6 +75,12 @@ body {
   cursor: default;
 }
 
+/* A toggle (the dimension chains): pressed = on. */
+.toolbar__button[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .toolbar__button--icon {
   padding: 7px 10px;
   font-size: 1rem;
@@ -190,6 +196,35 @@ body {
   font-size: 12px;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+
+/* The piece editor's dimension chains: one label per gap, the selected element's own two emphasised. */
+.chain-label {
+  padding: 1px 5px;
+  background: rgba(30, 32, 38, 0.85);
+  border: 1px solid rgba(90, 169, 255, 0.5);
+  border-radius: 5px;
+  color: rgba(90, 169, 255, 0.75);
+  font-size: 11px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.chain-label--own {
+  border-color: #5aa9ff;
+  color: #5aa9ff;
+  font-size: 12px;
+}
+
+/* A snap just landed here: the two gaps are equal (or equal to another). */
+.chain-label--snapped {
+  font-weight: 700;
+  background: #5aa9ff;
+  color: #10131a;
+}
+
+.chain-label--snapped::before {
+  content: '= ';
 }
 
 .sidebar {

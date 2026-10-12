@@ -35,6 +35,7 @@ import {
   type History,
   EMPTY_HISTORY
 } from './history'
+import { loadStoredShowDimensions, storeShowDimensions } from './dimensionsPref'
 import { loadStoredLanguage, storeLanguage, type Language } from './language'
 import {
   cabinetRemoved,
@@ -117,6 +118,9 @@ interface AppState {
    * The nonce lets a repeated refusal restart the notice.
    */
   readonly gateNotice: GateNotice | null
+  /** The piece editor's dimension chains (Phase 12): a view preference, persisted, never in the document. */
+  readonly showDimensions: boolean
+  toggleDimensions: () => void
   addCabinet: (kind: CabinetKind) => void
   /** Adds an empty custom piece (the name is the renderer's translated default) and opens its editor. */
   addCustomPiece: (name: string) => void
@@ -365,6 +369,14 @@ export const useAppStore = create<AppState>((set) => ({
   editor: NO_EDITOR,
   flowBusy: false,
   gateNotice: null,
+  showDimensions: loadStoredShowDimensions(),
+
+  toggleDimensions: () =>
+    set((state) => {
+      const showDimensions = !state.showDimensions
+      storeShowDimensions(showDimensions)
+      return { showDimensions }
+    }),
 
   addCabinet: (kind) =>
     set((state) => (isEditing(state.editor) ? {} : spawnDesign(state, createDefaultDesign(kind)))),
