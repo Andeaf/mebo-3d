@@ -6,7 +6,7 @@ wie het programma installeert en gebruikt.
 
 ## Installeren
 
-1. Je krijgt een bestand `Mebo-3D-Setup-0.8.0.exe`. Dubbelklik erop.
+1. Je krijgt een bestand `Mebo-3D-Setup-0.11.0.exe`. Dubbelklik erop.
 2. Windows toont waarschijnlijk een blauw scherm **"Windows heeft uw pc
    beschermd"** (SmartScreen) met "Onbekende uitgever". Dat komt doordat het
    programma nog niet digitaal ondertekend is, niet doordat er iets mis is.
@@ -18,7 +18,7 @@ wie het programma installeert en gebruikt.
    startmenu.
 
 Een nieuwere versie installeer je gewoon over de oude heen. Je recente
-projecten en je taalkeuze blijven bewaard; je eigen prijslijst niet — zie
+projecten, je taalkeuze en je eigen prijslijst blijven bewaard — zie
 "Prijzen aanpassen".
 
 ## Eerste stappen
@@ -28,7 +28,10 @@ projecten en je taalkeuze blijven bewaard; je eigen prijslijst niet — zie
   bovenkast, kolomkast, ladekast of onderkast met lade. De kast verschijnt
   tegen de achterwand, naast de vorige.
 - **Verplaatsen en draaien**: sleep een kast met de muis. Kasten klikken
-  vanzelf tegen elkaar en tegen de wanden en kunnen nooit overlappen.
+  vanzelf tegen elkaar en tegen de wanden en kunnen nooit overlappen. Past
+  iets nergens (een extra kast in een volle ruimte, een te kleine ruimte,
+  een draai), dan gebeurt er niets en zegt een melding onder in het
+  3D-beeld even waarom.
   **Draaien (R)** draait de geselecteerde kast een kwartslag; sleep je hem
   naar een andere wand, dan draait hij vanzelf met zijn rug naar die wand.
   Tussen kasten in een rij verschijnt een maatlijn.
@@ -50,8 +53,10 @@ projecten en je taalkeuze blijven bewaard; je eigen prijslijst niet — zie
 - **Maatwerk**: **+ Kast toevoegen → Maatwerk…** maakt een leeg stuk. In de
   zijbalk geef je de buitenmaten op en voeg je paneel voor paneel toe
   (zijkant, bovenblad, bodem, achterwand, legplank, tussenschot, front),
-  elk met eigen maten, materiaal en kantenband. **Klaar** (of Esc) sluit de
-  editor; dubbelklik later op het stuk om verder te werken.
+  elk met eigen maten, materiaal en kantenband. De rode **✕** achter een
+  paneel of lade in de lijst verwijdert het meteen (Ctrl+Z zet het terug).
+  **Klaar** (of Esc) sluit de editor; dubbelklik later op het stuk om verder
+  te werken.
 - **Prijs**: de prijsopbouw onderaan de zijbalk rekent alles live uit —
   plaatmateriaal, kantenband, beslag en werkbladen — met een regel per
   kast. Alle bedragen zijn exclusief btw.
@@ -85,34 +90,42 @@ projecten en je taalkeuze blijven bewaard; je eigen prijslijst niet — zie
 
 ## Prijzen aanpassen
 
-Alle prijzen staan in één tekstbestand naast het programma:
+Alle prijzen staan in één tekstbestand in je eigen gegevensmap:
 
-    C:\Users\<jouw naam>\AppData\Local\Programs\Mebo 3D\resources\data\materials.json
+    C:\Users\<jouw naam>\AppData\Roaming\mebo-3d\materials.json
 
-Plak dit pad in de adresbalk van de Verkenner (`AppData` is een verborgen
-map).
+Het snelst kom je erbij via menu **Prijzen → Prijslijst openen**: de
+Verkenner opent met het bestand geselecteerd. (Of plak het pad in de
+adresbalk van de Verkenner; `AppData` is een verborgen map.) Het bestand
+wordt bij de eerste start aangemaakt uit de prijslijst van de installer.
 
-- **Maak eerst een kopie** van het bestand voordat je iets wijzigt.
 - Open het bestand met Kladblok. Per materiaal staan er een naam (`name`),
   een categorie (`board` plaatmateriaal, `edgeband` kantenband, `hardware`
   beslag, `worktop` werkblad), een eenheid (`m2`, `m` of `piece`) en de
   prijs in euro excl. btw (`pricePerUnitEur`, met een **punt** als
   decimaalteken: `14.5`).
-- Sla op en start Mebo 3D opnieuw. De nieuwe prijzen gelden meteen, ook
-  voor bestaande projecten: een project bewaart geen prijzen, alleen maten
-  en materialen.
+- Sla op en kies **Prijzen → Prijzen herladen**. De nieuwe prijzen gelden
+  meteen, ook voor het open project en voor bestaande projecten: een
+  project bewaart geen prijzen, alleen maten en materialen. (Opnieuw
+  starten werkt ook.)
 - Het bestand moet geldige JSON blijven. Bij een fout (een vergeten komma
-  of aanhalingsteken) toont het programma bij het opstarten
-  "Prijsdatabase kon niet geladen worden" in plaats van de prijzen. Zet dan
-  je kopie terug en probeer opnieuw.
+  of aanhalingsteken) toont het programma "Prijsdatabase kon niet geladen
+  worden" in plaats van de prijzen; het bestand wordt dan niet aangeraakt.
+  Herstel de fout en herlaad.
 - Verwijder je een materiaal dat een project nog gebruikt, dan opent het
   project gewoon en staat er "Onbekende materialen" onder de prijs.
-- **Bij een nieuwe versie van het programma wordt dit bestand
-  overschreven** door de prijslijst uit de installer. Bewaar je eigen
-  prijslijst dus ook ergens anders en zet hem na een update terug.
+- **Een nieuwe versie van het programma laat je prijslijst met rust.**
+  Je aangepaste prijzen blijven staan, en een materiaal dat je verwijderd
+  hebt komt niet terug. Brengt de nieuwe versie nieuwe materialen mee, dan
+  worden die **onderaan toegevoegd** met de standaardprijs — controleer die
+  na een update. Vlak voordat er iets toegevoegd wordt, maakt het programma
+  een kopie van je lijst: `materials.backup.json` in dezelfde map.
+- In dezelfde map staat ook `materials.offered.json`: daarin onthoudt het
+  programma welke materialen het al eens aangeboden heeft, zodat een
+  verwijderd materiaal verwijderd blijft. Laat dat bestand staan.
 
 ## Verwijderen
 
 Instellingen → Apps → Geïnstalleerde apps → **Mebo 3D** → Verwijderen (of
-`Uninstall Mebo 3D.exe` in de programmamap). Je projectbestanden en de lijst
-met recente projecten blijven staan.
+`Uninstall Mebo 3D.exe` in de programmamap). Je projectbestanden, je
+prijslijst en de lijst met recente projecten blijven staan.

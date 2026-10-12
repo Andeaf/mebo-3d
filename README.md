@@ -27,7 +27,13 @@ The version comes from `package.json`.
 Unknown publisher" on a downloaded copy; the user clicks *More info → Run
 anyway*. Signing is a later step and changes nothing else in the build.
 
-The price database ships beside the app, not inside it:
-`<install dir>\resources\data\materials.json`. Editing it and restarting the
-app changes the prices; a reinstall replaces it with the copy from the
-installer.
+The shipped price list goes beside the app, not inside it
+(`<install dir>\resources\data\materials.json`), but the app does not price
+with that copy. On the first run it is copied to the user's data folder,
+`%APPDATA%\mebo-3d\materials.json`, which is the only list the app reads from
+then on: the firm edits that file (menu **Prijzen → Prijslijst openen**,
+then **Prijzen herladen** — no restart), a reinstall or update never
+overwrites it, and a newer version only appends material ids the file
+lacks (never modifying an entry, never bringing back a deleted one — see
+`src/main/priceList.ts` and CLAUDE.md "The price list"). In development
+the app reads the repo's `data/materials.json` directly.
