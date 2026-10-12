@@ -44,7 +44,7 @@ export const ro: Record<TranslationKey, string> = {
   'drawer.boxMaterial': 'Material cutie',
   'drawer.box': 'Cutia sertarului (adâncime × înălțime)',
   'drawer.moveHint':
-    'Mută sertarul cu săgețile din vederea 3D (pași de 10 mm) sau cu ←/→ și PgUp/PgDn: 1 mm, Shift = 10 mm. Un sertar rămâne mereu pe față.',
+    'Mută sertarul cu săgețile din vederea 3D (pași de 10 mm; se prinde la mijloc între vecini, cu Alt sau Ctrl apăsat se mută liber) sau cu ←/→ și PgUp/PgDn: 1 mm, Shift = 10 mm. Un sertar rămâne mereu pe față.',
   'drawer.hardwareHint': 'Fiecare sertar vine cu o pereche de glisiere și un mâner.',
 
   'preset.side': 'Laterală',
@@ -69,7 +69,7 @@ export const ro: Record<TranslationKey, string> = {
   'panel.construction': 'Execuție',
   'panel.noSelection': 'Dă clic pe un panou sau pe un sertar în vederea 3D sau într-o listă.',
   'panel.moveHint':
-    'Mută panoul cu săgețile din vederea 3D (pași de 10 mm) sau cu tastele săgeți: 1 mm, Shift = 10 mm, PgUp/PgDn = înălțime.',
+    'Mută panoul cu săgețile din vederea 3D (pași de 10 mm; se prinde la mijloc între vecini, cu Alt sau Ctrl apăsat se mută liber) sau cu tastele săgeți: 1 mm, Shift = 10 mm, PgUp/PgDn = înălțime. M arată sau ascunde cotele.',
   'panel.role': 'Rol',
   'panel.material': 'Material',
   'panel.length': 'Lungime',

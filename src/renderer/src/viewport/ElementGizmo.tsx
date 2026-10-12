@@ -5,12 +5,11 @@ import { Object3D, Vector3 } from 'three'
 import {
   elementAnchor,
   moveElement,
-  snapToStep,
   CUSTOM_PIECE_KIND,
-  PANEL_MOVE_STEP_MM,
   type CustomPieceSpec,
   type ElementAnchor
 } from '@core/customPiece'
+import { snapElementMove } from '@core/elementSnap'
 import { isCustomPieceDesign } from '@core/catalog/registry'
 import { findPlacedCabinet, type PlacedCabinet } from '@core/scene'
 import type { Vec3 } from '@core/units'
@@ -59,8 +58,14 @@ function worldCenter(placed: PlacedCabinet, spec: CustomPieceSpec, anchor: Eleme
     )
 }
 
-function snap(value: number): number {
-  return snapToStep(value, PANEL_MOVE_STEP_MM)
+/**
+ * The free-move modifier: Alt is the convention (Fusion / SketchUp /
+ * Blender), Ctrl is accepted too because on Windows a bare Alt press can
+ * hand the focus to the native menu bar when released; either held while
+ * dragging means "no snapping" (grid, midpoint, equal gap).
+ */
+function isFreeMove(event: Pick<KeyboardEvent | MouseEvent, 'altKey' | 'ctrlKey'>): boolean {
+  return event.altKey || event.ctrlKey
 }
 
 interface DragState {
@@ -86,9 +91,12 @@ interface ElementGizmoProps {
  * then points the arrows along the piece's own axes) and is glued back to
  * the element's real, clamped anchor after every store change. A drawer
  * front always stands on the face, so its gizmo has no depth handles.
- * Snapping is ours (absolute 10 mm grid on the origin, the same step the
- * origin sliders use) — the control's own `translationSnap` adds the
- * parent's world position before rounding, which is meaningless here.
+ * Snapping is ours (`snapElementMove`: the midpoint between the neighbours,
+ * an equal gap, else the absolute 10 mm grid on the origin — the same step
+ * the origin sliders use; Alt or Ctrl held = none of it) — the control's own
+ * `translationSnap` adds the parent's world position before rounding, which
+ * is meaningless here. The snap that fired is published as the store's
+ * `snapHint` so the chain marks the gaps it made equal.
  *
  * One drag = one undo gesture: mouse-down begins it, every move goes
  * through `moveElement` (clamped into the envelope or onto the face) and the
@@ -100,10 +108,35 @@ export function ElementGizmo({ placed, spec, elementId, onHandle }: ElementGizmo
   const beginGesture = useAppStore((state) => state.beginGesture)
   const endGesture = useAppStore((state) => state.endGesture)
   const cancelGesture = useAppStore((state) => state.cancelGesture)
+  const setSnapHint = useAppStore((state) => state.setSnapHint)
 
   const proxy = useMemo(() => new Object3D(), [])
   const controlsRef = useRef<TransformControlsImpl | null>(null)
   const dragRef = useRef<DragState | null>(null)
+  // The control's change event carries no modifier state: the keys are
+  // tracked here (and refreshed from every pointer move, which does carry
+  // them, so a key pressed before the window had focus still counts).
+  const freeMoveRef = useRef(false)
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      freeMoveRef.current = isFreeMove(event)
+      if (event.key === 'Alt') {
+        // The Chromium remedy for Alt handing the focus to the menu bar.
+        event.preventDefault()
+      }
+    }
+    const onPointer = (event: PointerEvent): void => {
+      freeMoveRef.current = isFreeMove(event)
+    }
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('keyup', onKey)
+    window.addEventListener('pointermove', onPointer)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keyup', onKey)
+      window.removeEventListener('pointermove', onPointer)
+    }
+  }, [])
   // The handlers read the latest props through refs: drei keeps the first
   // callback identity it is given per event.
   const latest = useRef({ placed, spec, elementId })
@@ -186,12 +219,19 @@ export function ElementGizmo({ placed, spec, elementId, onHandle }: ElementGizmo
       .sub(drag.startProxy)
       .applyAxisAngle(UP, -yawOf(piece))
       .multiplyScalar(1000)
-    const origin: Vec3 = {
-      x: snap(drag.startOrigin.x + delta.x),
-      y: snap(drag.startOrigin.y + delta.y),
-      z: snap(drag.startOrigin.z + delta.z)
+    const attempted: Vec3 = {
+      x: drag.startOrigin.x + delta.x,
+      y: drag.startOrigin.y + delta.y,
+      z: drag.startOrigin.z + delta.z
     }
-    updateSelectedDesign({ kind: CUSTOM_PIECE_KIND, spec: moveElement(current, target, origin) })
+    const { originMm, snapped } = snapElementMove(
+      current,
+      target,
+      attempted,
+      freeMoveRef.current ? 'free' : 'snap'
+    )
+    setSnapHint(snapped)
+    updateSelectedDesign({ kind: CUSTOM_PIECE_KIND, spec: moveElement(current, target, originMm) })
     // Re-glue from the store now: when the clamp left the element where it
     // was (pushing against a face) nothing re-renders, and the proxy would
     // otherwise drift on with the pointer.

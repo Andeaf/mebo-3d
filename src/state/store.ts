@@ -8,7 +8,13 @@ import {
   sameDesign,
   type CabinetKind
 } from '@core/catalog/registry'
-import { createDefaultCustomPieceSpec, pieceElementIds, CUSTOM_PIECE_KIND } from '@core/customPiece'
+import {
+  createDefaultCustomPieceSpec,
+  pieceElementIds,
+  CUSTOM_PIECE_KIND,
+  type PieceAxis
+} from '@core/customPiece'
+import type { SnapKind } from '@core/elementSnap'
 import { cabinetOverlapsOthers, placedCabinetRect } from '@core/footprint'
 import type { PriceDatabase } from '@core/materials'
 import type { ProjectDocument } from '@core/project'
@@ -74,6 +80,11 @@ function initialScene(): SceneDesign {
   }
 }
 
+export interface SnapHint {
+  readonly axis: PieceAxis
+  readonly kind: SnapKind
+}
+
 interface AppState {
   readonly scene: SceneDesign
   /**
@@ -121,6 +132,13 @@ interface AppState {
   /** The piece editor's dimension chains (Phase 12): a view preference, persisted, never in the document. */
   readonly showDimensions: boolean
   toggleDimensions: () => void
+  /**
+   * The snap a running gizmo drag just landed on (its own gaps are marked on
+   * the chain); null outside a drag or when the grid or a free move landed.
+   * Transient: cleared when the gesture ends, is cancelled, or the selection changes.
+   */
+  readonly snapHint: SnapHint | null
+  setSnapHint: (hint: SnapHint | null) => void
   addCabinet: (kind: CabinetKind) => void
   /** Adds an empty custom piece (the name is the renderer's translated default) and opens its editor. */
   addCustomPiece: (name: string) => void
@@ -370,6 +388,7 @@ export const useAppStore = create<AppState>((set) => ({
   flowBusy: false,
   gateNotice: null,
   showDimensions: loadStoredShowDimensions(),
+  snapHint: null,
 
   toggleDimensions: () =>
     set((state) => {
@@ -377,6 +396,11 @@ export const useAppStore = create<AppState>((set) => ({
       storeShowDimensions(showDimensions)
       return { showDimensions }
     }),
+
+  setSnapHint: (hint) =>
+    set((state) =>
+      state.snapHint?.axis === hint?.axis && state.snapHint?.kind === hint?.kind ? {} : { snapHint: hint }
+    ),
 
   addCabinet: (kind) =>
     set((state) => (isEditing(state.editor) ? {} : spawnDesign(state, createDefaultDesign(kind)))),
@@ -406,9 +430,10 @@ export const useAppStore = create<AppState>((set) => ({
       return { editor: enterEditor(selected.id) }
     }),
 
-  exitPieceEditor: () => set({ editor: NO_EDITOR }),
+  exitPieceEditor: () => set({ editor: NO_EDITOR, snapHint: null }),
 
-  selectElement: (elementId) => set((state) => ({ editor: selectElementIn(state.editor, elementId) })),
+  selectElement: (elementId) =>
+    set((state) => ({ editor: selectElementIn(state.editor, elementId), snapHint: null })),
 
   duplicateSelected: () =>
     set((state) => {
@@ -630,9 +655,9 @@ export const useAppStore = create<AppState>((set) => ({
         return {}
       }
       if (base === state.scene || sameScene(base, state.scene)) {
-        return { gestureBase: null }
+        return { gestureBase: null, snapHint: null }
       }
-      return { gestureBase: null, history: record(state.history, base, null, Date.now()) }
+      return { gestureBase: null, snapHint: null, history: record(state.history, base, null, Date.now()) }
     }),
 
   cancelGesture: () =>
@@ -641,7 +666,7 @@ export const useAppStore = create<AppState>((set) => ({
       if (base === null) {
         return {}
       }
-      return { gestureBase: null, scene: base, ...reconcileWith(state, base) }
+      return { gestureBase: null, snapHint: null, scene: base, ...reconcileWith(state, base) }
     }),
 
   undo: () =>

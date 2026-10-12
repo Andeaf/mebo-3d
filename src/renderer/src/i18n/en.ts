@@ -44,7 +44,7 @@ export const en: Record<TranslationKey, string> = {
   'drawer.boxMaterial': 'Box material',
   'drawer.box': 'Drawer box (depth × height)',
   'drawer.moveHint':
-    'Move the drawer with the arrows in the 3D view (10 mm steps) or with ←/→ and PgUp/PgDn: 1 mm, Shift = 10 mm. A drawer always stays on the front.',
+    'Move the drawer with the arrows in the 3D view (10 mm steps; it snaps to the midpoint between its neighbours, hold Alt or Ctrl for a free move) or with ←/→ and PgUp/PgDn: 1 mm, Shift = 10 mm. A drawer always stays on the front.',
   'drawer.hardwareHint': 'Every drawer comes with 1 pair of slides and 1 handle.',
 
   'preset.side': 'Side',
@@ -69,7 +69,7 @@ export const en: Record<TranslationKey, string> = {
   'panel.construction': 'Make-up',
   'panel.noSelection': 'Click a panel or a drawer in the 3D view or in a list.',
   'panel.moveHint':
-    'Move the panel with the arrows in the 3D view (10 mm steps) or with the arrow keys: 1 mm, Shift = 10 mm, PgUp/PgDn = height.',
+    'Move the panel with the arrows in the 3D view (10 mm steps; it snaps to the midpoint between its neighbours, hold Alt or Ctrl for a free move) or with the arrow keys: 1 mm, Shift = 10 mm, PgUp/PgDn = height. M shows or hides the dimensions.',
   'panel.role': 'Role',
   'panel.material': 'Material',
   'panel.length': 'Length',

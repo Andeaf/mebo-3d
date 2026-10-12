@@ -46,7 +46,7 @@ export const nl = {
   'drawer.boxMaterial': 'Materiaal ladebak',
   'drawer.box': 'Ladebak (diepte × hoogte)',
   'drawer.moveHint':
-    'Verplaats de lade met de pijlen in het 3D-beeld (stappen van 10 mm) of met ←/→ en PgUp/PgDn: 1 mm, Shift = 10 mm. Een lade blijft altijd aan de voorkant.',
+    'Verplaats de lade met de pijlen in het 3D-beeld (stappen van 10 mm; hij klikt vast in het midden tussen zijn buren, Alt of Ctrl ingedrukt = vrij) of met ←/→ en PgUp/PgDn: 1 mm, Shift = 10 mm. Een lade blijft altijd aan de voorkant.',
   'drawer.hardwareHint': 'Elke lade brengt 1 paar ladegeleiders en 1 greep mee.',
 
   'preset.side': 'Zijkant',
@@ -71,7 +71,7 @@ export const nl = {
   'panel.construction': 'Uitvoering',
   'panel.noSelection': 'Klik op een paneel of een lade in het 3D-beeld of in een lijst.',
   'panel.moveHint':
-    'Verplaats het paneel met de pijlen in het 3D-beeld (stappen van 10 mm) of met de pijltjestoetsen: 1 mm, Shift = 10 mm, PgUp/PgDn = hoogte.',
+    'Verplaats het paneel met de pijlen in het 3D-beeld (stappen van 10 mm; het klikt vast in het midden tussen zijn buren, Alt of Ctrl ingedrukt = vrij) of met de pijltjestoetsen: 1 mm, Shift = 10 mm, PgUp/PgDn = hoogte. M toont of verbergt de maatlijnen.',
   'panel.role': 'Functie',
   'panel.material': 'Materiaal',
   'panel.length': 'Lengte',

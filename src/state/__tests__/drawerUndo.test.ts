@@ -12,6 +12,7 @@ import {
   CUSTOM_PIECE_KIND,
   type CustomPieceSpec
 } from '@core/customPiece'
+import { snapElementMove } from '@core/elementSnap'
 import { findPlacedCabinet, type PlacedCabinet } from '@core/scene'
 import { isProjectDirty, useAppStore } from '@state/store'
 
@@ -202,6 +203,41 @@ describe('drawers in the piece editor are undoable, like panels', () => {
     expect(spec().drawers[0].originMm).toEqual({ x: 2, y: 448 })
     state().undo() // the add
     expect(spec().drawers).toEqual([])
+  })
+
+  it('a snapped drag (Phase 12) is one entry, and the snap hint is not part of the document', () => {
+    clickAddDrawer() // drawer-1 at y 448
+    clickAddDrawer() // drawer-2 under it (295)
+    clickAddDrawer() // drawer-3 under that (142)
+    state().selectElement('drawer-2')
+    const entries = pastLength()
+    state().beginGesture()
+    for (const attempted of [{ x: 2, y: 310, z: 400 }, { x: 2, y: 302, z: 400 }]) {
+      const { originMm, snapped } = snapElementMove(spec(), 'drawer-2', attempted, 'snap')
+      state().setSnapHint(snapped)
+      editSpec(moveElement(spec(), 'drawer-2', originMm))
+    }
+    // 302 lands on the midpoint between drawer-3 (top 292) and drawer-1
+    // (448): 292 + (156 − 150) / 2 = 295; x went from the preset's 2 to the
+    // grid's 0 on the first frame, as every first drag does.
+    expect(spec().drawers[1].originMm).toEqual({ x: 0, y: 295 })
+    expect(state().snapHint).toEqual({ axis: 'y', kind: 'midpoint' })
+    expect(pastLength()).toBe(entries) // frames record nothing
+    state().endGesture()
+    expect(state().snapHint).toBeNull()
+    expect(pastLength()).toBe(entries + 1) // one entry for the whole drag
+
+    // A free (Alt) drag: the raw position, one more entry.
+    state().beginGesture()
+    editSpec(moveElement(spec(), 'drawer-2', snapElementMove(spec(), 'drawer-2', { x: 3, y: 333, z: 400 }, 'free').originMm))
+    state().setSnapHint(null)
+    state().endGesture()
+    expect(pastLength()).toBe(entries + 2)
+    expect(spec().drawers[1].originMm).toEqual({ x: 3, y: 333 })
+    state().undo()
+    expect(spec().drawers[1].originMm).toEqual({ x: 0, y: 295 })
+    state().undo()
+    expect(spec().drawers[1].originMm).toEqual({ x: 2, y: 295 })
   })
 
   it('a drag that ends where it began records nothing', () => {

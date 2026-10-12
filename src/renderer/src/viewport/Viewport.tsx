@@ -102,6 +102,7 @@ function SceneContents(): ReactElement {
   const priceDb = useAppStore((state) => state.priceDb)
   const showDimensions = useAppStore((state) => state.showDimensions)
   const toggleDimensions = useAppStore((state) => state.toggleDimensions)
+  const snapHint = useAppStore((state) => state.snapHint)
   const slabs = useWorktops()
   const editing = editingPieceId !== null
 
@@ -433,7 +434,7 @@ function SceneContents(): ReactElement {
                 placed={editedPiece}
                 spec={editedPiece.design.spec}
                 elementId={selectedElementId}
-                snappedAxis={null}
+                snappedAxis={snapHint?.axis ?? null}
               />
             )}
           </>
