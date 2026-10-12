@@ -9,6 +9,7 @@ import {
   type CustomPieceSpec,
   type ElementAnchor
 } from '@core/customPiece'
+import { commitPieceEdit } from '@core/customPieceFit'
 import { snapElementMove } from '@core/elementSnap'
 import { isCustomPieceDesign } from '@core/catalog/registry'
 import { findPlacedCabinet, type PlacedCabinet } from '@core/scene'
@@ -231,7 +232,11 @@ export function ElementGizmo({ placed, spec, elementId, onHandle }: ElementGizmo
       freeMoveRef.current ? 'free' : 'snap'
     )
     setSnapHint(snapped)
-    updateSelectedDesign({ kind: CUSTOM_PIECE_KIND, spec: moveElement(current, target, originMm) })
+    // A shell panel dragged inward claims its space live (Phase 12).
+    updateSelectedDesign({
+      kind: CUSTOM_PIECE_KIND,
+      spec: commitPieceEdit(current, moveElement(current, target, originMm))
+    })
     // Re-glue from the store now: when the clamp left the element where it
     // was (pushing against a face) nothing re-renders, and the proxy would
     // otherwise drift on with the pointer.

@@ -10,6 +10,7 @@ import {
   isCustomPieceDesign
 } from '@core/catalog/registry'
 import { elementAnchor, nudgeElement, CUSTOM_PIECE_KIND } from '@core/customPiece'
+import { commitPieceEdit } from '@core/customPieceFit'
 import { placedCabinetRect, placedVerticalInterval } from '@core/footprint'
 import { roomInteriorRect } from '@core/room'
 import { findPlacedCabinet, type PlacedCabinet } from '@core/scene'
@@ -251,10 +252,12 @@ function SceneContents(): ReactElement {
             }
             event.preventDefault()
             if (anchor.axes.includes(command.axis)) {
+              const spec = piece.design.spec
               updateSelectedDesign(
                 {
                   kind: CUSTOM_PIECE_KIND,
-                  spec: nudgeElement(piece.design.spec, elementId, { [command.axis]: distance })
+                  // A nudged shell panel claims its space like a dragged one (Phase 12).
+                  spec: commitPieceEdit(spec, nudgeElement(spec, elementId, { [command.axis]: distance }))
                 },
                 `nudge:${elementId}`
               )

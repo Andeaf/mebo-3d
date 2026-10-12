@@ -32,6 +32,9 @@ export const nl = {
   'piece.addPanel': 'Paneel toevoegen',
   'piece.noPanels': 'Nog geen panelen. Voeg een zijkant, bodem of legplank toe.',
   'piece.panelLimit': 'Maximum aantal panelen bereikt.',
+  'piece.fitInterior': 'Pas binnenpanelen aan',
+  'piece.fitInteriorHint':
+    'Kort legplanken en tussenschotten in tot de binnenkant van de kast (zijkanten, bodem, bovenblad, achterwand). Maakt niets langer.',
 
   'piece.drawers': 'Lades',
   'piece.drawerCount': 'Lades',

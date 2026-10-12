@@ -20,6 +20,7 @@ import {
   PANEL_PRESETS,
   type CustomPieceSpec
 } from '@core/customPiece'
+import { commitPieceEdit, fitInteriorPanels, interiorFitPending } from '@core/customPieceFit'
 import type { PlacedCabinet } from '@core/scene'
 import { useAppStore } from '@state/store'
 import { useT } from '../i18n'
@@ -55,9 +56,11 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
   const envelope = customPieceEnvelopeLimits(spec)
 
   // The optional key names the field a slider is dragging so the burst is
-  // one undo entry; discrete actions (a preset, a toggle) pass none.
+  // one undo entry; discrete actions (a preset, a toggle) pass none. Every
+  // edit passes through commitPieceEdit: a shell change re-fits the
+  // interior panels attached to the face that moved (Phase 12).
   const onSpec = (next: CustomPieceSpec, coalesceKey?: string): void =>
-    updateSelectedDesign({ kind: CUSTOM_PIECE_KIND, spec: next }, coalesceKey)
+    updateSelectedDesign({ kind: CUSTOM_PIECE_KIND, spec: commitPieceEdit(spec, next) }, coalesceKey)
 
   const addPreset = (preset: (typeof PANEL_PRESETS)[number]): void => {
     const change = addPresetPanel(spec, preset)
@@ -221,6 +224,21 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
           ))}
         </div>
         {atLimit && <p className="field__hint">{t('piece.panelLimit')}</p>}
+      </div>
+
+      {/* Re-fits every shelf and divider to the current shell: one undo entry, only cuts (Phase 12). */}
+      <div className="field">
+        <div className="button-row">
+          <button
+            type="button"
+            className="button"
+            disabled={!interiorFitPending(spec)}
+            onClick={() => onSpec(fitInteriorPanels(spec, null))}
+          >
+            {t('piece.fitInterior')}
+          </button>
+        </div>
+        <p className="field__hint">{t('piece.fitInteriorHint')}</p>
       </div>
 
       <div className="field">

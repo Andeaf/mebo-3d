@@ -30,6 +30,9 @@ export const ro: Record<TranslationKey, string> = {
   'piece.addPanel': 'Adaugă panou',
   'piece.noPanels': 'Niciun panou încă. Adaugă o laterală, o bază sau un raft.',
   'piece.panelLimit': 'S-a atins numărul maxim de panouri.',
+  'piece.fitInterior': 'Potrivește panourile interioare',
+  'piece.fitInteriorHint':
+    'Scurtează rafturile și despărțitoarele până la interiorul corpului (laterale, bază, blat superior, spate). Nu lungește nimic.',
 
   'piece.drawers': 'Sertare',
   'piece.drawerCount': 'Sertare',

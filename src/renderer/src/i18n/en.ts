@@ -30,6 +30,9 @@ export const en: Record<TranslationKey, string> = {
   'piece.addPanel': 'Add panel',
   'piece.noPanels': 'No panels yet. Add a side, a bottom or a shelf.',
   'piece.panelLimit': 'Maximum number of panels reached.',
+  'piece.fitInterior': 'Fit interior panels',
+  'piece.fitInteriorHint':
+    'Cuts shelves and dividers back to the inside of the carcass (sides, bottom, top, back). Never lengthens anything.',
 
   'piece.drawers': 'Drawers',
   'piece.drawerCount': 'Drawers',

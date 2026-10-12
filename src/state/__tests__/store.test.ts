@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BaseCabinetParams } from '@core/cabinet'
 import { isCustomPieceDesign } from '@core/catalog/registry'
 import { addPresetPanel, CUSTOM_PIECE_KIND, type CustomPieceSpec } from '@core/customPiece'
+import { commitPieceEdit, fitInteriorPanels, interiorFitPending } from '@core/customPieceFit'
 import { PROJECT_SCHEMA_VERSION, type ProjectDocument } from '@core/project'
 import { findPlacedCabinet, type PlacedCabinet } from '@core/scene'
 import { COALESCE_WINDOW_MS } from '@state/history'
@@ -460,6 +461,40 @@ describe('the piece editor', () => {
     state().redo()
     expect(state().editor.editingPieceId).toBeNull() // edit-mode is not part of the document
     expect(findPlacedCabinet(state().scene, 'cab-2')?.design.kind).toBe(CUSTOM_PIECE_KIND)
+  })
+
+  it('"fit interior panels now" is one entry, and a shell edit through commitPieceEdit is one entry with its re-fit', () => {
+    state().addCustomPiece('Test')
+    for (const preset of ['side', 'side', 'top', 'bottom', 'back', 'divider'] as const) {
+      const added = addPresetPanel(selectedSpec(), preset)
+      if (added === null) {
+        throw new Error('preset refused')
+      }
+      state().updateSelectedDesign({ kind: CUSTOM_PIECE_KIND, spec: added.spec })
+    }
+    // The divider pushed into the back through the fields (an override).
+    const pierced = {
+      ...selectedSpec(),
+      panels: selectedSpec().panels.map((p) => (p.id === 'panel-6' ? { ...p, originMm: { ...p.originMm, z: 0 } } : p))
+    }
+    state().updateSelectedDesign({ kind: CUSTOM_PIECE_KIND, spec: pierced })
+    const entries = pastLength()
+    expect(interiorFitPending(selectedSpec())).toBe(true)
+    state().updateSelectedDesign({ kind: CUSTOM_PIECE_KIND, spec: fitInteriorPanels(selectedSpec(), null) })
+    expect(pastLength()).toBe(entries + 1)
+    expect(selectedSpec().panels[5].originMm.z).toBe(4)
+    state().undo()
+    expect(selectedSpec().panels[5].originMm.z).toBe(0)
+    expect(pastLength()).toBe(entries)
+
+    // The back re-thicknessed: the editor commits the edit with its re-fit as ONE entry.
+    const before = selectedSpec()
+    const thicker = { ...before, panels: before.panels.map((p) => (p.id === 'panel-5' ? { ...p, thicknessMm: 6 } : p)) }
+    state().updateSelectedDesign({ kind: CUSTOM_PIECE_KIND, spec: commitPieceEdit(before, thicker) })
+    expect(pastLength()).toBe(entries + 1)
+    expect(selectedSpec().panels[5].originMm.z).toBe(7) // recess 1 + 6
+    state().undo()
+    expect(selectedSpec().panels[5].originMm.z).toBe(0)
   })
 
   it('the dimension chains toggle is a view preference: on by default, no entry, never dirty', () => {
