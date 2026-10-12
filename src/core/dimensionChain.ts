@@ -131,7 +131,7 @@ export function chainExtentMm(spec: CustomPieceSpec, axis: PieceAxis): number {
 }
 
 /** The two members overlap in cross-section (on both axes other than `axis`), thin contacts excluded. */
-function crossSectionsOverlap(a: ChainMember, b: ChainMember, axis: PieceAxis): boolean {
+export function crossSectionsOverlap(a: ChainMember, b: ChainMember, axis: PieceAxis): boolean {
   return AXES.filter((other) => other !== axis).every(
     (other) => Math.min(a.max[other], b.max[other]) - Math.max(a.min[other], b.min[other]) > OVERLAP_EPSILON_MM
   )
