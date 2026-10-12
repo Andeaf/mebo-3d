@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { canRedo, canUndo } from '@state/history'
 import { isProjectDirty, useAppStore } from '@state/store'
 import { useT } from '../i18n'
+import { materialRepository } from '../materialRepository'
 import { useProjectCommands } from './useProjectCommands'
 
 const APP_NAME = 'Mebo 3D'
@@ -50,7 +51,10 @@ export function ProjectBridge(): null {
         exit: t('menu.exit'),
         edit: t('menu.edit'),
         undo: t('menu.undo'),
-        redo: t('menu.redo')
+        redo: t('menu.redo'),
+        prices: t('menu.prices'),
+        openPriceList: t('menu.openPriceList'),
+        reloadPrices: t('menu.reloadPrices')
       },
       recent: recentProjects.map((entry) => ({ path: entry.path, name: entry.name })),
       canUndo: canUndoNow,
@@ -96,6 +100,10 @@ export function ProjectBridge(): null {
         useAppStore.getState().undo()
       } else if (action === 'redo') {
         useAppStore.getState().redo()
+      } else if (action === 'reload-prices') {
+        // Not a document change and no dialog: the scene re-prices through
+        // the priceDb selectors; the history and the dirty flag are untouched.
+        void useAppStore.getState().loadMaterials(materialRepository)
       } else {
         run(() => current.openRecent(action.openRecent))
       }

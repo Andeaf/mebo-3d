@@ -172,6 +172,9 @@ export const nl = {
   'menu.edit': 'Bewerken',
   'menu.undo': 'Ongedaan maken',
   'menu.redo': 'Opnieuw',
+  'menu.prices': 'Prijzen',
+  'menu.openPriceList': 'Prijslijst openen',
+  'menu.reloadPrices': 'Prijzen herladen',
 
   'project.untitled': 'Naamloos',
   'project.fileFilter': 'Mebo 3D-project',

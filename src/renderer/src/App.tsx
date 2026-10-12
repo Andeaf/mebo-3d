@@ -1,9 +1,9 @@
 import { useEffect, type ReactElement } from 'react'
-import { JsonMaterialRepository } from '@core/repository/MaterialRepository'
 import { useSelectedCabinet } from '@state/selectors'
 import { useAppStore } from '@state/store'
 import { useT } from './i18n'
 import { LanguageSwitcher } from './LanguageSwitcher'
+import { materialRepository } from './materialRepository'
 import { ParameterPanel } from './panels/ParameterPanel'
 import { PricePanel } from './panels/PricePanel'
 import { RoomPanel } from './panels/RoomPanel'
@@ -15,8 +15,6 @@ import { ProjectNotice } from './project/ProjectNotice'
 import { Toolbar } from './toolbar/Toolbar'
 import { SelectedReadout } from './viewport/SelectedReadout'
 import { Viewport } from './viewport/Viewport'
-
-const materialRepository = new JsonMaterialRepository(() => window.api.loadMaterialsFile())
 
 /** The sidebar body: the piece editor while a custom piece is open, the scene panels otherwise. */
 function SidebarPanels(): ReactElement {

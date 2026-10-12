@@ -170,6 +170,9 @@ export const ro: Record<TranslationKey, string> = {
   'menu.edit': 'Editare',
   'menu.undo': 'Anulează',
   'menu.redo': 'Refă',
+  'menu.prices': 'Prețuri',
+  'menu.openPriceList': 'Deschide lista de prețuri',
+  'menu.reloadPrices': 'Reîncarcă prețurile',
 
   'project.untitled': 'Fără titlu',
   'project.fileFilter': 'Proiect Mebo 3D',

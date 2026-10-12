@@ -170,6 +170,9 @@ export const en: Record<TranslationKey, string> = {
   'menu.edit': 'Edit',
   'menu.undo': 'Undo',
   'menu.redo': 'Redo',
+  'menu.prices': 'Prices',
+  'menu.openPriceList': 'Open price list',
+  'menu.reloadPrices': 'Reload prices',
 
   'project.untitled': 'Untitled',
   'project.fileFilter': 'Mebo 3D project',

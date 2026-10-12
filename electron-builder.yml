@@ -11,8 +11,12 @@ files:
   - out/**/*
   - package.json
   - '!node_modules/**'
-# The price database ships beside the app, never inside the asar, so the firm can
-# edit it: <install dir>/resources/data/materials.json (process.resourcesPath).
+# The shipped price list goes beside the app, never inside the asar:
+# <install dir>/resources/data/materials.json (process.resourcesPath). The app
+# does not price with it: on first run it is copied to the user's data folder
+# (%APPDATA%\mebo-3d\materials.json), which the firm edits and which a
+# reinstall never overwrites; later versions only append new ids to it
+# (src/main/priceList.ts).
 extraResources:
   - from: data
     to: data
@@ -37,7 +41,8 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: Mebo 3D
-  # Recents and language (in %APPDATA%\Mebo 3D) survive a reinstall.
+  # The price list, recents and language (in %APPDATA%\mebo-3d — Electron names
+  # userData after package.json `name`) survive a reinstall and an uninstall.
   deleteAppDataOnUninstall: false
 fileAssociations:
   - ext: mebo

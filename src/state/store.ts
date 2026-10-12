@@ -632,7 +632,10 @@ export const useAppStore = create<AppState>((set) => ({
       const priceDb = await repository.loadPriceDatabase()
       set({ priceDb, materialsState: 'ready' })
     } catch (error) {
+      // A failed (re)load leaves no prices rather than stale ones beside an
+      // error: the panel shows the error alone, as at a failed start.
       set({
+        priceDb: null,
         materialsState: 'error',
         materialsError: error instanceof Error ? error.message : String(error)
       })

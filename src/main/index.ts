@@ -2,14 +2,17 @@ import {
   app,
   dialog,
   ipcMain,
+  shell,
   BrowserWindow,
   Menu,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
   type MenuItemConstructorOptions
 } from 'electron'
-import { promises as fs } from 'node:fs'
+import { existsSync, promises as fs } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
+import { atomicWrite } from './atomicWrite'
+import { loadPriceList, priceListPaths } from './priceList'
 import type {
   MenuAction,
   MenuModel,
@@ -21,14 +24,59 @@ import type {
 } from '../preload/api'
 import { PROJECT_EXTENSION, projectPathFromArgv } from './launchArgs'
 
-/**
- * The price database is read from disk on every app start so that editing
- * data/materials.json and restarting changes the prices (it is never bundled).
- * Packaged builds should ship the data folder via extraResources.
- */
-function resolveMaterialsPath(): string {
+// ---------------------------------------------------------------------------
+// The price list.
+//
+// Packaged: the firm's list is `<userData>/materials.json` (%APPDATA%\mebo-3d),
+// seeded from the shipped `resources/data/materials.json` on first run and
+// never overwritten afterwards; every load appends the shipped ids it lacks
+// and was never offered (priceList.ts). In DEV the repo's data/materials.json
+// is read as-is, with no seed and no merge: dev and the installed app share
+// the same userData folder on one machine, so a dev run must not write into
+// the installed app's price list. The repo file is the shipped source the
+// developer edits (edit + restart, as always).
+
+/** The shipped list: beside the asar when packaged, the repo's data folder in dev. */
+function shippedMaterialsPath(): string {
   const base = app.isPackaged ? process.resourcesPath : app.getAppPath()
   return join(base, 'data', 'materials.json')
+}
+
+/** The file the app prices with — what Prices › Open shows. */
+function priceListFilePath(): string {
+  return app.isPackaged ? priceListPaths(app.getPath('userData'), shippedMaterialsPath()).user : shippedMaterialsPath()
+}
+
+// Loads are serialized: a reload during the start-up load must not run two
+// merges over the same files.
+let priceListQueue: Promise<unknown> = Promise.resolve()
+
+function readPriceList(): Promise<string> {
+  const next = priceListQueue.then(async () => {
+    if (!app.isPackaged) {
+      return fs.readFile(shippedMaterialsPath(), 'utf-8')
+    }
+    const load = await loadPriceList(priceListPaths(app.getPath('userData'), shippedMaterialsPath()))
+    if (load.seeded || load.appendedIds.length > 0) {
+      console.log(
+        `price list: ${load.seeded ? 'seeded' : 'merged'} ${priceListFilePath()}` +
+          (load.appendedIds.length > 0 ? ` (+ ${load.appendedIds.join(', ')})` : '')
+      )
+    }
+    return load.text
+  })
+  priceListQueue = next.catch(() => undefined)
+  return next
+}
+
+/** Prices › Open price list: the file selected in Explorer, or its folder when it does not exist yet. */
+function revealPriceList(): void {
+  const path = priceListFilePath()
+  if (existsSync(path)) {
+    shell.showItemInFolder(path)
+  } else {
+    void shell.openPath(dirname(path))
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -204,6 +252,22 @@ function editMenu(model: MenuModel): MenuItemConstructorOptions {
   }
 }
 
+/**
+ * Prices › Open price list / Reload prices. Its own menu: the price list is
+ * not a project file. Open is served here (a shell call, no renderer state);
+ * Reload goes to the renderer, which owns the loaded database.
+ */
+function pricesMenu(model: MenuModel): MenuItemConstructorOptions {
+  const { labels } = model
+  return {
+    label: menuLabel(labels.prices),
+    submenu: [
+      { label: menuLabel(labels.openPriceList), click: () => revealPriceList() },
+      { label: menuLabel(labels.reloadPrices), click: () => sendMenuAction('reload-prices') }
+    ]
+  }
+}
+
 /** Development only: keep reload and devtools reachable once the default menu is gone. */
 function devMenu(): MenuItemConstructorOptions[] {
   return app.isPackaged
@@ -212,7 +276,10 @@ function devMenu(): MenuItemConstructorOptions[] {
 }
 
 function applyMenu(model: MenuModel | null): void {
-  const template = [...(model === null ? [] : [fileMenu(model), editMenu(model)]), ...devMenu()]
+  const template = [
+    ...(model === null ? [] : [fileMenu(model), editMenu(model), pricesMenu(model)]),
+    ...devMenu()
+  ]
   Menu.setApplicationMenu(template.length === 0 ? null : Menu.buildFromTemplate(template))
 }
 
@@ -255,15 +322,8 @@ async function readProject(path: string): Promise<ProjectReadResult> {
 
 /** Temp file in the same directory, then rename: a crash mid-write never leaves a truncated project. */
 async function writeProject(path: string, text: string): Promise<ProjectWriteResult> {
-  const temp = `${path}.tmp`
   try {
-    await fs.writeFile(temp, text, 'utf-8')
-    try {
-      await fs.rename(temp, path)
-    } catch (error) {
-      await fs.rm(temp, { force: true })
-      throw error
-    }
+    await atomicWrite(path, text)
     return { ok: true }
   } catch (error) {
     return { ok: false, message: messageOf(error) }
@@ -271,7 +331,7 @@ async function writeProject(path: string, text: string): Promise<ProjectWriteRes
 }
 
 function registerIpc(): void {
-  ipcMain.handle('materials:load', () => fs.readFile(resolveMaterialsPath(), 'utf-8'))
+  ipcMain.handle('materials:load', () => readPriceList())
 
   ipcMain.handle('project:open-dialog', async (event, filterName: string): Promise<string | null> => {
     const window = windowOf(event)

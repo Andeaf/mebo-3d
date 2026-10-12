@@ -49,6 +49,9 @@ export interface MenuLabels {
   readonly edit: string
   readonly undo: string
   readonly redo: string
+  readonly prices: string
+  readonly openPriceList: string
+  readonly reloadPrices: string
 }
 
 export interface MenuRecentEntry {
@@ -71,10 +74,17 @@ export type MenuAction =
   | 'save-as'
   | 'undo'
   | 'redo'
+  /** Prices › Reload: the renderer re-reads the price list; the scene re-prices live. */
+  | 'reload-prices'
   | { readonly openRecent: string }
 
 export interface MeboApi {
-  /** Raw text of data/materials.json; parsing/validation happens in the core. */
+  /**
+   * Raw text of the price list — the user's `<userData>/materials.json` when
+   * packaged (seeded and merged from the shipped list first, see
+   * main/priceList.ts), the repo's data/materials.json in dev; parsing and
+   * validation happen in the core.
+   */
   readonly loadMaterialsFile: () => Promise<string>
 
   /** Native open dialog filtered to `.mebo`; null when cancelled. */
