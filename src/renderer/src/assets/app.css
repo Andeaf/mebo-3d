@@ -152,6 +152,24 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* The gate's refusal strip: bottom centre of the viewport, neutral, briefly. */
+.gate-notice {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 24px);
+  padding: 8px 14px;
+  background: var(--bg-raised);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  z-index: 10;
+}
+
 .measure-label {
   padding: 3px 8px;
   background: rgba(30, 32, 38, 0.9);

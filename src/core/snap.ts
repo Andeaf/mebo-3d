@@ -583,15 +583,16 @@ export function resolveNonOverlapping(
 /**
  * The single gate through which the state layer mutates placements: inserts
  * or replaces `updated` in the scene with its position resolved to a free
- * spot, so scene state can never contain overlapping cabinets.
+ * spot, so scene state can never contain overlapping cabinets. Returns
+ * `null` when the room holds no free spot — the whole update is refused
+ * rather than a cabinet left overlapping or outside — so the caller can
+ * tell a refusal from an update that resolved to where it already was.
  */
-export function placeWithoutOverlap(scene: SceneDesign, updated: PlacedCabinet): SceneDesign {
+export function tryPlaceWithoutOverlap(scene: SceneDesign, updated: PlacedCabinet): SceneDesign | null {
   const others = scene.cabinets.filter((cabinet) => cabinet.id !== updated.id)
   const resolved = resolveNonOverlapping(updated, others, scene.room)
   if (resolved === null) {
-    // The room holds no free spot: reject the whole update rather than leave a
-    // cabinet overlapping or outside. Silent for now — see CLAUDE.md.
-    return scene
+    return null
   }
   const placed: PlacedCabinet = {
     ...updated,
@@ -605,6 +606,11 @@ export function placeWithoutOverlap(scene: SceneDesign, updated: PlacedCabinet):
       ? scene.cabinets.map((cabinet) => (cabinet.id === updated.id ? placed : cabinet))
       : [...scene.cabinets, placed]
   }
+}
+
+/** `tryPlaceWithoutOverlap`, with a refusal handing the scene back unchanged (the same reference). */
+export function placeWithoutOverlap(scene: SceneDesign, updated: PlacedCabinet): SceneDesign {
+  return tryPlaceWithoutOverlap(scene, updated) ?? scene
 }
 
 export interface SpawnPlacement extends FloorPosition {

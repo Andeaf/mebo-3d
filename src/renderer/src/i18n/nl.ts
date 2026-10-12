@@ -161,6 +161,11 @@ export const nl = {
   'price.subtotal': 'Subtotaal',
   'price.total': 'Totaal (excl. btw)',
 
+  'gate.add': 'Geen vrije plek in de ruimte: er is niets toegevoegd.',
+  'gate.room': 'Zo klein kan de ruimte niet: dan passen niet alle kasten.',
+  'gate.rotate': 'Draaien kan hier niet: gedraaid past de kast nergens.',
+  'gate.change': 'Dat past niet in de ruimte: de wijziging is niet uitgevoerd.',
+
   'menu.file': 'Bestand',
   'menu.new': 'Nieuw',
   'menu.open': 'Openen…',

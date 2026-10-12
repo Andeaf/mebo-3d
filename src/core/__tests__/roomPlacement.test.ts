@@ -4,7 +4,7 @@ import { placedCabinetRect, sceneHasOverlap } from '@core/footprint'
 import { createDefaultRoom, roomContainsRect, type RoomDesign } from '@core/room'
 import type { PlacedCabinet, RotationDegrees, SceneDesign } from '@core/scene'
 import { createDefaultWorktopSettings } from '@core/worktop'
-import { placeWithoutOverlap, resolveNonOverlapping, spawnPlacement } from '@core/snap'
+import { placeWithoutOverlap, resolveNonOverlapping, spawnPlacement, tryPlaceWithoutOverlap } from '@core/snap'
 import { makePlaced } from './footprint.test'
 
 // Default room: 4000 × 3000 interior, so x ∈ [−2000, 2000], z ∈ [−1500, 1500].
@@ -92,10 +92,15 @@ describe('containment in the gate', () => {
     expect(sceneIsLegal(full)).toBe(true)
 
     expect(resolveNonOverlapping(makePlaced('extra', 0, 0), packed, small)).toBeNull()
-    // The gate rejects the whole update instead of breaking the invariant.
+    // The gate rejects the whole update instead of breaking the invariant:
+    // null from the try variant, the same scene reference from the plain one.
+    expect(tryPlaceWithoutOverlap(full, makePlaced('extra', 0, 0))).toBeNull()
     const after = placeWithoutOverlap(full, makePlaced('extra', 0, 0))
     expect(after).toBe(full)
     expect(after.cabinets).toHaveLength(9)
+    // An update that fits is a new scene from both.
+    const roomy = scene(room, packed[0])
+    expect(tryPlaceWithoutOverlap(roomy, makePlaced('extra', 0, 0))?.cabinets).toHaveLength(2)
   })
 })
 

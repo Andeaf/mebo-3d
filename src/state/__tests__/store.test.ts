@@ -287,29 +287,132 @@ describe('coalescing bursts', () => {
   })
 })
 
+/** Three 1200 × 700 base cabinets: they fit a 4000-wide room, not a 2000 × 2000 one. */
+function threeWideCabinets(): void {
+  for (let i = 0; i < 3; i += 1) {
+    if (i > 0) {
+      state().addCabinet('base-cabinet')
+    }
+    const design = selected().design
+    if (design.kind === 'base-cabinet') {
+      state().updateSelectedDesign({
+        kind: 'base-cabinet',
+        params: { ...design.params, widthMm: 1200, depthMm: 700 }
+      })
+    }
+  }
+  expect(cabinetIds()).toEqual(['cab-1', 'cab-2', 'cab-3'])
+}
+
+/** Packs the 2000 × 2000 minimum room with 1200 × 700 cabinets so nothing else fits anywhere. */
+function packedRoom(): void {
+  // Two 1200-wide cabinets side by side need 2400: so one per row, two rows
+  // of 700 deep fit 2000 (1400), a third does not. Then 600-deep fillers
+  // beside them: 2000 − 1200 = 800 wide, 1 row of 700 each → two more.
+  const room = state().scene.room
+  state().updateRoom({ ...room, widthMm: 2000, lengthMm: 2000 })
+  state().updateSelectedDesign({ kind: 'base-cabinet', params: { ...baseParams(), widthMm: 1200, depthMm: 700 } })
+  state().placeSelected(-400, -650)
+  state().addCabinet('base-cabinet')
+  state().updateSelectedDesign({ kind: 'base-cabinet', params: { ...baseParams(), widthMm: 1200, depthMm: 700 } })
+  state().placeSelected(-400, 50)
+  state().addCabinet('base-cabinet')
+  state().updateSelectedDesign({ kind: 'base-cabinet', params: { ...baseParams(), widthMm: 800, depthMm: 700 } })
+  state().placeSelected(600, -650)
+  state().addCabinet('base-cabinet')
+  state().updateSelectedDesign({ kind: 'base-cabinet', params: { ...baseParams(), widthMm: 800, depthMm: 700 } })
+  state().placeSelected(600, 50)
+  state().addCabinet('base-cabinet')
+  state().updateSelectedDesign({ kind: 'base-cabinet', params: { ...baseParams(), widthMm: 1200, depthMm: 600 } })
+  state().placeSelected(-400, 700)
+  state().addCabinet('base-cabinet')
+  state().updateSelectedDesign({ kind: 'base-cabinet', params: { ...baseParams(), widthMm: 800, depthMm: 600 } })
+  state().placeSelected(600, 700)
+  expect(cabinetIds()).toHaveLength(6)
+  expect(state().gateNotice).toBeNull()
+}
+
 describe('rejected updates', () => {
   it('a room shrink no cabinet fits into leaves the scene and the history untouched', () => {
-    // Three 1200 × 700 base cabinets in a row fit a 4000-wide room; at 2000
-    // wide only two rows of 700 fit in 2000 deep, so the third has nowhere to go.
-    for (let i = 0; i < 3; i += 1) {
-      if (i > 0) {
-        state().addCabinet('base-cabinet')
-      }
-      const design = selected().design
-      if (design.kind === 'base-cabinet') {
-        state().updateSelectedDesign({
-          kind: 'base-cabinet',
-          params: { ...design.params, widthMm: 1200, depthMm: 700 }
-        })
-      }
-    }
-    expect(cabinetIds()).toEqual(['cab-1', 'cab-2', 'cab-3'])
+    threeWideCabinets()
     const entries = pastLength()
     const before = state().scene
 
     state().updateRoom({ ...before.room, widthMm: 2000, lengthMm: 2000 }, 'widthMm')
     expect(state().scene).toBe(before)
     expect(pastLength()).toBe(entries)
+  })
+
+  it('a refused room shrink raises the room notice; the document is untouched and clean', () => {
+    threeWideCabinets()
+    state().markProjectSaved('C:\\k\\a.mebo', '2026-10-12T00:00:00.000Z')
+    const before = state().scene
+    const entries = pastLength()
+    state().updateRoom({ ...before.room, widthMm: 2000, lengthMm: 2000 }, 'widthMm')
+    expect(state().gateNotice).toEqual({ reason: 'room', nonce: 1 })
+    expect(state().scene).toBe(before)
+    expect(pastLength()).toBe(entries)
+    expect(isProjectDirty(state())).toBe(false)
+    // Held against the wall: every further refusal is a NEW notice (restarts the strip).
+    state().updateRoom({ ...before.room, widthMm: 2000, lengthMm: 2000 }, 'widthMm')
+    expect(state().gateNotice).toEqual({ reason: 'room', nonce: 2 })
+  })
+
+  it('a refused add raises the add notice and consumes no id', () => {
+    packedRoom()
+    const before = state().scene
+    const entries = pastLength()
+    const nextNumber = state().nextCabinetNumber
+    state().addCabinet('base-cabinet')
+    expect(state().gateNotice).toEqual({ reason: 'add', nonce: 1 })
+    expect(state().scene).toBe(before)
+    expect(pastLength()).toBe(entries)
+    expect(state().nextCabinetNumber).toBe(nextNumber)
+    state().duplicateSelected()
+    expect(state().gateNotice).toEqual({ reason: 'add', nonce: 2 })
+    state().addCustomPiece('Maatwerk')
+    expect(state().gateNotice).toEqual({ reason: 'add', nonce: 3 })
+    expect(state().editor.editingPieceId).toBeNull()
+    expect(state().scene).toBe(before)
+  })
+
+  it('a refused rotation and a refused change raise their notices', () => {
+    packedRoom()
+    const before = state().scene
+    const entries = pastLength()
+    state().rotateSelected()
+    expect(state().gateNotice).toEqual({ reason: 'rotate', nonce: 1 })
+    expect(state().scene).toBe(before)
+    // Widening the 800-wide filler to 1200 fits nowhere.
+    state().updateSelectedDesign({ kind: 'base-cabinet', params: { ...baseParams(), widthMm: 1200 } }, 'widthMm')
+    expect(state().gateNotice).toEqual({ reason: 'change', nonce: 2 })
+    expect(state().scene).toBe(before)
+    expect(pastLength()).toBe(entries)
+    expect(isProjectDirty(state())).toBe(true) // it was dirty before; a refusal changes nothing
+  })
+
+  it('a nudge into a wall is not a refusal (the gate resolved it) and raises nothing', () => {
+    const placed = selected()
+    state().nudgeSelected(0, -100) // the default cabinet already backs onto the back wall
+    expect(selected().positionZ).toBe(placed.positionZ)
+    expect(state().gateNotice).toBeNull()
+  })
+
+  it('dismissing uses the nonce: a stale dismiss leaves a newer notice up; New clears it', () => {
+    threeWideCabinets()
+    const room = state().scene.room
+    state().updateRoom({ ...room, widthMm: 2000, lengthMm: 2000 })
+    state().updateRoom({ ...room, widthMm: 2000, lengthMm: 2000 })
+    expect(state().gateNotice?.nonce).toBe(2)
+    state().dismissGateNotice(1)
+    expect(state().gateNotice?.nonce).toBe(2)
+    state().dismissGateNotice(2)
+    expect(state().gateNotice).toBeNull()
+    // The nonce only tells consecutive notices apart; after a dismiss it starts over.
+    state().updateRoom({ ...room, widthMm: 2000, lengthMm: 2000 })
+    expect(state().gateNotice?.nonce).toBe(1)
+    state().resetProject()
+    expect(state().gateNotice).toBeNull()
   })
 
   it('a design edit that changes nothing records nothing', () => {

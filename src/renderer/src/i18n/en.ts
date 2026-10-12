@@ -159,6 +159,11 @@ export const en: Record<TranslationKey, string> = {
   'price.subtotal': 'Subtotal',
   'price.total': 'Total (excl. VAT)',
 
+  'gate.add': 'No free spot in the room: nothing was added.',
+  'gate.room': 'The room cannot be that small: not every cabinet would fit.',
+  'gate.rotate': 'Cannot rotate here: turned, the cabinet fits nowhere.',
+  'gate.change': 'That does not fit in the room: the change was not applied.',
+
   'menu.file': 'File',
   'menu.new': 'New',
   'menu.open': 'Open…',

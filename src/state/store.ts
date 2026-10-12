@@ -21,7 +21,7 @@ import {
   type PlacedCabinet,
   type SceneDesign
 } from '@core/scene'
-import { placeWithoutOverlap, resolveDragPose, spawnPlacement } from '@core/snap'
+import { resolveDragPose, spawnPlacement, tryPlaceWithoutOverlap } from '@core/snap'
 import {
   clampWorktopSettings,
   createDefaultWorktopSettings,
@@ -110,6 +110,13 @@ interface AppState {
    * as well, whatever path a key event takes.
    */
   readonly flowBusy: boolean
+  /**
+   * The last update the placement gate refused (the room holds no free
+   * spot), for a short notice in the viewport. Not part of the document:
+   * the scene, the history and the dirty flag are untouched by a refusal.
+   * The nonce lets a repeated refusal restart the notice.
+   */
+  readonly gateNotice: GateNotice | null
   addCabinet: (kind: CabinetKind) => void
   /** Adds an empty custom piece (the name is the renderer's translated default) and opens its editor. */
   addCustomPiece: (name: string) => void
@@ -169,6 +176,22 @@ interface AppState {
   markProjectSaved: (path: string, savedAt: string) => void
   setProjectError: (message: string | null) => void
   setRecentProjects: (list: readonly RecentProject[]) => void
+  /** Clears the gate notice with that nonce; a newer notice stays. */
+  dismissGateNotice: (nonce: number) => void
+}
+
+/**
+ * What the gate refused: an add (nothing added, no id consumed), a room
+ * resize (the old room stays), a rotation (the turned cabinet fits nowhere),
+ * or any other change to the selected cabinet (a design edit, an X/Z value,
+ * a nudge, a drop). A live drag frame held at its last legal pose is not a
+ * refusal — the held cabinet is the drag's own feedback.
+ */
+export type GateRefusal = 'add' | 'room' | 'rotate' | 'change'
+
+export interface GateNotice {
+  readonly reason: GateRefusal
+  readonly nonce: number
 }
 
 /** Unsaved changes exist exactly when the scene is not the saved reference. */
@@ -239,6 +262,11 @@ function sceneChange(state: SceneState, scene: SceneDesign, key: string | null =
   return { scene, history: record(state.history, state.scene, key, Date.now()) }
 }
 
+/** The gate said no: only the notice changes (scene, history and dirty flag stay as they are). */
+function refused(state: Pick<AppState, 'gateNotice'>, reason: GateRefusal): Pick<AppState, 'gateNotice'> {
+  return { gateNotice: { reason, nonce: (state.gateNotice?.nonce ?? 0) + 1 } }
+}
+
 /** A scoped coalescing key, or null (never coalesce) when the caller gave none. */
 function scoped(prefix: string, key: string | undefined): string | null {
   return key === undefined ? null : `${prefix}:${key}`
@@ -274,7 +302,7 @@ function reconcileWith(
  * changes nothing when the room holds no free spot (the id is not consumed).
  */
 function spawnDesign(
-  state: SceneState & Pick<AppState, 'nextCabinetNumber'>,
+  state: SceneState & Pick<AppState, 'nextCabinetNumber' | 'gateNotice'>,
   design: CabinetDesign
 ): Partial<AppState> {
   const spawn = spawnPlacement(state.scene, design)
@@ -285,20 +313,37 @@ function spawnDesign(
     positionZ: spawn.positionZ,
     rotationDeg: spawn.rotationDeg
   }
-  const change = sceneChange(state, placeWithoutOverlap(state.scene, cabinet))
-  if (change.scene === undefined) {
-    return {}
+  const placed = tryPlaceWithoutOverlap(state.scene, cabinet)
+  if (placed === null) {
+    return refused(state, 'add')
   }
   return {
-    ...change,
+    ...sceneChange(state, placed),
     selectedCabinetId: cabinet.id,
     nextCabinetNumber: state.nextCabinetNumber + 1
   }
 }
 
-/** A fresh document: the given scene is both the present and the saved reference, with no history. */
-function freshDocument(scene: SceneDesign): Pick<AppState, 'scene' | 'savedScene' | 'history' | 'gestureBase'> {
-  return { scene, savedScene: scene, history: EMPTY_HISTORY, gestureBase: null }
+/**
+ * A pose change of one cabinet through the gate: the resolved scene as one
+ * change (which may be none, when it resolved to where the cabinet stood),
+ * or the refusal notice.
+ */
+function placeThroughGate(
+  state: SceneState & Pick<AppState, 'gateNotice'>,
+  updated: PlacedCabinet,
+  key: string | null = null,
+  reason: GateRefusal = 'change'
+): Partial<AppState> {
+  const placed = tryPlaceWithoutOverlap(state.scene, updated)
+  return placed === null ? refused(state, reason) : sceneChange(state, placed, key)
+}
+
+/** A fresh document: the given scene is both the present and the saved reference, with no history and no notice. */
+function freshDocument(
+  scene: SceneDesign
+): Pick<AppState, 'scene' | 'savedScene' | 'history' | 'gestureBase' | 'gateNotice'> {
+  return { scene, savedScene: scene, history: EMPTY_HISTORY, gestureBase: null, gateNotice: null }
 }
 
 // Scene invariant: every mutation that adds or moves a cabinet goes through
@@ -319,6 +364,7 @@ export const useAppStore = create<AppState>((set) => ({
   projectError: null,
   editor: NO_EDITOR,
   flowBusy: false,
+  gateNotice: null,
 
   addCabinet: (kind) =>
     set((state) => (isEditing(state.editor) ? {} : spawnDesign(state, createDefaultDesign(kind)))),
@@ -334,7 +380,7 @@ export const useAppStore = create<AppState>((set) => ({
       })
       const addedId = added.selectedCabinetId
       if (typeof addedId !== 'string') {
-        return {}
+        return added // the refusal notice, nothing else
       }
       return { ...added, editor: enterEditor(addedId) }
     }),
@@ -366,12 +412,12 @@ export const useAppStore = create<AppState>((set) => ({
         positionX: beside.positionX,
         positionZ: beside.positionZ
       }
-      const change = sceneChange(state, placeWithoutOverlap(state.scene, copy))
-      if (change.scene === undefined) {
-        return {}
+      const placed = tryPlaceWithoutOverlap(state.scene, copy)
+      if (placed === null) {
+        return refused(state, 'add')
       }
       return {
-        ...change,
+        ...sceneChange(state, placed),
         selectedCabinetId: copy.id,
         nextCabinetNumber: state.nextCabinetNumber + 1
       }
@@ -403,11 +449,11 @@ export const useAppStore = create<AppState>((set) => ({
       }
       const clamped = clampDesign(design)
       const updated: PlacedCabinet = { ...selected, design: clamped }
-      const change = sceneChange(
-        state,
-        placeWithoutOverlap(state.scene, updated),
-        scoped(selected.id, coalesceKey)
-      )
+      const placed = tryPlaceWithoutOverlap(state.scene, updated)
+      if (placed === null) {
+        return refused(state, 'change')
+      }
+      const change = sceneChange(state, placed, scoped(selected.id, coalesceKey))
       if (change.scene === undefined || !isCustomPieceDesign(clamped)) {
         return change
       }
@@ -423,9 +469,9 @@ export const useAppStore = create<AppState>((set) => ({
       // than strand or drop furniture.
       let next: SceneDesign = { ...state.scene, room: clamped, cabinets: [] }
       for (const cabinet of state.scene.cabinets) {
-        const placed = placeWithoutOverlap(next, cabinet)
-        if (placed.cabinets.length === next.cabinets.length) {
-          return {}
+        const placed = tryPlaceWithoutOverlap(next, cabinet)
+        if (placed === null) {
+          return refused(state, 'room')
         }
         next = placed
       }
@@ -484,14 +530,11 @@ export const useAppStore = create<AppState>((set) => ({
       if (selected === undefined || isEditing(state.editor)) {
         return {}
       }
-      return sceneChange(
-        state,
-        placeWithoutOverlap(state.scene, {
-          ...selected,
-          positionX: Math.round(positionX),
-          positionZ: Math.round(positionZ)
-        })
-      )
+      return placeThroughGate(state, {
+        ...selected,
+        positionX: Math.round(positionX),
+        positionZ: Math.round(positionZ)
+      })
     }),
 
   placeSelected: (positionX, positionZ) =>
@@ -500,14 +543,11 @@ export const useAppStore = create<AppState>((set) => ({
       if (selected === undefined || isEditing(state.editor)) {
         return {}
       }
-      return sceneChange(
-        state,
-        placeWithoutOverlap(state.scene, {
-          ...selected,
-          positionX: Math.round(positionX),
-          positionZ: Math.round(positionZ)
-        })
-      )
+      return placeThroughGate(state, {
+        ...selected,
+        positionX: Math.round(positionX),
+        positionZ: Math.round(positionZ)
+      })
     }),
 
   nudgeSelected: (deltaX, deltaZ) =>
@@ -516,13 +556,13 @@ export const useAppStore = create<AppState>((set) => ({
       if (selected === undefined || isEditing(state.editor)) {
         return {}
       }
-      return sceneChange(
+      return placeThroughGate(
         state,
-        placeWithoutOverlap(state.scene, {
+        {
           ...selected,
           positionX: selected.positionX + deltaX,
           positionZ: selected.positionZ + deltaZ
-        }),
+        },
         scoped(selected.id, 'nudge')
       )
     }),
@@ -556,12 +596,11 @@ export const useAppStore = create<AppState>((set) => ({
       if (selected === undefined || isEditing(state.editor)) {
         return {}
       }
-      return sceneChange(
+      return placeThroughGate(
         state,
-        placeWithoutOverlap(state.scene, {
-          ...selected,
-          rotationDeg: rotationStep(selected.rotationDeg)
-        })
+        { ...selected, rotationDeg: rotationStep(selected.rotationDeg) },
+        null,
+        'rotate'
       )
     }),
 
@@ -673,5 +712,8 @@ export const useAppStore = create<AppState>((set) => ({
   setRecentProjects: (list) => {
     storeRecentProjects(list)
     set({ recentProjects: list })
-  }
+  },
+
+  dismissGateNotice: (nonce) =>
+    set((state) => (state.gateNotice !== null && state.gateNotice.nonce === nonce ? { gateNotice: null } : {}))
 }))

@@ -13,6 +13,7 @@ import { PiecePricePanel } from './piece/PiecePricePanel'
 import { ProjectBridge } from './project/ProjectBridge'
 import { ProjectNotice } from './project/ProjectNotice'
 import { Toolbar } from './toolbar/Toolbar'
+import { GateNotice } from './viewport/GateNotice'
 import { SelectedReadout } from './viewport/SelectedReadout'
 import { Viewport } from './viewport/Viewport'
 
@@ -58,6 +59,7 @@ export default function App(): ReactElement {
         <Viewport />
         <Toolbar />
         <SelectedReadout />
+        <GateNotice />
       </main>
       <aside className="sidebar">
         <header className="sidebar__header">

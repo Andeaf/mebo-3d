@@ -159,6 +159,11 @@ export const ro: Record<TranslationKey, string> = {
   'price.subtotal': 'Subtotal',
   'price.total': 'Total (fără TVA)',
 
+  'gate.add': 'Niciun loc liber în încăpere: nu s-a adăugat nimic.',
+  'gate.room': 'Încăperea nu poate fi atât de mică: nu ar mai încăpea toate corpurile.',
+  'gate.rotate': 'Nu se poate roti aici: rotit, corpul nu încape nicăieri.',
+  'gate.change': 'Nu încape în încăpere: modificarea nu a fost aplicată.',
+
   'menu.file': 'Fișier',
   'menu.new': 'Nou',
   'menu.open': 'Deschide…',
