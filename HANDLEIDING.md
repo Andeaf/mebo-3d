@@ -6,7 +6,7 @@ wie het programma installeert en gebruikt.
 
 ## Installeren
 
-1. Je krijgt een bestand `Mebo-3D-Setup-0.11.0.exe`. Dubbelklik erop.
+1. Je krijgt een bestand `Mebo-3D-Setup-0.12.0.exe`. Dubbelklik erop.
 2. Windows toont waarschijnlijk een blauw scherm **"Windows heeft uw pc
    beschermd"** (SmartScreen) met "Onbekende uitgever". Dat komt doordat het
    programma nog niet digitaal ondertekend is, niet doordat er iets mis is.
@@ -51,12 +51,45 @@ projecten, je taalkeuze en je eigen prijslijst blijven bewaard — zie
   materiaal, dikte en overstek. Het werkblad volgt vanzelf de rijen
   onderkasten (ook met lade) en ladekasten; je hoeft het niet te tekenen.
 - **Maatwerk**: **+ Kast toevoegen → Maatwerk…** maakt een leeg stuk. In de
-  zijbalk geef je de buitenmaten op en voeg je paneel voor paneel toe
-  (zijkant, bovenblad, bodem, achterwand, legplank, tussenschot, front),
-  elk met eigen maten, materiaal en kantenband. De rode **✕** achter een
-  paneel of lade in de lijst verwijdert het meteen (Ctrl+Z zet het terug).
-  **Klaar** (of Esc) sluit de editor; dubbelklik later op het stuk om verder
-  te werken.
+  zijbalk geef je onder **Buitenmaten** de maten van het stuk op en voeg je
+  paneel voor paneel toe (zijkant, bovenblad, bodem, achterwand, legplank,
+  tussenschot, front), elk met eigen maten, materiaal en kantenband. Zodra
+  je een paneel of lade aanklikt, staat **zijn** vak bovenaan de zijbalk —
+  "Paneel 3", "Lade 2" — met zijn eigen Breedte / Hoogte / Diepte en
+  positie; Buitenmaten klapt dan dicht (klik op de kop om het te openen).
+  Zo verander je nooit per ongeluk de hele kast als je een lade smaller
+  wilt. Linksonder in het 3D-beeld staat de maat van het gekozen element.
+  De rode **✕** achter een paneel of lade in de lijst verwijdert het meteen
+  (Ctrl+Z zet het terug). **Klaar** (of Esc) sluit de editor; dubbelklik
+  later op het stuk om verder te werken.
+- **Maatlijnen**: met een paneel of lade gekozen tekent het 3D-beeld blauwe
+  maatlijnen met de tussenruimtes in mm — bij een tussenschot de breedte
+  van elk vak van zijn rij, bij een legplank de hoogtes tussen de planken,
+  bij een lade de ruimte tot de fronten erboven en eronder. De twee eigen
+  tussenruimtes zijn dikker. Ze bewegen mee terwijl je sleept. **M** (of de
+  knop **Maatlijnen** linksboven) zet ze uit en aan; de keuze wordt
+  onthouden.
+- **Gelijke vakken**: sleep je een tussenschot of legplank met de pijlen in
+  het 3D-beeld, dan klikt het binnen 8 mm vast in het **midden** tussen zijn
+  twee buren (de labels worden vet met een `=`), of op een tussenruimte die
+  even groot is als een andere in dezelfde rij. Tussenschot voor
+  tussenschot geeft dat gelijke vakken. Anders landt het op stappen van
+  10 mm. Houd **Alt** (of Ctrl) ingedrukt tijdens het slepen om helemaal
+  vrij te bewegen, op de millimeter.
+- **Binnenpanelen passen in de kast**: legplanken en tussenschotten worden
+  gemaakt tot aan de binnenkant van zijkanten, bodem, bovenblad en
+  achterwand, en verschuiven alleen daarbinnen (een tussenschot kan niet
+  in de achterwand schuiven). Verplaats of vergroot je een zijkant, de
+  bodem, het bovenblad of de achterwand, dan volgen de binnenpanelen die
+  ertegenaan stonden en wordt alles wat erin zou steken ingekort — alleen
+  door het paneel dat je bewerkt: een legplank die je zelf korter hebt
+  gemaakt, of een tussenschot dat je via de velden dóór de achterwand hebt
+  getrokken, blijft staan zolang je een **ander** paneel bewerkt; pas als
+  je die achterwand zelf verplaatst of dikker maakt, eist zij haar ruimte
+  terug. **Pas binnenpanelen aan** (onder de paneelknoppen) kort in één
+  keer alles in tot de huidige kast — handig voor stukken van vóór deze
+  versie waar tussenschotten door de achterwand staken. De knop kort
+  alleen in en maakt nooit iets langer; Ctrl+Z zet alles terug.
 - **Prijs**: de prijsopbouw onderaan de zijbalk rekent alles live uit —
   plaatmateriaal, kantenband, beslag en werkbladen — met een regel per
   kast. Alle bedragen zijn exclusief btw.
@@ -81,10 +114,13 @@ projecten, je taalkeuze en je eigen prijslijst blijven bewaard — zie
   Let op: vlak bij een wand of een buurkast (tot 30 mm) klikt de kast weer
   vast — kasten in een keuken sluiten aan, ze zweven niet 5 mm ervoor.
 - **In de maatwerk-editor** verplaats je het gekozen paneel met de rode,
-  groene en blauwe pijlen in het 3D-beeld (stappen van 10 mm) of met de
-  pijltjestoetsen (1 mm, Shift = 10 mm, PgUp/PgDn = hoogte). Een paneel
-  kan de buitenmaten van het stuk nooit verlaten. Een lade verschuift
-  alleen over de voorkant: links/rechts en PgUp/PgDn.
+  groene en blauwe pijlen in het 3D-beeld (stappen van 10 mm, en het klikt
+  vast in het midden tussen zijn buren; **Alt** of Ctrl ingedrukt = vrij)
+  of met de pijltjestoetsen (1 mm, Shift = 10 mm, PgUp/PgDn = hoogte). Een
+  paneel kan de buitenmaten van het stuk nooit verlaten; een legplank of
+  tussenschot blijft bovendien binnen de kast. Een lade verschuift alleen
+  over de voorkant: links/rechts en PgUp/PgDn. **M** zet de maatlijnen uit
+  en aan.
 - **Esc** breekt een sleep af (de kast of het paneel springt terug) en
   sluit daarna de maatwerk-editor. **R** draait de geselecteerde kast.
 

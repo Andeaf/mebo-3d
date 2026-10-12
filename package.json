@@ -1,6 +1,6 @@
 {
   "name": "mebo-3d",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Mebo 3D — interne meubelconfigurator",
   "private": true,
   "main": "./out/main/index.js",
