@@ -16,7 +16,6 @@ import {
   DOOR_THICKNESS_MM,
   FRONT_GAP_MM,
   FRONT_REVEAL_MM,
-  interiorRearZMm,
   SHELF_FRONT_SETBACK_MM,
   SHELF_REAR_CLEARANCE_MM,
   SHELF_SIDE_CLEARANCE_MM,
@@ -256,7 +255,7 @@ export function axesOf(orientation: PanelOrientation): AxisMap {
   }
 }
 
-function withAxis(vector: Vec3, axis: Axis, value: number): Vec3 {
+export function withAxis(vector: Vec3, axis: Axis, value: number): Vec3 {
   switch (axis) {
     case 'x':
       return { x: value, y: vector.y, z: vector.z }
@@ -648,9 +647,112 @@ export function clampCustomPieceSpec(spec: CustomPieceSpec): CustomPieceSpec {
  * A panel whose far edge lies within this of an envelope face is "attached"
  * to that face and follows it when the envelope is resized. Covers every
  * catalog-style member (sides 0, top 18, shelf 19, back 10, front 2) without
- * catching a divider or a half-width shelf.
+ * catching a divider or a half-width shelf. Phase 12 applies the same margin
+ * to the shell's inner faces (`customPieceFit.ts`).
  */
 export const ATTACHED_MARGIN_MM = 20
+
+// ---------------------------------------------------------------------------
+// Shell and interior (Phase 12)
+
+/**
+ * The shell is the carcass: the five roles whose inner faces bound the
+ * interior. A `front` is neither shell nor interior — it lives on the face
+ * like a drawer, is never fitted and never a bound.
+ */
+export const SHELL_ROLES: readonly CustomPanelRole[] = ['side-left', 'side-right', 'top', 'bottom', 'back']
+export const INTERIOR_ROLES: readonly CustomPanelRole[] = ['shelf', 'divider']
+
+export function isShellPanel(panel: Pick<CustomPanelSpec, 'role'>): boolean {
+  return SHELL_ROLES.includes(panel.role)
+}
+
+export function isInteriorPanel(panel: Pick<CustomPanelSpec, 'role'>): boolean {
+  return INTERIOR_ROLES.includes(panel.role)
+}
+
+/** The space between the shell's inner faces, per axis. */
+export interface InteriorBounds {
+  readonly min: Vec3
+  readonly max: Vec3
+}
+
+/**
+ * The interior: x between the left side's inner face and the right side's,
+ * y between the bottom's top face and the top's bottom face, z between the
+ * BACK's front face (the top of its box — 4 mm for the preset back, the
+ * number the catalog gives shelves and dividers; its rebate overlap is on x
+ * and y and does not matter here) and the carcass face `D`. A missing shell
+ * panel leaves the envelope face as the bound; a front panel never bounds
+ * anything. Several panels in one role: the innermost face. An inverted
+ * pair (a side-left standing right of a side-right) falls back to the
+ * envelope on that axis.
+ */
+export function interiorBounds(spec: CustomPieceSpec): InteriorBounds {
+  const inner = (role: CustomPanelRole, axis: Axis, side: 'min' | 'max', fallback: number): number => {
+    let bound = fallback
+    for (const panel of spec.panels) {
+      if (panel.role !== role) {
+        continue
+      }
+      const extent = panelExtent(panel)
+      // The inner face of a min-side member is its max face, and vice versa.
+      const face = side === 'min' ? extent.max[axis] : extent.min[axis]
+      bound = side === 'min' ? Math.max(bound, face) : Math.min(bound, face)
+    }
+    return bound
+  }
+  const envelope: Size3 = { x: spec.widthMm, y: spec.heightMm, z: spec.depthMm }
+  const min: Vec3 = {
+    x: inner('side-left', 'x', 'min', 0),
+    y: inner('bottom', 'y', 'min', 0),
+    z: inner('back', 'z', 'min', 0)
+  }
+  const max: Vec3 = {
+    x: inner('side-right', 'x', 'max', envelope.x),
+    y: inner('top', 'y', 'max', envelope.y),
+    z: envelope.z
+  }
+  let result = { min, max }
+  for (const axis of AXES) {
+    if (result.min[axis] >= result.max[axis]) {
+      result = { min: withAxis(result.min, axis, 0), max: withAxis(result.max, axis, envelope[axis]) }
+    }
+  }
+  return result
+}
+
+export function sameInteriorBounds(a: InteriorBounds, b: InteriorBounds): boolean {
+  return AXES.every((axis) => a.min[axis] === b.min[axis] && a.max[axis] === b.max[axis])
+}
+
+/**
+ * Keeps an interior panel's ORIGIN inside the interior on every axis where
+ * the panel fits between the bounds (a divider dragged sideways stops at a
+ * side's inner face; its `z: 4` can no longer land on the grid's 0 inside
+ * the back). On an axis where the panel is already larger than the
+ * interior — a deliberate override through the fields — nothing changes;
+ * the envelope clamp has already run. Shell panels and fronts pass through.
+ */
+export function clampIntoInterior(spec: CustomPieceSpec, panel: CustomPanelSpec): CustomPanelSpec {
+  if (!isInteriorPanel(panel)) {
+    return panel
+  }
+  const bounds = interiorBounds(spec)
+  const size = panelBoxSize(panel)
+  let originMm = panel.originMm
+  for (const axis of AXES) {
+    const low = bounds.min[axis]
+    const high = bounds.max[axis] - size[axis]
+    if (high >= low) {
+      const clamped = clampToLimit(originMm[axis], { min: low, max: high })
+      if (clamped !== originMm[axis]) {
+        originMm = withAxis(originMm, axis, clamped)
+      }
+    }
+  }
+  return originMm === panel.originMm ? panel : { ...panel, originMm }
+}
 
 export interface EnvelopePatch {
   readonly widthMm?: number
@@ -945,35 +1047,42 @@ function presetPanel(spec: CustomPieceSpec, preset: PanelPreset, id: string): Cu
     }
     case 'shelf': {
       // Centre it in the tallest free gap between the horizontal panels, so
-      // repeated clicks fan out instead of piling up.
+      // repeated clicks fan out instead of piling up; sized to the interior
+      // (Phase 12): between the sides' inner faces with the side clearance,
+      // from the back's front face plus the rear clearance to the front
+      // setback. Without a side or a back the envelope face is the bound.
+      const bounds = interiorBounds(spec)
       const gap = widestFreeSpan(
         occupiedAlong(spec.panels, 'y', (panel) => panel.orientation === 'xz'),
         0,
         h
       )
       const range = spanLength(gap) >= t ? gap : { from: 0, to: h }
-      const rearZ = interiorRearZMm() + SHELF_REAR_CLEARANCE_MM
+      const rearZ = bounds.min.z + SHELF_REAR_CLEARANCE_MM
       return carcassPanel(
         id,
         'shelf',
         'xz',
-        w - 2 * t - 2 * SHELF_SIDE_CLEARANCE_MM,
+        bounds.max.x - bounds.min.x - 2 * SHELF_SIDE_CLEARANCE_MM,
         d - rearZ - SHELF_FRONT_SETBACK_MM,
-        { x: t + SHELF_SIDE_CLEARANCE_MM, y: (range.from + range.to) / 2 - t / 2, z: rearZ }
+        { x: bounds.min.x + SHELF_SIDE_CLEARANCE_MM, y: (range.from + range.to) / 2 - t / 2, z: rearZ }
       )
     }
     case 'divider': {
+      // Centred in the widest free gap between the uprights; from the
+      // bottom's top face to the top's bottom face, from the back's front
+      // face to the carcass face (Phase 12: the interior bounds).
+      const bounds = interiorBounds(spec)
       const gap = widestFreeSpan(
         occupiedAlong(spec.panels, 'x', (panel) => panel.orientation === 'yz'),
         0,
         w
       )
       const range = spanLength(gap) >= t ? gap : { from: 0, to: w }
-      const rearZ = interiorRearZMm()
-      return carcassPanel(id, 'divider', 'yz', h - 2 * t, d - rearZ, {
+      return carcassPanel(id, 'divider', 'yz', bounds.max.y - bounds.min.y, d - bounds.min.z, {
         x: (range.from + range.to) / 2 - t / 2,
-        y: t,
-        z: rearZ
+        y: bounds.min.y,
+        z: bounds.min.z
       })
     }
     case 'front': {
@@ -1066,8 +1175,10 @@ export function snapToStep(value: number, step: number): number {
 
 /**
  * Moves one panel to `originMm`, then clamps it into the envelope exactly
- * like any other edit — a drag past a face lands flush against it. The spec
- * comes back unchanged for an unknown id.
+ * like any other edit — a drag past a face lands flush against it — and,
+ * for an interior panel, into the interior (Phase 12: a shelf stops at a
+ * side's inner face, never inside the back). The spec comes back unchanged
+ * for an unknown id.
  */
 export function movePanel(spec: CustomPieceSpec, panelId: string, originMm: Vec3): CustomPieceSpec {
   const space = panelSpace(spec)
@@ -1077,7 +1188,7 @@ export function movePanel(spec: CustomPieceSpec, panelId: string, originMm: Vec3
       return panel
     }
     found = true
-    return clampPanelInto(space, { ...panel, originMm })
+    return clampIntoInterior(spec, clampPanelInto(space, { ...panel, originMm }))
   })
   return found ? { ...spec, panels } : spec
 }

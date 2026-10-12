@@ -140,7 +140,10 @@ describe('presets', () => {
   })
 
   it('fans shelves out into the tallest free gap', () => {
-    const spec = built('top', 'bottom', 'shelf')
+    // Phase 12: a shelf is sized to the INTERIOR — between the sides' inner
+    // faces here; without sides it would span to the envelope (see
+    // customPieceFit.test.ts).
+    const spec = built('side', 'side', 'top', 'bottom', 'shelf')
     const shelf = last(spec)
     // Centred between bottom (0..18) and top (482..500).
     expect(shelf.originMm.y).toBe((18 + 482) / 2 - t / 2)
@@ -153,12 +156,18 @@ describe('presets', () => {
   })
 
   it('centres a divider in the widest free gap between uprights', () => {
+    // Phase 12: sized to the interior bounds — without a top and a bottom
+    // the divider runs the full envelope height, from the floor.
     const spec = built('side', 'side', 'divider')
     const divider = last(spec)
-    expect(divider).toMatchObject({ role: 'divider', orientation: 'yz', lengthMm: 500 - 2 * t })
-    expect(divider.originMm.x).toBe(1800 / 2 - t / 2)
+    expect(divider).toMatchObject({ role: 'divider', orientation: 'yz', lengthMm: 500 })
+    expect(divider.originMm).toEqual({ x: 1800 / 2 - t / 2, y: 0, z: 0 })
     const next = last(addPresetPanel(spec, 'divider')!.spec)
     expect(next.originMm.x).not.toBe(divider.originMm.x)
+    // With the carcass members it stops at their inner faces, as before.
+    const inCarcass = last(built('side', 'side', 'top', 'bottom', 'back', 'divider'))
+    expect(inCarcass).toMatchObject({ lengthMm: 500 - 2 * t, widthMm: 400 - BACK_RECESS_MM - BACK_THICKNESS_MM })
+    expect(inCarcass.originMm).toEqual({ x: 1800 / 2 - t / 2, y: t, z: BACK_RECESS_MM + BACK_THICKNESS_MM })
   })
 
   it('fills the remaining opening with a front', () => {

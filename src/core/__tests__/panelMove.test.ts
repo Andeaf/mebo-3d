@@ -53,13 +53,22 @@ describe('snapToStep', () => {
 })
 
 describe('movePanel', () => {
-  const base = withPreset(createDefaultCustomPieceSpec('t'), 'shelf') // 1200 × 600 × 400
+  // Phase 12 changed the preset: without sides and a back a shelf now spans
+  // to the envelope faces. These tests are about the ENVELOPE clamp, so the
+  // shelf is given the pre-Phase-12 preset size by hand (1162 × 374 at
+  // x 19 / z 6, as between 18 mm sides and a 4 mm back) — no shell exists,
+  // so the interior clamp does not apply and the old play of 38 mm holds.
+  const preset = withPreset(createDefaultCustomPieceSpec('t'), 'shelf') // 1200 × 600 × 400
+  const base: CustomPieceSpec = {
+    ...preset,
+    panels: [{ ...preset.panels[0], lengthMm: 1162, widthMm: 374, originMm: { x: 19, y: 291, z: 6 } }]
+  }
   const shelf = panelOf(base, 'panel-1')
 
   it('moves the panel to the origin and keeps everything else', () => {
-    // The preset shelf is 1162 long in a 1200 envelope: x may reach 38.
-    const moved = movePanel(base, 'panel-1', { x: 20, y: 200, z: 30 })
-    expect(panelOf(moved, 'panel-1').originMm).toEqual({ x: 20, y: 200, z: 30 })
+    // The shelf is 1162 long in a 1200 envelope: x may reach 38.
+    const moved = movePanel(base, 'panel-1', { x: 20, y: 200, z: 20 })
+    expect(panelOf(moved, 'panel-1').originMm).toEqual({ x: 20, y: 200, z: 20 })
     expect(panelOf(moved, 'panel-1').lengthMm).toBe(shelf.lengthMm)
     expect(moved.widthMm).toBe(base.widthMm)
     expect(validateCustomPieceSpec(moved)).toEqual([])
@@ -69,11 +78,14 @@ describe('movePanel', () => {
     const space = panelSpace(base)
     const { max } = panelExtent(shelf)
     const size = { x: max.x - shelf.originMm.x, y: max.y - shelf.originMm.y, z: max.z - shelf.originMm.z }
+    // Phase 12: an interior panel is kept inside the CARCASS depth — the
+    // overlay zone in front of it belongs to fronts and drawers — so z stops
+    // at D − depth, not at the panel space's D + 18.
     const far = movePanel(base, 'panel-1', { x: 5000, y: 5000, z: 5000 })
     expect(panelOf(far, 'panel-1').originMm).toEqual({
       x: space.x - size.x,
       y: space.y - size.y,
-      z: space.z - size.z
+      z: base.depthMm - size.z
     })
     const near = movePanel(base, 'panel-1', { x: -50, y: -50, z: -50 })
     expect(panelOf(near, 'panel-1').originMm).toEqual({ x: 0, y: 0, z: 0 })
@@ -125,14 +137,17 @@ describe('the divided cabinet: a left shelf and a right shelf at one height', ()
 
     // Gizmo: drag it left until it stops beside the left side. The first
     // drag also lands the preset's odd origin (y = 291) on the 10 mm grid.
+    // Phase 12: an interior panel stops at the side's INNER face (18), no
+    // longer at the envelope wall (0) inside the side.
     spec = gizmoDrag(spec, 'panel-6', { x: -1000 })
     const left = panelOf(spec, 'panel-6')
-    expect(left.originMm.x).toBe(0) // clamped at the envelope wall
+    expect(left.originMm.x).toBe(t) // clamped at the left side's inner face
     expect(left.originMm.y % PANEL_MOVE_STEP_MM).toBe(0)
-    // … then nudge it clear of the side with the arrow keys (Shift = 10 mm, twice).
-    spec = nudgePanel(spec, 'panel-6', { x: 10 })
-    spec = nudgePanel(spec, 'panel-6', { x: 10 })
-    expect(panelOf(spec, 'panel-6').originMm.x).toBe(20)
+    // … then one arrow key gives it the 1 mm clearance (the side's inner
+    // face is already clear of the side; before Phase 12 two Shift-nudges
+    // were needed to climb out of the side).
+    spec = nudgePanel(spec, 'panel-6', { x: 1 })
+    expect(panelOf(spec, 'panel-6').originMm.x).toBe(t + 1)
 
     // Duplicate: the copy lands on top of the original (flush along the thickness axis).
     const copy = duplicatePanel(spec, 'panel-6')
