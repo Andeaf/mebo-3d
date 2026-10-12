@@ -701,24 +701,55 @@ tbody:first-child .quote__category-row th {
   margin-bottom: 6px;
 }
 
+/* A row = the select button (the whole row) + the red ✕ beside it: two
+   siblings, since a button may not contain a button. */
 .panel-list__row {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  align-items: center;
+  gap: 4px;
   width: 100%;
-  padding: 5px 8px;
+  padding-right: 4px;
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text);
-  font: inherit;
   font-size: 0.9rem;
-  cursor: pointer;
-  text-align: left;
 }
 
 .panel-list__row:hover {
   border-color: var(--accent);
+}
+
+.panel-list__select {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  padding: 5px 8px;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.panel-list__delete {
+  flex-shrink: 0;
+  padding: 0 7px;
+  background: none;
+  border: 1px solid var(--error);
+  border-radius: 5px;
+  color: var(--error);
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  cursor: pointer;
+}
+
+.panel-list__delete:hover {
+  background: var(--error-soft);
 }
 
 .panel-list__row--active {

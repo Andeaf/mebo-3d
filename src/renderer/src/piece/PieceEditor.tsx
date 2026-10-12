@@ -7,6 +7,8 @@ import {
   customPieceEnvelopeLimits,
   drawerNumberOf,
   panelBoxSize,
+  removeDrawer,
+  removePanel,
   resizeEnvelope,
   CUSTOM_DRAWER_LIMITS,
   CUSTOM_PIECE_KIND,
@@ -211,17 +213,28 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
           {spec.panels.map((panel) => {
             const size = panelBoxSize(panel)
             return (
-              <button
-                key={panel.id}
-                type="button"
-                className={rowClass(panel.id)}
-                onClick={() => selectElement(panel.id === selectedElementId ? null : panel.id)}
-              >
-                <span className="panel-list__role">{t(`role.${panel.role}`)}</span>
-                <span className="panel-list__dims">
-                  {size.x} × {size.y} × {size.z}
-                </span>
-              </button>
+              <div key={panel.id} className={rowClass(panel.id)}>
+                <button
+                  type="button"
+                  className="panel-list__select"
+                  onClick={() => selectElement(panel.id === selectedElementId ? null : panel.id)}
+                >
+                  <span className="panel-list__role">{t(`role.${panel.role}`)}</span>
+                  <span className="panel-list__dims">
+                    {size.x} × {size.y} × {size.z}
+                  </span>
+                </button>
+                {/* Removes without selecting first; one undo entry (no key). */}
+                <button
+                  type="button"
+                  className="panel-list__delete"
+                  title={t('panel.delete')}
+                  aria-label={t('panel.delete')}
+                  onClick={() => onSpec(removePanel(spec, panel.id))}
+                >
+                  ✕
+                </button>
+              </div>
             )
           })}
         </div>
@@ -234,19 +247,29 @@ export function PieceEditor({ placed, spec }: PieceEditorProps): ReactElement {
           </h3>
           <div className="panel-list">
             {spec.drawers.map((drawer) => (
-              <button
-                key={drawer.id}
-                type="button"
-                className={rowClass(drawer.id)}
-                onClick={() => selectElement(drawer.id === selectedElementId ? null : drawer.id)}
-              >
-                <span className="panel-list__role">
-                  {t('drawer.name')} {drawerNumberOf(drawer.id)}
-                </span>
-                <span className="panel-list__dims">
-                  {drawer.widthMm} × {drawer.heightMm}
-                </span>
-              </button>
+              <div key={drawer.id} className={rowClass(drawer.id)}>
+                <button
+                  type="button"
+                  className="panel-list__select"
+                  onClick={() => selectElement(drawer.id === selectedElementId ? null : drawer.id)}
+                >
+                  <span className="panel-list__role">
+                    {t('drawer.name')} {drawerNumberOf(drawer.id)}
+                  </span>
+                  <span className="panel-list__dims">
+                    {drawer.widthMm} × {drawer.heightMm}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="panel-list__delete"
+                  title={t('panel.delete')}
+                  aria-label={t('panel.delete')}
+                  onClick={() => onSpec(removeDrawer(spec, drawer.id))}
+                >
+                  ✕
+                </button>
+              </div>
             ))}
           </div>
           <p className="field__hint">{t('drawer.hardwareHint')}</p>
