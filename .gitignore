@@ -1,5 +1,61 @@
+# Dependencies
 node_modules/
+
+# Build output
 out/
 dist/
-*.log
 release/
+*.tsbuildinfo
+.eslintcache
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+
+# Test output
+coverage/
+
+# Environment files (the app needs none; keep any local ones out of git)
+.env
+.env.*
+!.env.example
+
+# Keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.p8
+*.jks
+*.keystore
+*.mobileprovision
+
+# Packages and temporary files
+*.tgz
+*.tmp
+
+# Editors and assistants
+.vscode/
+.idea/
+*.swp
+*.swo
+.claude/
+.cursor/
+
+# OS files
+.DS_Store
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Internal documents stay local. Only the README, the security policy and
+# the user manual are published.
+*.md
+!README.md
+!SECURITY.md
+!HANDLEIDING.md
